@@ -52,6 +52,7 @@ public:
 
 Graph::Graph(string instance, int graph_adapt, int km_path, int km_nebulize, int T)
 {
+  this->T = T;
   load_instance(instance, graph_adapt, km_path, km_nebulize, T);
 }
 
@@ -73,7 +74,6 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   arcs = vector<vector<Arc *>>(N + 1, vector<Arc *>());
   nodes_per_block = vector<set<int>>(B, set<int>());
   arcs_per_block = vector<vector<Arc *>>(B, vector<Arc *>());
-  time_per_block = vector<int>(B, 0);
   p_blocks = vector<int>(B, -1);
   set<int> blocks_node;
   cases_per_block = vector<int>();
@@ -97,6 +97,8 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
 
   // Filtering blocks with positive amount of cases
   cases_per_block = vector<int>(PB, 0);
+  time_per_block = vector<int>(PB, 0);
+
   for (i = 0; i < B; i++)
   {
     int mapped_block = p_blocks[i];
@@ -170,6 +172,9 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
     }
   }
 
+  for (int b = 0; b < PB; b++)
+    cout << "B" << b << " = " << time_per_block[b] << ", " << cases_per_block[b] << endl;
+
   nodes.push_back(make_pair(N, set<int>()));
   boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T), G);
   boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T), G);
@@ -235,6 +240,44 @@ void Graph::run_spprc()
     for (int j = 0; j < int(opt_solutions[last_elem].size()); j++)
       std::cout << source(opt_solutions[last_elem][j], G) << " - " << target(opt_solutions[last_elem][j], G) << std::endl;
   }
+}
+
+double Graph::knapsack(vector<int> &y)
+{
+  int i, w;
+  int s = sizeof(cases_per_block) / sizeof(cases_per_block[0]);
+  int dp[s + 1][T + 1];
+
+  for (i = 0; i <= s; i++)
+  {
+    for (w = 0; w <= T; w++)
+    {
+      if (i == 0 || w == 0)
+        dp[i][w] = 0;
+      else if (time_per_block[i - 1] <= w)
+        dp[i][w] = max(dp[i - 1][w], dp[i - 1][w - time_per_block[i - 1]] + cases_per_block[i - 1]);
+      else
+        dp[i][w] = dp[i - 1][w];
+    }
+  }
+
+  // Retrieving the items
+  int res = dp[s][T];
+  w = T;
+
+  for (i = s; i > 0 && res > 0; i--)
+  {
+    if (res == dp[i - 1][w])
+      continue;
+    else
+    {
+      y.push_back(i - 1);
+
+      res -= cases_per_block[i - 1];
+      w -= time_per_block[i - 1];
+    }
+  }
+  return dp[s][T];
 }
 
 int Graph::getN() const

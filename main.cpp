@@ -7,9 +7,13 @@ int main(int argc, const char *argv[])
 {
   // Create Graph
   cout << "Loading the graph!" << endl;
-  Graph *g = new Graph(argv[1], 0, 20, 10, 120);
-  // g->showGraph();
-  g->run_spprc();
+  Graph *g = new Graph(argv[1], 0, 20, 10, 65);
+  // g->run_spprc();
+
+  vector<int> selected;
+  cout << "Cost: " << g->knapsack(selected) << endl;
+  for (auto item : selected)
+    cout << "Item: " << item << endl;
 
   // cout << "Instantiating Gurobi model!" << endl;
   // Lagrangean *lg = new Lagrangean(g, default_vel, spraying_vel, insecticide_ml_min);
