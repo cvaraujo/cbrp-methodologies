@@ -213,7 +213,7 @@ void Graph::showGraph()
       cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << endl;
 }
 
-void Graph::run_spprc()
+double Graph::run_spprc(vector<pair<int, int>> &x)
 {
   // Run the shortest path with resource constraints
   vector<vector<edge_descriptor>> opt_solutions;
@@ -235,35 +235,44 @@ void Graph::run_spprc()
   if (!pareto_opt.empty())
   {
     int last_elem = int(pareto_opt.size()) - 1;
-    cout << "Cost: " << pareto_opt[last_elem].cost << endl;
-
     for (int j = 0; j < int(opt_solutions[last_elem].size()); j++)
-      std::cout << source(opt_solutions[last_elem][j], G) << " - " << target(opt_solutions[last_elem][j], G) << std::endl;
+    {
+      auto arc = opt_solutions[last_elem][j];
+      x.push_back(make_pair(source(arc, G), target(arc, G)));
+    }
+
+    return pareto_opt[last_elem].cost;
   }
+
+  return INFINITY;
 }
 
-double Graph::knapsack(vector<int> &y)
+double Graph::knapsack(vector<int> &y, vector<int> cases, vector<int> time, int MT)
 {
   int i, w;
-  int s = sizeof(cases_per_block) / sizeof(cases_per_block[0]);
-  int dp[s + 1][T + 1];
+  int s = cases.size();
+  int dp[s + 1][MT + 1];
+
+  // for (int i = 0; i < cases.size(); i++)
+  //   cout << cases[i] << " -> " << time[i] << ", ";
+  // cout << endl;
 
   for (i = 0; i <= s; i++)
   {
-    for (w = 0; w <= T; w++)
+    for (w = 0; w <= MT; w++)
     {
       if (i == 0 || w == 0)
         dp[i][w] = 0;
-      else if (time_per_block[i - 1] <= w)
-        dp[i][w] = max(dp[i - 1][w], dp[i - 1][w - time_per_block[i - 1]] + cases_per_block[i - 1]);
+      else if (time[i - 1] <= w)
+        dp[i][w] = max(dp[i - 1][w], dp[i - 1][w - time[i - 1]] + cases[i - 1]);
       else
         dp[i][w] = dp[i - 1][w];
     }
   }
 
   // Retrieving the items
-  int res = dp[s][T];
-  w = T;
+  int res = dp[s][MT];
+  w = MT;
 
   for (i = s; i > 0 && res > 0; i--)
   {
@@ -273,11 +282,36 @@ double Graph::knapsack(vector<int> &y)
     {
       y.push_back(i - 1);
 
-      res -= cases_per_block[i - 1];
-      w -= time_per_block[i - 1];
+      res -= cases[i - 1];
+      w -= time[i - 1];
     }
   }
-  return dp[s][T];
+  return dp[s][MT];
+}
+
+set<int> Graph::getBlocksFromRoute(vector<pair<int, int>> x)
+{
+  int i;
+  set<int> blocks;
+
+  for (auto p : x)
+  {
+    i = p.first;
+    for (auto b : this->nodes[i].second)
+      if (b != -1)
+        blocks.insert(b);
+  }
+
+  return blocks;
+}
+
+void Graph::populateKnapsackVectors(set<int> blocks, vector<int> &cases, vector<int> &time)
+{
+  for (auto b : blocks)
+  {
+    cases.push_back(cases_per_block[b]);
+    time.push_back(time_per_block[b]);
+  }
 }
 
 int Graph::getN() const
