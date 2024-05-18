@@ -33,8 +33,11 @@ public:
 
     new_cont.cost = old_cont.cost + arc_prop.cost;
     int &i_time = new_cont.time;
+    int &i_cnt = new_cont.cnt;
     i_time = old_cont.time + arc_prop.time;
-    return i_time <= vert_prop.lim ? true : false;
+    i_cnt = old_cont.cnt + arc_prop.cnt;
+
+    return i_time <= vert_prop.lim && i_cnt <= vert_prop.max ? true : false;
   }
 };
 
@@ -72,6 +75,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
 
   file >> Graph::N >> Graph::M >> Graph::B;
   arcs = vector<vector<Arc *>>(N + 1, vector<Arc *>());
+  arcs_matrix = vector<vector<Arc *>>(N + 2, vector<Arc *>(N + 2, nullptr));
   nodes_per_block = vector<set<int>>(B, set<int>());
   arcs_per_block = vector<vector<Arc *>>(B, vector<Arc *>());
   p_blocks = vector<int>(B, -1);
@@ -136,7 +140,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       }
     }
     nodes.push_back(make_pair(j, blocks_node));
-    boost::add_vertex(SPPRC_Graph_Vert_Prop(j, T), G);
+    boost::add_vertex(SPPRC_Graph_Vert_Prop(j, T, 40), G);
   }
 
   // Creating arcs
@@ -155,14 +159,10 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       new_block = p_blocks[block];
 
     file.ignore(numeric_limits<streamsize>::max(), '\n');
-    int travel_time = length <= 0 ? 0 : round(10 * (length / mp_path));
+    int travel_time = length <= 0 ? 1 : ceil(10 * (length / mp_path));
 
     Arc *arc = new Arc(i, j, travel_time, new_block);
-
-    if ((i == 0 && j == 3) || (i == 3 && j == 9))
-      boost::add_edge(i, j, SPPRC_Graph_Arc_Prop(k, -1, travel_time), G);
-    else
-      boost::add_edge(i, j, SPPRC_Graph_Arc_Prop(k, 0, travel_time), G);
+    boost::add_edge(i, j, SPPRC_Graph_Arc_Prop(k, 0, travel_time, 1), G);
 
     arcs[i].push_back(arc);
     if (new_block != -1)
@@ -172,12 +172,9 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
     }
   }
 
-  for (int b = 0; b < PB; b++)
-    cout << "B" << b << " = " << time_per_block[b] << ", " << cases_per_block[b] << endl;
-
   nodes.push_back(make_pair(N, set<int>()));
-  boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T), G);
-  boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T), G);
+  boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T, 40), G);
+  boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T, 40), G);
   k = M;
 
   for (i = 0; i < N; i++)
@@ -185,25 +182,11 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
     arcs[N].push_back(new Arc(N, i, 0, -1));
     arcs[i].push_back(new Arc(i, N + 1, 0, -1));
 
-    boost::add_edge(N, i, SPPRC_Graph_Arc_Prop(k++, 0, 0), G);
-    boost::add_edge(i, N + 1, SPPRC_Graph_Arc_Prop(k++, 0, 0), G);
+    boost::add_edge(N, i, SPPRC_Graph_Arc_Prop(k++, 0, 0, 1), G);
+    boost::add_edge(i, N + 1, SPPRC_Graph_Arc_Prop(k++, 0, 0, 1), G);
   }
 
   cout << "Load graph successfully" << endl;
-}
-
-bool Graph::exist_arc(int i, int j)
-{
-  if (i > N)
-    return false;
-  for (auto *arc : arcs[i])
-  {
-    if (arc->getD() == j)
-    {
-      return true;
-    }
-  }
-  return false;
 }
 
 void Graph::showGraph()
@@ -213,7 +196,7 @@ void Graph::showGraph()
       cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << endl;
 }
 
-double Graph::run_spprc(vector<pair<int, int>> &x)
+double Graph::run_spprc(set<pair<int, int>> &x)
 {
   // Run the shortest path with resource constraints
   vector<vector<edge_descriptor>> opt_solutions;
@@ -232,30 +215,41 @@ double Graph::run_spprc(vector<pair<int, int>> &x)
                      allocator<r_c_shortest_paths_label<SPPRC_Graph, spp_res_cont>>(),
                      default_r_c_shortest_paths_visitor());
 
+  map<pair<int, int>, double> costs;
+  double real_of = 0;
+
+  cout << "Finished run of RCSPP" << endl;
+
   if (!pareto_opt.empty())
   {
     int last_elem = int(pareto_opt.size()) - 1;
+
     for (int j = 0; j < int(opt_solutions[last_elem].size()); j++)
     {
       auto arc = opt_solutions[last_elem][j];
-      x.push_back(make_pair(source(arc, G), target(arc, G)));
+      SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[arc];
+
+      pair<int, int> arc_pair = make_pair(source(arc, G), target(arc, G));
+      x.insert(arc_pair);
+      costs[arc_pair] = arc_prop.cost;
     }
 
-    return pareto_opt[last_elem].cost;
+    for (auto p : x)
+      real_of += costs[p];
+    return real_of;
   }
 
-  return INFINITY;
+  return numeric_limits<int>::max();
 }
 
-double Graph::knapsack(vector<int> &y, vector<int> cases, vector<int> time, int MT)
+double Graph::knapsack(vector<int> &y, vector<double> cases, vector<int> time, int MT)
 {
+  if (cases.empty())
+    return 0;
+
   int i, w;
   int s = cases.size();
-  int dp[s + 1][MT + 1];
-
-  // for (int i = 0; i < cases.size(); i++)
-  //   cout << cases[i] << " -> " << time[i] << ", ";
-  // cout << endl;
+  double dp[s + 1][MT + 1];
 
   for (i = 0; i <= s; i++)
   {
@@ -289,7 +283,7 @@ double Graph::knapsack(vector<int> &y, vector<int> cases, vector<int> time, int 
   return dp[s][MT];
 }
 
-set<int> Graph::getBlocksFromRoute(vector<pair<int, int>> x)
+set<int> Graph::getBlocksFromRoute(set<pair<int, int>> x)
 {
   int i;
   set<int> blocks;
@@ -305,13 +299,43 @@ set<int> Graph::getBlocksFromRoute(vector<pair<int, int>> x)
   return blocks;
 }
 
-void Graph::populateKnapsackVectors(set<int> blocks, vector<int> &cases, vector<int> &time)
+void Graph::populateKnapsackVectors(set<int> blocks, vector<double> &cases, vector<int> &time)
 {
   for (auto b : blocks)
   {
     cases.push_back(cases_per_block[b]);
     time.push_back(time_per_block[b]);
   }
+}
+
+void Graph::updateBoostArcCost(int i, int j, double new_cost)
+{
+  edge_descriptor ed;
+  bool found;
+
+  boost::tie(ed, found) = boost::edge(i, j, G);
+
+  if (found)
+  {
+    SPPRC_Graph_Arc_Prop &arc = get(edge_bundle, G)[ed];
+    arc.cost = new_cost;
+  }
+}
+
+Arc *Graph::getArc(int i, int j)
+{
+  if (arcs_matrix[i][j] != nullptr)
+    return arcs_matrix[i][j];
+
+#pragma omp parallel for schedule(dynamic)
+  for (auto arc : arcs[i])
+    if (arc->getD() == j)
+    {
+      arcs_matrix[i][j] = arc;
+      return arc;
+    }
+
+  return nullptr;
 }
 
 int Graph::getN() const
@@ -332,6 +356,11 @@ int Graph::getB() const
 int Graph::getPB() const
 {
   return PB;
+}
+
+int Graph::getT() const
+{
+  return T;
 }
 
 int Graph::getDepot() const

@@ -7,312 +7,166 @@
 
 using namespace std;
 
-Lagrangean::Lagrangean(Graph *graph, float default_vel, float spraying_vel, float insecticide_ml_min)
+Lagrangean::Lagrangean(Graph *graph)
 {
   if (graph != nullptr)
-  {
     this->graph = graph;
-    this->default_vel = default_vel;
-    this->spraying_vel = spraying_vel;
-    this->insecticide_ml_min = insecticide_ml_min;
-  }
   else
     exit(EXIT_FAILURE);
 }
 
-void Lagrangean::createVariables()
+double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
 {
-  int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB();
-  try
-  {
-    env.set("LogFile", "MS_mip.log");
-    env.start();
+  int i, b, j;
+  double arc_cost, of = multTime * graph->getT();
 
-    x = vector<vector<GRBVar>>(n + 1, vector<GRBVar>(n + 1));
-    y = vector<GRBVar>(b);
-    t = vector<vector<GRBVar>>(n + 1, vector<GRBVar>(n + 1));
-
-    // X
-    char name[40];
-    for (o = 0; o <= n; o++)
-    {
-      for (auto *arc : graph->arcs[o])
-      {
-        d = arc->getD();
-        sprintf(name, "x_%d_%d", o, d);
-        x[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
-      }
-    }
-
-    // Y
-    for (int bl = 0; bl < graph->getB(); bl++)
-    {
-      sprintf(name, "y_%d", bl);
-      y[bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
-    }
-
-    // T
-    for (o = 0; o <= n; o++)
-    {
-      for (auto *arc : graph->arcs[o])
-      {
-        d = arc->getD();
-        sprintf(name, "t_%d_%d", o, d);
-        t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
-      }
-    }
-
-    model.update();
-    cout << "Create variables" << endl;
-  }
-  catch (GRBException &ex)
-  {
-    cout << ex.getMessage() << endl;
-    cout << ex.getErrorCode() << endl;
-    exit(EXIT_FAILURE);
-  }
-}
-
-void Lagrangean::initModelCompact(float maxTime, float maxInsecticide, bool warm_start)
-{
-  cout << "[!!!] Creating the model!" << endl;
-  createVariables();
-  lagrange_of();
-  artificialNodes(), flowConservation();
-  timeConstraint(maxTime), compactTimeConstraint(maxTime);
-
-  cout << "[***] done!" << endl;
-}
-
-void Lagrangean::artificialNodes()
-{
-  int n = graph->getN();
-  GRBLinExpr sink, target;
-
-  for (int i = 0; i < n; i++)
-  {
-    sink += x[n][i];
-    target += x[i][n];
-  }
-
-  model.addConstr(sink == 1, "sink_constraint");
-  model.addConstr(target == 1, "target_constraint");
-  cout << "[***] Contraint: dummy depot" << endl;
-}
-
-void Lagrangean::flowConservation()
-{
-  int i, j, n = graph->getN();
-
-  for (i = 0; i < n; i++)
-  {
-    GRBLinExpr flow_out, flow_in;
-
-    for (auto *arc : graph->arcs[i])
-    {
-      if (arc->getD() >= n)
-        continue;
-      flow_out += x[i][arc->getD()];
-    }
-
-    for (j = 0; j < n; j++)
-    {
-      for (auto *arc : graph->arcs[j])
-      {
-        if (arc->getD() == i)
-          flow_in += x[j][i];
-      }
-    }
-
-    flow_out += x[i][n];
-    flow_in += x[n][i];
-    model.addConstr(flow_in - flow_out == 0, "flow_conservation_" + to_string(i));
-  }
-
-  cout << "[***] Constraint: Flow conservation" << endl;
-}
-
-void Lagrangean::timeConstraint(float maxTime)
-{
-  int i, j, n = graph->getN();
-  GRBLinExpr arcTravel, blockTravel;
-
-  for (i = 0; i < n; i++)
-  {
-    for (auto *arc : graph->arcs[i])
-    {
-      j = arc->getD();
-      arcTravel += x[i][j] * timeArc(arc->getLength(), this->default_vel);
-    }
-  }
-
-  for (int b = 0; b < graph->getB(); b++)
-    blockTravel += y[b] * timeBlock(b, this->spraying_vel);
-
-  model.addConstr(arcTravel <= maxTime, "max_travel_time");
-  // model.addConstr(blockTravel <= maxTime, "max_block_time");
-
-  std::cout << "[***] Constraint: time limit" << endl;
-}
-
-void Lagrangean::compactTimeConstraint(float maxTime)
-{
-  int b, i, j, k, n = graph->getN();
-  vector<float> block_time = vector<float>(graph->getB(), -1);
-
-  for (i = 0; i <= n; i++)
-  {
-    if (i < n)
-      model.addConstr(t[n][i] == 0);
-
-    for (auto *arc : graph->arcs[i])
-    {
-      j = arc->getD();
-      if (j >= n)
-        continue;
-
-      GRBLinExpr time_ij = 0;
-      time_ij += t[i][j] + (timeArc(arc->getLength(), this->default_vel) * x[i][j]);
-
-      for (auto *arcl : graph->arcs[j])
-      {
-        k = arcl->getD();
-        model.addConstr(t[j][k] >= t[i][j] + x[i][j] * timeArc(arc->getLength(), this->default_vel) - ((2 - x[i][j] - x[j][k]) * maxTime), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
-      }
-    }
-  }
-
-  for (i = 0; i < n; i++)
-    model.addConstr(t[i][n] <= maxTime * x[i][n], "max_time_arrives");
-  cout << "[***] Constraint: Time limit" << endl;
-}
-
-float Lagrangean::timeArc(float distance, float speed)
-{
-  return distance > 0 ? distance / ((speed * 1000) / 60) : 0;
-}
-
-float Lagrangean::timeBlock(int block, float speed)
-{
-  if (block == -1)
-    return 0;
-
-  float time = 0;
-  for (auto *arc : graph->arcsPerBlock[block])
-  {
-    time += timeArc(arc->getLength(), speed);
-  }
-  return time;
-}
-
-float Lagrangean::inseticideBlock(int block, float perMeter)
-{
-  float consumed = 0;
-  for (auto *arc : graph->arcsPerBlock[block])
-  {
-    consumed += timeArc(arc->getLength(), this->spraying_vel) * perMeter;
-  }
-  return consumed;
-}
-
-bool Lagrangean::solveCompact(string timeLimit)
-{
-  try
-  {
-    model.set("TimeLimit", timeLimit);
-    model.update();
-    // model.set("OutputFlag", "0");
-    model.write("model.lp");
-    model.optimize();
-    return true;
-  }
-  catch (GRBException &ex)
-  {
-    std::cout << ex.getMessage() << endl;
-  }
-  return false;
-}
-
-void Lagrangean::lagrange_of()
-{
-  GRBLinExpr objective, arc_time, blocks_time, dependency;
-  int i, j, b, N = graph->getN(), B = graph->getB();
-
-  for (i = 0; i < N; i++)
+  // Update arcs costs
+  for (i = 0; i <= graph->getN(); i++)
   {
     for (auto arc : graph->arcs[i])
     {
-      if (arc->getD() >= N)
-        continue;
-
       j = arc->getD();
-      arc_time += x[i][j] * timeArc(arc->getLength(), default_vel);
+
+      // Time Multipliers
+      arc_cost = multTime * arc->getLength();
+
+      // Connectors multipliers
+      for (b = 0; b < graph->getPB(); b++)
+        if (find(graph->nodes_per_block[b].begin(), graph->nodes_per_block[b].end(), j) != graph->nodes_per_block[b].end())
+          arc_cost -= multConn[b];
+
+      graph->updateBoostArcCost(i, j, arc_cost);
     }
   }
 
-  for (b = 0; b < B; b++)
-  {
-    GRBLinExpr delta_minus;
-    for (int k : graph->nodesPerBlock[b])
-      for (auto arc : graph->arcs[k])
-        delta_minus += x[arc->getO()][arc->getD()];
+  cout << "Run RCSPP" << endl;
+  double route_cost = graph->run_spprc(x);
 
-    dependency += multConn[b] * (delta_minus - y[b]);
-    blocks_time += y[b] * timeBlock(b, spraying_vel);
+  if (route_cost >= numeric_limits<int>::max())
+  {
+    cout << "[!!!] No feasible route!" << endl;
+    return numeric_limits<int>::max();
   }
 
-  for (b = 0; b < B; b++)
-    objective += y[b] * graph->cases_per_block[b] + multTime * (max_time - (arc_time + blocks_time)) + dependency;
+  cout << "[*] Route Cost: " << route_cost << endl;
+  for (auto p : x)
+    cout << p.first << " -> " << p.second << ", ";
+  cout << endl;
 
-  model.setObjective(objective, GRB_MAXIMIZE);
-  model.update();
+  // Update Blocks profit
+  vector<int> blocks, times, y_aux;
+  vector<double> profit;
+  for (b = 0; b < graph->getPB(); b++)
+  {
+    double coef = graph->cases_per_block[b] - multConn[b] - multTime * graph->time_per_block[b];
+    if (coef > 0)
+    {
+      blocks.push_back(b);
+      profit.push_back(coef);
+      times.push_back(graph->time_per_block[b]);
+    }
+  }
 
-  std::cout << "[***] Obj. Function: Maximize profit" << endl;
+  double knapsack_cost = graph->knapsack(y_aux, profit, times, graph->getT());
+
+  for (auto b : y_aux)
+  {
+    auto it = blocks.begin();
+    std::advance(it, b);
+    y.push_back(*it);
+  }
+
+  cout << "[*] Knapsack Profit: " << knapsack_cost << endl;
+  for (auto b : y)
+    cout << b << ", ";
+  cout << endl;
+
+  std::cout << "[*] PPL OF: " << (of - route_cost + knapsack_cost) << endl;
+  return of - route_cost + knapsack_cost;
 }
 
-int Lagrangean::getOriginalObjValue()
+int Lagrangean::bestAttendFromRoute(set<pair<int, int>> &x, vector<int> &y)
 {
-  int blocks = 0;
-  for (int b = 0; b < graph->getB(); b++)
-    if (y[b].get(GRB_DoubleAttr_X) > 0.1)
-      blocks += graph->cases_per_block[b];
+  set<int> route_blocks = graph->getBlocksFromRoute(x);
+  vector<int> time;
+  vector<double> cases;
+  int i, j, avail_time = graph->getT();
 
-  return blocks;
+  for (auto p : x)
+  {
+    i = p.first, j = p.second;
+    auto arc = graph->getArc(i, j);
+    avail_time -= arc->getLength();
+  }
+
+  graph->populateKnapsackVectors(route_blocks, cases, time);
+
+  vector<int> y_aux;
+  int of = graph->knapsack(y_aux, cases, time, avail_time);
+
+  for (int b : y_aux)
+  {
+    auto it = route_blocks.begin();
+    std::advance(it, b);
+    y.push_back(*it);
+  }
+
+  cout << "[*] Heuristic: " << of << ", With Res:" << avail_time << endl;
+  for (auto b : y)
+    cout << "B" << b << ", ";
+  cout << endl;
+
+  return of;
 }
 
-void Lagrangean::getGradientTime(double &gradient_sigma)
+int Lagrangean::getOriginalObjValue(vector<int> y)
+{
+  int profit = 0;
+  for (int b : y)
+    profit += graph->cases_per_block[b];
+  return profit;
+}
+
+void Lagrangean::getGradientTime(double &gradient_sigma, set<pair<int, int>> x, vector<int> y)
 {
   gradient_sigma = -max_time;
-  // cout << "Tot. Time: " << gradient_sigma << endl;
 
-  for (int i = 0; i <= graph->getN(); i++)
-    for (auto arc : graph->arcs[i])
-      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1)
-        gradient_sigma += timeArc(arc->getLength(), default_vel);
+  int i, j;
+  for (auto p : x)
+  {
+    i = p.first, j = p.second;
+    auto arc = graph->getArc(i, j);
 
-  // cout << "Route Time: " << gradient_sigma << endl;
-  for (int b = 0; b < graph->getB(); b++)
-    if (y[b].get(GRB_DoubleAttr_X) > 0.1)
-      gradient_sigma += timeBlock(b, spraying_vel);
+    if (arc == nullptr)
+      continue;
 
-  // cout << "Block + Route Time: " << gradient_sigma << endl;
+    gradient_sigma += arc->getLength();
+  }
+
+  for (int b : y)
+    gradient_sigma += graph->time_per_block[b];
 
   if (gradient_sigma > 0)
     feasible = false;
 }
 
-void Lagrangean::getGradientConnection(vector<double> &gradient_lambda)
+void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair<int, int>> x, vector<int> y)
 {
-  for (int b = 0; b < graph->getB(); b++)
+
+  for (int b = 0; b < graph->getPB(); b++)
   {
-    int delta_minus = 0;
+    int delta_plus = 0;
 
-    for (auto i : graph->nodesPerBlock[b])
-      for (auto arc : graph->arcs[i])
-        if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1)
-          delta_minus += 1;
+    for (auto p : x)
+    {
+      int i = p.first, j = p.second;
+      if (find(graph->nodes_per_block[b].begin(), graph->nodes_per_block[b].end(), j) != graph->nodes_per_block[b].end())
+        delta_plus++;
+    }
 
-    gradient_lambda[b] = y[b].get(GRB_DoubleAttr_X) - delta_minus;
+    gradient_lambda[b] -= delta_plus;
+    if (find(y.begin(), y.end(), b) != y.end())
+      gradient_lambda[b] += 1;
 
     if (gradient_lambda[b] > 0)
       feasible = false;
@@ -337,76 +191,69 @@ bool Lagrangean::isFeasible()
 
 int Lagrangean::lagrangean_relax()
 {
-  int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 1000;
-  double thetaTime, normTime, thetaConn, normConn, objPpl, originalObj;
-  double lambda = 0.15;
-  this->max_time = 120;
+  int progress = 0, iter = 0, N = graph->getN(), B = graph->getPB(), max_iter = 1000, reduce = 50;
+  double thetaTime, normTime, thetaConn, normConn, objPpl, originalObj, routeObj;
+  double lambda = 1.5;
+  this->max_time = graph->getT();
 
   vector<double> gradientConn = vector<double>(B);
   double gradientTime = 0;
 
   multConn = vector<double>(B, 0);
   multTime = 0;
-
   UB = 0, LB = 0;
 
   for (auto cases : graph->cases_per_block)
     UB += cases;
 
+  cout << "Initial UB: " << UB << endl;
+
   while (iter < max_iter)
   {
-    initModelCompact(max_time, 0, false);
+    set<pair<int, int>> x;
+    vector<int> y, y_aux;
 
-    if (solveCompact("3600"))
+    objPpl = solve_ppl(x, y);
+    if (objPpl < numeric_limits<int>::max())
     {
-      getGradientTime(gradientTime);
-      getGradientConnection(gradientConn);
-
-      // cout << "Solution" << endl;
-      // for (int b = 0; b < B; b++)
-      //   if (y[b].get(GRB_DoubleAttr_X) > 0.1)
-      //     cout << "Y" << b << endl;
-
-      // for (int i = 0; i <= N; i++)
-      //   for (auto arc : graph->arcs[i])
-      //     if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1)
-      //       cout << "X" << i << "-" << arc->getD() << endl;
-
-      // cout << "Gradient Time: " << gradientTime << endl;
-      for (int b = 0; b < B; b++)
-        // cout << "Gradiente Conn: " << gradientConn[b] << endl;
-
-        objPpl = model.get(GRB_DoubleAttr_ObjVal);
+      getGradientTime(gradientTime, x, y);
+      getGradientConnection(gradientConn, x, y);
 
       if (objPpl < UB)
-        UB = objPpl, progress = 0;
+      {
+        UB = objPpl;
+        progress = 0;
+      }
       else
       {
         progress++;
-        if (progress == 5)
+        if (progress == reduce)
         {
           lambda *= 0.9;
           progress = 0;
         }
       }
 
-      originalObj = getOriginalObjValue();
-      cout << "Original Obj: " << originalObj << ", Computed Obj: " << objPpl << endl;
+      originalObj = getOriginalObjValue(y);
+      double blocksFromRouteObj = bestAttendFromRoute(x, y_aux);
 
-      if (isFeasible() && originalObj > LB)
+      cout << "Original Obj: " << originalObj << ", Heuristic: " << blocksFromRouteObj << ", Relax Obj: " << objPpl << endl;
+
+      if ((isFeasible() && originalObj > LB) || blocksFromRouteObj > LB)
       {
-        LB = originalObj;
-        if ((UB - LB) < 1)
+        LB = blocksFromRouteObj;
+        if (isFeasible())
         {
-          cout << "Result: " << LB << " - " << UB << endl;
-          return LB;
+          cout << "[!] Found Feasible!" << endl;
+          LB = max(originalObj, blocksFromRouteObj);
         }
+
+        if ((UB - LB) < 1)
+          return LB;
       }
 
       normConn = getNorm(gradientConn);
       normTime = sqrt(pow(gradientTime, 2));
-
-      // cout << "Norm: " << normTime << " - " << normConn << endl;
 
       if (normTime == 0)
         thetaTime = 0;
@@ -418,21 +265,18 @@ int Lagrangean::lagrangean_relax()
       else
         thetaConn = lambda * ((objPpl - LB) / pow(normConn, 2));
 
-      // cout << "Theta: " << thetaTime << " - " << thetaConn << endl;
       for (int b = 0; b < B; b++)
-      {
-        multConn[b] = max(0.0, multConn[b] - (gradientConn[b] * thetaConn));
-        // cout << "Mult Conn: " << multConn[b] << endl;
-      }
+        multConn[b] = max(0.0, multConn[b] + (gradientConn[b] * thetaConn));
 
-      multTime = max(0.0, multTime - (gradientTime * thetaTime));
-      // cout << "Mult Time: " << multTime << endl;
+      multTime = max(0.0, multTime + (gradientTime * thetaTime));
 
       cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
-      model.reset(0);
-      getchar();
+      // getchar();
     }
+    else
+      return LB;
     iter++;
   }
+
   return LB;
 }
