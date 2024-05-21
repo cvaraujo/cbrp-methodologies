@@ -7,6 +7,7 @@
 
 #include "Include.h"
 #include "Graph.h"
+#include "gurobi_c++.h"
 #include <vector>
 
 using namespace std;
@@ -27,7 +28,7 @@ public:
 
   double solve_ppl(set<pair<int, int>> &x, vector<int> &y);
 
-  void createVariables();
+  double runSolverERCSPP(set<pair<int, int>> &x);
 
   void getGradientConnection(vector<double> &lambda, set<pair<int, int>> x, vector<int> y);
 

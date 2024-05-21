@@ -244,7 +244,7 @@ double Graph::run_spprc(set<pair<int, int>> &x)
 
 double Graph::knapsack(vector<int> &y, vector<double> cases, vector<int> time, int MT)
 {
-  if (cases.empty())
+  if (cases.empty() || MT <= 1)
     return 0;
 
   int i, w;
