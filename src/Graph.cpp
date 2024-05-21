@@ -140,7 +140,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       }
     }
     nodes.push_back(make_pair(j, blocks_node));
-    boost::add_vertex(SPPRC_Graph_Vert_Prop(j, T, 40), G);
+    boost::add_vertex(SPPRC_Graph_Vert_Prop(j, T, PB + 1), G);
   }
 
   // Creating arcs
@@ -173,8 +173,8 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   }
 
   nodes.push_back(make_pair(N, set<int>()));
-  boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T, 40), G);
-  boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T, 40), G);
+  boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T, PB + 1), G);
+  boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T, PB + 1), G);
   k = M;
 
   for (i = 0; i < N; i++)
@@ -236,7 +236,7 @@ double Graph::run_spprc(set<pair<int, int>> &x)
 
     for (auto p : x)
       real_of += costs[p];
-    return real_of;
+    return pareto_opt[last_elem].cost;
   }
 
   return numeric_limits<int>::max();
@@ -327,7 +327,6 @@ Arc *Graph::getArc(int i, int j)
   if (arcs_matrix[i][j] != nullptr)
     return arcs_matrix[i][j];
 
-#pragma omp parallel for schedule(dynamic)
   for (auto arc : arcs[i])
     if (arc->getD() == j)
     {

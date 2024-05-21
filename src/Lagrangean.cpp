@@ -3,7 +3,6 @@
 //
 
 #include "../headers/Lagrangean.h"
-#include "../headers/WarmStart.h"
 
 using namespace std;
 
@@ -87,6 +86,7 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
 
 int Lagrangean::bestAttendFromRoute(set<pair<int, int>> &x, vector<int> &y)
 {
+
   set<int> route_blocks = graph->getBlocksFromRoute(x);
   vector<int> time;
   vector<double> cases;
@@ -100,6 +100,15 @@ int Lagrangean::bestAttendFromRoute(set<pair<int, int>> &x, vector<int> &y)
   }
 
   graph->populateKnapsackVectors(route_blocks, cases, time);
+
+  cout << "----------" << endl;
+  for (auto b : route_blocks)
+    cout << "B" << b << ", ";
+  cout << endl;
+  for (auto c : cases)
+    cout << "C" << c << ", ";
+  cout << endl;
+  cout << "----------" << endl;
 
   vector<int> y_aux;
   int of = graph->knapsack(y_aux, cases, time, avail_time);
@@ -176,7 +185,7 @@ void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair
 double Lagrangean::getNorm(vector<double> &gradient)
 {
   double sum = 0;
-  for (int b = 0; b < graph->getB(); b++)
+  for (int b = 0; b < graph->getPB(); b++)
     sum += pow(gradient[b], 2);
   return sqrt(sum);
 }
@@ -191,9 +200,9 @@ bool Lagrangean::isFeasible()
 
 int Lagrangean::lagrangean_relax()
 {
-  int progress = 0, iter = 0, N = graph->getN(), B = graph->getPB(), max_iter = 1000, reduce = 50;
+  int progress = 0, iter = 0, N = graph->getN(), B = graph->getPB(), max_iter = 1000, reduce = 10;
   double thetaTime, normTime, thetaConn, normConn, objPpl, originalObj, routeObj;
-  double lambda = 1.5;
+  double lambda = 0.5;
   this->max_time = graph->getT();
 
   vector<double> gradientConn = vector<double>(B);
@@ -238,11 +247,12 @@ int Lagrangean::lagrangean_relax()
       double blocksFromRouteObj = bestAttendFromRoute(x, y_aux);
 
       cout << "Original Obj: " << originalObj << ", Heuristic: " << blocksFromRouteObj << ", Relax Obj: " << objPpl << endl;
+      bool feasible = isFeasible();
 
-      if ((isFeasible() && originalObj > LB) || blocksFromRouteObj > LB)
+      if ((feasible && originalObj > LB) || blocksFromRouteObj > LB)
       {
         LB = blocksFromRouteObj;
-        if (isFeasible())
+        if (feasible)
         {
           cout << "[!] Found Feasible!" << endl;
           LB = max(originalObj, blocksFromRouteObj);
@@ -270,8 +280,9 @@ int Lagrangean::lagrangean_relax()
 
       multTime = max(0.0, multTime + (gradientTime * thetaTime));
 
+      cout << "Mult: " << multTime << endl;
       cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
-      // getchar();
+      getchar();
     }
     else
       return LB;
