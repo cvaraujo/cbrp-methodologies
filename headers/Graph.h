@@ -6,6 +6,7 @@
 #define DPARP_GRAPH_H
 
 #include "../headers/Arc.h"
+#include "../headers/Scenario.h"
 #include "../headers/Include.h"
 #include <map>
 
@@ -57,7 +58,7 @@ typedef graph_traits<SPPRC_Graph>::edge_descriptor edge_descriptor;
 
 class Graph
 {
-  int N, M, B, PB = 0, T = 1200;
+  int N, M, B, S, PB = 0, T = 1200;
 
 public:
   vector<vector<Arc *>> arcs;
@@ -65,13 +66,16 @@ public:
   vector<pair<int, set<int>>> nodes;
   vector<set<int>> nodes_per_block;
   vector<vector<Arc *>> arcs_per_block;
-  vector<int> cases_per_block, time_per_block, p_blocks;
+  vector<int> cases_per_block, positive_cases_per_block, time_per_block, p_blocks;
   map<int, int> cases_block;
   SPPRC_Graph G;
+  vector<Scenario> scenarios;
 
-  Graph(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
+  Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T);
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
+
+  void load_scenarios_instance(string instance);
 
   double run_spprc(set<pair<int, int>> &x);
 
@@ -93,11 +97,17 @@ public:
 
   int getT() const;
 
+  int getS() const;
+
+  void setS(int s);
+
   int getDepot() const;
 
   int getSink() const;
 
   void showGraph();
+
+  void showScenarios();
 
   Arc *getArc(int i, int j);
 };

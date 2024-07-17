@@ -53,10 +53,11 @@ public:
 };
 // end data structures for shortest path problem with resource constraint
 
-Graph::Graph(string instance, int graph_adapt, int km_path, int km_nebulize, int T)
+Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T)
 {
   this->T = T;
   load_instance(instance, graph_adapt, km_path, km_nebulize, T);
+  load_scenarios_instance(scenarios);
 }
 
 // Graph adapt
@@ -100,16 +101,25 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   }
 
   // Filtering blocks with positive amount of cases
-  cases_per_block = vector<int>(PB, 0);
-  time_per_block = vector<int>(PB, 0);
+  cases_per_block = vector<int>(B, 0);
+  positive_cases_per_block = vector<int>(PB, 0);
+  time_per_block = vector<int>(B, 0);
 
   for (i = 0; i < B; i++)
   {
     int mapped_block = p_blocks[i];
     if (mapped_block != -1)
-      cases_per_block[mapped_block] = cases_block[i];
+    {
+      positive_cases_per_block[mapped_block] = cases_block[i];
+      cases_per_block[i] = cases_block[i];
+    }
+    else
+    {
+      cases_per_block[i] = 0;
+    }
   }
 
+  cout << "Read blocks" << endl;
   // Restarting the read
   file.clear(); // clear fail and eof bits
   file.seekg(0, std::ios::beg);
@@ -130,18 +140,15 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
     {
       if (s == "-1")
         break;
-      k = stoi(s);
-      block = p_blocks[k];
 
-      if (block != -1)
-      {
-        blocks_node.insert(block);
-        nodes_per_block[block].insert(j);
-      }
+      k = stoi(s);
+      blocks_node.insert(k);
+      nodes_per_block[k].insert(j);
     }
     nodes.push_back(make_pair(j, blocks_node));
     boost::add_vertex(SPPRC_Graph_Vert_Prop(j, T, PB + 1), G);
   }
+  cout << "Read Nodes" << endl;
 
   // Creating arcs
   double mp_path = ((km_path * 1000) / 60);
@@ -154,24 +161,21 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
     if (token != "A")
       continue;
 
-    int new_block = -1;
-    if (block != -1)
-      new_block = p_blocks[block];
-
     file.ignore(numeric_limits<streamsize>::max(), '\n');
-    int travel_time = length <= 0 ? 1 : ceil(10 * (length / mp_path));
+    int travel_time = length <= 0 ? 1 : 10 * (length / mp_path);
 
-    Arc *arc = new Arc(i, j, travel_time, new_block);
+    Arc *arc = new Arc(i, j, travel_time, block);
     boost::add_edge(i, j, SPPRC_Graph_Arc_Prop(k, 0, travel_time, 1), G);
 
     arcs[i].push_back(arc);
-    if (new_block != -1)
+    if (block != -1)
     {
-      arcs_per_block[new_block].push_back(arc);
-      time_per_block[new_block] += length <= 0 ? 0 : round(10 * (length / mp_nebu));
+      arcs_per_block[block].push_back(arc);
+      time_per_block[block] += length <= 0 ? 0 : 10 * (length / mp_nebu);
     }
   }
 
+  cout << "Read Arcs" << endl;
   nodes.push_back(make_pair(N, set<int>()));
   boost::add_vertex(SPPRC_Graph_Vert_Prop(N, T, PB + 1), G);
   boost::add_vertex(SPPRC_Graph_Vert_Prop(N + 1, T, PB + 1), G);
@@ -180,7 +184,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   for (i = 0; i < N; i++)
   {
     arcs[N].push_back(new Arc(N, i, 0, -1));
-    arcs[i].push_back(new Arc(i, N + 1, 0, -1));
+    arcs[i].push_back(new Arc(i, N, 0, -1));
 
     boost::add_edge(N, i, SPPRC_Graph_Arc_Prop(k++, 0, 0, 1), G);
     boost::add_edge(i, N + 1, SPPRC_Graph_Arc_Prop(k++, 0, 0, 1), G);
@@ -189,11 +193,54 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   cout << "Load graph successfully" << endl;
 }
 
+void Graph::load_scenarios_instance(string instance)
+{
+  string token;
+  ifstream file;
+  int i, block, cases;
+  float prob;
+  file.open(instance, fstream::in);
+  file >> Graph::S;
+  Graph::scenarios = vector<Scenario>(Graph::S);
+
+  while (!file.eof())
+  {
+    file >> token;
+    cout << "token: " << token << endl;
+    if (token == "P")
+    {
+      file >> i >> prob;
+      vector<int> cases_per_block = vector<int>(Graph::B, 0);
+      Scenario scn(prob, cases_per_block);
+      Graph::scenarios[i] = scn;
+    }
+    else if (token == "B")
+    {
+      file >> i >> block >> cases;
+      Graph::scenarios[i].SetCases(block, cases);
+    }
+  }
+  cout << "Load Scenarios successfully" << endl;
+}
+
 void Graph::showGraph()
 {
   for (int i = 0; i <= N; i++)
     for (auto *arc : arcs[i])
       cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << endl;
+}
+
+void Graph::showScenarios()
+{
+  for (int i = 0; i < S; i++)
+  {
+    cout << "Scenario i: " << i << ": " << scenarios[i].probability << endl;
+    for (int b = 0; b < B; b++)
+    {
+      if (scenarios[i].cases_per_block[b] > 0)
+        cout << b << ": " << scenarios[i].cases_per_block[b] << endl;
+    }
+  }
 }
 
 double Graph::run_spprc(set<pair<int, int>> &x)
@@ -362,6 +409,11 @@ int Graph::getT() const
   return T;
 }
 
+int Graph::getS() const
+{
+  return S;
+}
+
 int Graph::getDepot() const
 {
   return N;
@@ -370,4 +422,9 @@ int Graph::getDepot() const
 int Graph::getSink() const
 {
   return N + 1;
+}
+
+void Graph::setS(int s)
+{
+  this->S = s;
 }

@@ -23,6 +23,10 @@ set(
     headers/Lagrangean.h
     src/Lagrangean.cpp
     headers/ERCSPP.hpp
+    headers/Scenario.h
+    src/Scenario.cpp
+    headers/StochasticModel.h
+    src/StochasticModel.cpp
 )
 
 add_executable(cbrp-lr ${sources})
