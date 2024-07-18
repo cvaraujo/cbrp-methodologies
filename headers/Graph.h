@@ -66,7 +66,8 @@ public:
   vector<pair<int, set<int>>> nodes;
   vector<set<int>> nodes_per_block;
   vector<vector<Arc *>> arcs_per_block;
-  vector<int> cases_per_block, positive_cases_per_block, time_per_block, p_blocks;
+  vector<int> positive_cases_per_block, time_per_block, p_blocks;
+  vector<float> cases_per_block;
   map<int, int> cases_block;
   SPPRC_Graph G;
   vector<Scenario> scenarios;

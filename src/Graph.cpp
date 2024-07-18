@@ -81,7 +81,6 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   arcs_per_block = vector<vector<Arc *>>(B, vector<Arc *>());
   p_blocks = vector<int>(B, -1);
   set<int> blocks_node;
-  cases_per_block = vector<int>();
   cases_block = map<int, int>();
 
   // Reading Blocks from file
@@ -101,7 +100,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   }
 
   // Filtering blocks with positive amount of cases
-  cases_per_block = vector<int>(B, 0);
+  cases_per_block = vector<float>(B, 0);
   positive_cases_per_block = vector<int>(PB, 0);
   time_per_block = vector<int>(B, 0);
 
@@ -206,7 +205,6 @@ void Graph::load_scenarios_instance(string instance)
   while (!file.eof())
   {
     file >> token;
-    cout << "token: " << token << endl;
     if (token == "P")
     {
       file >> i >> prob;

@@ -103,7 +103,7 @@ void StochasticModel::objectiveFunction()
 {
   GRBLinExpr objective;
   int i, j, n = graph->getN(), s = graph->getS();
-  vector<int> cases = graph->cases_per_block;
+  vector<float> cases = graph->cases_per_block;
   vector<Scenario> scenarios = graph->scenarios;
 
   for (i = 0; i < n; i++)
@@ -140,7 +140,7 @@ void StochasticModel::waitAndSeeOF()
 {
   GRBLinExpr objective;
   int i, j, n = graph->getN(), s = graph->getS();
-  vector<int> cases = graph->cases_per_block;
+  vector<float> cases = graph->cases_per_block;
   vector<Scenario> scenarios = graph->scenarios;
 
   for (i = 0; i < n; i++)

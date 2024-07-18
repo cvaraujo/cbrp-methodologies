@@ -27,6 +27,10 @@ set(
     src/Scenario.cpp
     headers/StochasticModel.h
     src/StochasticModel.cpp
+    headers/DeterministicModel.h
+    src/DeterministicModel.cpp
+    headers/WarmStart.h
+    src/WarmStart.cpp
 )
 
 add_executable(cbrp-lr ${sources})
