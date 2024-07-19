@@ -218,9 +218,11 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 400;
+  int T = 200;
   float alpha = 0.8;
   Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
+  if (graph->getS() > 20)
+    graph->setS(20);
 
   float ws = WaitNSeeResults(graph, alpha);
   float ev = ExpectationExpectedValueResults(graph, alpha);
@@ -229,5 +231,24 @@ int main(int argc, const char *argv[])
 
   cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
 
+  // File name
+  std::string filename = "analysis.txt";
+
+  // Open the file in append mode
+  std::ofstream file;
+  file.open(filename, std::ios::app);
+
+  // Check if the file is open
+  if (!file.is_open())
+  {
+    std::cerr << "Failed to open the file." << std::endl;
+    return 1;
+  }
+
+  // Write to the file
+  file << "DT: " << dt << " EEV: " << ev << " " << "RP: " << sm << " WS: " << ws << std::endl;
+
+  // Close the file
+  file.close();
   return 0;
 }
