@@ -3,218 +3,231 @@
 #include <chrono>
 #include "headers/Graph.h"
 #include "headers/DeterministicModel.h"
+#include "headers/StochasticModel.h"
 
-float solveDM(Graph *graph, string result_file, vector<bool> &attended, vector<pair<int, int>> &x)
+float solveDM(Graph *graph, string result_file, vector<pair<int, int>> &x, vector<pair<int, int>> &y)
 {
   DeterministicModel dm(graph);
   dm.createVariables();
   dm.initModelCompact(true);
-  dm.solveCompact("60");
-  dm.writeSolution(result_file);
-
-  for (int i = 0; i < graph->getN(); i++)
-    for (auto b : graph->nodes[i].second)
-      if (dm.y[i][b].get(GRB_DoubleAttr_X) > 0.5)
-        attended[b] = true;
-
-  for (int i = 0; i <= graph->getN(); i++)
-    for (auto arc : graph->arcs[i])
-      if (dm.x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
-        x.push_back(make_pair(i, arc->getD()));
-
-  return dm.model.get(GRB_DoubleAttr_ObjVal);
-}
-
-float solveDMGetRoute(Graph *graph, string result_file, vector<pair<int, int>> &x)
-{
-  DeterministicModel dm(graph);
-  dm.createVariables();
-  dm.initModelCompact(true);
-  dm.solveCompact("60");
-  dm.writeSolution(result_file);
-
-  for (int i = 0; i <= graph->getN(); i++)
-    for (auto arc : graph->arcs[i])
-      if (dm.x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
-        x.push_back(make_pair(i, arc->getD()));
-
-  return dm.model.get(GRB_DoubleAttr_ObjVal);
-}
-
-float runScenarioWithRoute(Graph *graph, vector<bool> &attended, vector<pair<int, int>> x)
-{
-  DeterministicModel dm(graph);
-  dm.createVariables();
-  dm.initModelCompact(false);
-
-  for (int i = 0; i <= graph->getN(); i++)
-  {
-    for (auto arc : graph->arcs[i])
-    {
-      bool found = false;
-      for (auto p : x)
-      {
-        if (p.first == i && p.second == arc->getD())
-        {
-          dm.model.addConstr(dm.x[i][arc->getD()] == 1);
-          found = true;
-          break;
-        }
-      }
-      if (!found)
-        dm.model.addConstr(dm.x[i][arc->getD()] == 0);
-    }
-  }
-  dm.model.update();
   dm.solveCompact("3600");
+  dm.writeSolution(result_file);
 
   for (int i = 0; i < graph->getN(); i++)
     for (auto b : graph->nodes[i].second)
       if (dm.y[i][b].get(GRB_DoubleAttr_X) > 0.5)
-        attended[b] = true;
+        y.push_back(make_pair(i, b));
+
+  for (int i = 0; i <= graph->getN(); i++)
+    for (auto arc : graph->arcs[i])
+      if (dm.x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
+        x.push_back(make_pair(i, arc->getD()));
 
   return dm.model.get(GRB_DoubleAttr_ObjVal);
 }
 
-float ResourceActionResults(string graph_filename, string scenarios_filename, int T, float alpha, int s)
+float solveSM(Graph *graph, string result_file, vector<vector<pair<int, int>>> &x, vector<vector<pair<int, int>>> &y)
 {
-  vector<float> individual_results;
+  StochasticModel sm(graph);
+  sm.createVariables();
+  sm.initModelCompact(false);
+  sm.solveCompact("3600");
+  sm.writeSolution(result_file);
 
-  Graph *default_graph = new Graph(graph_filename, scenarios_filename, 0, 20, 10, T);
-  Graph *g1 = new Graph(*default_graph);
-  Graph *g2 = new Graph(*default_graph);
-
-  int B = default_graph->getB();
-  for (int b = 0; b < B; b++)
-    g2->cases_per_block[b] = default_graph->scenarios[s].cases_per_block[b];
-
-  // Update Graph 1
-  vector<bool> attended_g1 = vector<bool>(B, false);
-  for (int b = 0; b < B; b++)
-    g1->cases_per_block[b] += alpha * g2->cases_per_block[b];
-
-  // Solve Base Scenario
-  vector<pair<int, int>> x_base = vector<pair<int, int>>();
-  solveDM(g1, "result_g1.txt", attended_g1, x_base);
-
-  attended_g1 = vector<bool>(B, false);
-  float base_val = runScenarioWithRoute(default_graph, attended_g1, x_base);
-
-  // Solve Second Stage
-  for (int b = 0; b < B; b++)
-    if (attended_g1[b])
-      g2->cases_per_block[b] = g2->cases_per_block[b] * (1 - alpha);
-
-  vector<pair<int, int>> x = vector<pair<int, int>>();
-  float sec_stage_val = default_graph->scenarios[s].probability * solveDMGetRoute(g2, "results_g2.txt", x);
-
-  // Apply solution to all other scenarios
-  float final_of = base_val + sec_stage_val;
-
-  for (int scn = 0; scn < default_graph->getS(); scn++)
+  for (int s = 0; s <= graph->getS(); s++)
   {
-    if (scn == s)
-      continue;
+    for (int i = 0; i < graph->getN(); i++)
+      for (auto b : graph->nodes[i].second)
+      {
+        if (b == -1)
+          continue;
 
-    for (int b = 0; b < B; b++)
-    {
-      g2->cases_per_block[b] = 0;
+        if (sm.y[i][b][s].get(GRB_DoubleAttr_X) > 0.5)
+          y[s].push_back(make_pair(i, b));
+      }
 
-      if (attended_g1[b])
-        g2->cases_per_block[b] = (1 - alpha) * float(default_graph->scenarios[scn].cases_per_block[b]);
-      else
-        g2->cases_per_block[b] = default_graph->scenarios[scn].cases_per_block[b];
-    }
-
-    final_of += default_graph->scenarios[scn].probability * runScenarioWithRoute(g2, attended_g1, x);
+    for (int i = 0; i <= graph->getN(); i++)
+      for (auto arc : graph->arcs[i])
+        if (sm.x[i][arc->getD()][s].get(GRB_DoubleAttr_X) > 0.5)
+          x[s].push_back(make_pair(i, arc->getD()));
   }
-
-  cout << "First Stage: " << base_val << ", Sec. Stage: " << sec_stage_val << ", Final OF: " << final_of << endl;
-
-  return final_of;
+  return sm.model.get(GRB_DoubleAttr_ObjVal);
 }
 
-float ExpectationExpectedValueResults(string graph_filename, string scenarios_filename, int T, float alpha)
+float getRealOfFromSolution(vector<float> cases_fs, vector<float> cases_ss, vector<pair<int, int>> y_fs, vector<pair<int, int>> y_ss, float alpha)
 {
-  vector<int> scenarios;
-  vector<float> individual_results;
+  float of = 0.0;
 
-  Graph *default_graph = new Graph(graph_filename, scenarios_filename, 0, 20, 10, T);
-  Graph *g1 = new Graph(*default_graph);
-  Graph *g2 = new Graph(*default_graph);
-
-  float probability = default_graph->scenarios[0].probability;
-  for (int s = 0; s < default_graph->getS(); s++)
-    scenarios.push_back(s);
-
-  int B = default_graph->getB();
-  for (int b = 0; b < B; b++)
+  // First Stage Solution
+  for (auto pair : y_fs)
   {
-    g2->cases_per_block[b] = 0;
-    for (auto s : scenarios)
-      g2->cases_per_block[b] += default_graph->scenarios[s].cases_per_block[b];
-    g2->cases_per_block[b] = g2->cases_per_block[b] / float(scenarios.size());
+    int b = pair.second;
+    of += cases_fs[b] + alpha * cases_ss[b];
   }
 
-  // Update Graph 1
-  vector<bool> attended_g1 = vector<bool>(B, false);
-  for (int b = 0; b < B; b++)
-    g1->cases_per_block[b] += alpha * g2->cases_per_block[b];
-
-  // Solve Base Scenario
-  vector<pair<int, int>> x_base = vector<pair<int, int>>();
-  solveDM(g1, "result_g1.txt", attended_g1, x_base);
-
-  attended_g1 = vector<bool>(B, false);
-  float base_val = runScenarioWithRoute(default_graph, attended_g1, x_base);
-
-  // Solve Second Stage
-  for (int b = 0; b < B; b++)
-    if (attended_g1[b])
-      g2->cases_per_block[b] = g2->cases_per_block[b] * (1 - alpha);
-
-  vector<pair<int, int>> x = vector<pair<int, int>>();
-  float sec_stage_val = probability * solveDMGetRoute(g2, "results_g2.txt", x);
-
-  // Apply solution to all other scenarios
-  float final_of = base_val;
-
-  for (int scn = 0; scn < default_graph->getS(); scn++)
+  // Second Stage Solution
+  for (auto pair : y_ss)
   {
-    for (int b = 0; b < B; b++)
-    {
-      g2->cases_per_block[b] = 0;
+    int b = pair.second;
+    bool found = false;
 
-      if (attended_g1[b])
-        g2->cases_per_block[b] = (1 - alpha) * float(default_graph->scenarios[scn].cases_per_block[b]);
-      else
-        g2->cases_per_block[b] = default_graph->scenarios[scn].cases_per_block[b];
+    for (auto pair2 : y_fs)
+    {
+      if (b == pair2.second)
+      {
+        found = true;
+        break;
+      }
     }
 
-    final_of += default_graph->scenarios[scn].probability * runScenarioWithRoute(g2, attended_g1, x);
+    if (!found)
+      of += float(cases_ss[b]);
+    else
+      of += (1.0 - alpha) * float(cases_ss[b]);
   }
 
-  cout << "First Stage: " << base_val << ", Sec. Stage: " << sec_stage_val << ", Final OF: " << final_of << endl;
+  return of;
+}
 
-  return final_of;
+float WaitNSeeResults(Graph *graph, float alpha)
+{
+  Graph *g1 = new Graph(*graph);
+  float of = 0.0;
+
+  // Reset scenarios from G1
+  g1->setS(1);
+  g1->scenarios = vector<Scenario>(1);
+  float probability = 1.0 / float(graph->getS());
+
+  for (int s = 0; s < graph->getS(); s++)
+  {
+    g1->scenarios[0] = graph->scenarios[s];
+    g1->scenarios[0].probability = 1.0;
+
+    // Get Pair solution
+    vector<vector<pair<int, int>>> x_s(2), y_s(2);
+    solveSM(g1, "result_ws.txt", x_s, y_s);
+
+    // Get Real Objective Function
+    of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y_s[0], y_s[1], alpha);
+  }
+
+  return of;
+}
+
+float ExpectationExpectedValueResults(Graph *graph, float alpha)
+{
+  Graph *g1 = new Graph(*graph);
+  Graph *g2 = new Graph(*graph);
+  float of = 0.0;
+
+  // Reset scenarios from G1
+  g1->setS(1);
+  g1->scenarios = vector<Scenario>(1);
+  float probability = 1.0;
+
+  // Construct the average Scenario
+  vector<float> cases_per_block = vector<float>(graph->getB(), 0);
+  for (int b = 0; b < graph->getB(); b++)
+  {
+    float avg_cases = 0.0;
+    for (int s = 0; s < graph->getS(); s++)
+      avg_cases += graph->scenarios[s].cases_per_block[b];
+    cases_per_block[b] = avg_cases / float(graph->getS());
+  }
+
+  // Put AVG Scenario in G1
+  Scenario avg_scenario = Scenario(probability, cases_per_block);
+  g1->scenarios[0] = avg_scenario;
+
+  // Get First Stage Solution
+  vector<vector<pair<int, int>>> x_s(2), y_s(2);
+  solveSM(g1, "result_ev_g1.txt", x_s, y_s);
+
+  // Compute second stage solutions
+  probability = 1.0 / float(graph->getS());
+
+  for (int s = 0; s < graph->getS(); s++)
+  {
+    // Update cases in Scenario s
+    g1->cases_per_block = g2->scenarios[s].cases_per_block;
+    for (auto pair : y_s[0])
+      g1->cases_per_block[pair.second] *= (1.0 - alpha);
+
+    // Solve Second Stage
+    vector<pair<int, int>> x, y;
+    solveDM(g1, "result_ws_g2.txt", x, y);
+
+    // Get Real Objective value
+    of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y_s[0], y, alpha);
+  }
+  return of;
+}
+
+float StochasticModelResults(Graph *graph, float alpha)
+{
+  // Get First Stage Solution
+  int S = graph->getS();
+  float probability = 1 / float(S), of = 0.0;
+  vector<vector<pair<int, int>>> x_s, y_s;
+  for (int s = 0; s <= S; s++)
+  {
+    x_s.push_back(vector<pair<int, int>>());
+    y_s.push_back(vector<pair<int, int>>());
+  }
+
+  solveSM(graph, "result_stochastic_g1.txt", x_s, y_s);
+
+  for (int s = 0; s < S; s++)
+  {
+    // Get Real Objective value
+    of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y_s[0], y_s[s + 1], alpha);
+  }
+  return of;
+}
+
+float DeterministicModelResults(Graph *graph, float alpha)
+{
+  Graph *g1 = new Graph(*graph);
+  Graph *g2 = new Graph(*graph);
+  float of = 0.0;
+
+  // Reset scenarios from G1
+  float probability = 1.0 / float(graph->getS());
+
+  vector<pair<int, int>> x, y;
+  solveDM(g1, "result_ds_g1.txt", x, y);
+
+  for (int s = 0; s < graph->getS(); s++)
+  {
+    // Update cases in Scenario s
+    g1->cases_per_block = g2->scenarios[s].cases_per_block;
+    for (auto pair : y)
+      g1->cases_per_block[pair.second] *= (1.0 - alpha);
+
+    // Solve Second Stage
+    vector<pair<int, int>> x_s, y_s;
+    solveDM(g1, "result_ws_g2.txt", x_s, y_s);
+
+    // Get Real Objective value
+    of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y, y_s, alpha);
+  }
+
+  return of;
 }
 
 int main(int argc, const char *argv[])
 {
-  float eev = ExpectationExpectedValueResults(argv[1], argv[2], 700, 0.8);
-  float rs = ResourceActionResults(argv[1], argv[2], 700, 0.8, 0);
+  int T = 400;
+  float alpha = 0.8;
+  Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
 
-  cout << "EEV: " << eev << " -- " << "RAP: " << rs << endl;
-  // Create Graph
-  // cout << "Loading the graph!" << endl;
-  // Graph *g = new Graph(argv[1], argv[2], 0, 20, 10, 40);
+  float ws = WaitNSeeResults(graph, alpha);
+  float ev = ExpectationExpectedValueResults(graph, alpha);
+  float sm = StochasticModelResults(graph, alpha);
+  float dt = DeterministicModelResults(graph, alpha);
 
-  // g->setS(0);
-  // DeterministicModel *dm = new DeterministicModel(g);
-  // dm->createVariables();
-  // dm->initModelCompact(true);
-  // dm->solveCompact("3600");
-  // // sm->check_solution(30, 10);
-  // dm->writeSolution("output.txt");
+  cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
+
   return 0;
 }

@@ -305,7 +305,7 @@ void DeterministicModel::solveCompact(string timeLimit)
     model.set("TimeLimit", timeLimit);
 
     model.update();
-    // model.set("OutputFlag", "0");
+    model.set("OutputFlag", "0");
     // model.computeIIS();
     model.write("model.lp");
     model.optimize();

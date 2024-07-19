@@ -13,6 +13,7 @@ using namespace std;
 
 class StochasticModel
 {
+public:
   Graph *graph;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
@@ -21,7 +22,6 @@ class StochasticModel
   int num_lazy_cuts, num_frac_cuts;
   float default_vel, spraying_vel, insecticide_ml_min, alpha = 0.8;
 
-public:
   void objectiveFunction();
 
   void waitAndSeeOF();

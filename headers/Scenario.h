@@ -8,9 +8,9 @@ class Scenario
 
 public:
     float probability = 0;
-    vector<int> cases_per_block;
+    vector<float> cases_per_block;
 
-    Scenario(float probability, vector<int> cases_per_block);
+    Scenario(float probability, vector<float> cases_per_block);
 
     Scenario();
 

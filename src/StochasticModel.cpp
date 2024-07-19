@@ -177,7 +177,7 @@ void StochasticModel::zValue()
 {
   for (int s = 1; s <= graph->getS(); s++)
   {
-    vector<int> cases = graph->scenarios[s - 1].cases_per_block;
+    vector<float> cases = graph->scenarios[s - 1].cases_per_block;
 
     for (int b = 0; b < graph->getB(); b++)
     {
@@ -187,7 +187,7 @@ void StochasticModel::zValue()
         rhs += y[i][b][s];
         rhs2 += y[i][b][0];
       }
-      model.addConstr(z[b][s] <= rhs * ((1 - this->alpha) * cases[b]) + (1 - rhs2) * this->alpha * cases[b], "max_z_profit");
+      model.addConstr(z[b][s] <= rhs * ((1.0 - this->alpha) * cases[b]) + (1 - rhs2) * this->alpha * cases[b], "max_z_profit");
       model.addConstr(z[b][s] <= rhs * cases[b], "z_bigm_profit");
     }
   }
@@ -392,7 +392,7 @@ void StochasticModel::writeSolution(string result)
       // cout << "Scenario: " << r << endl;
       output << "S: " << r << endl;
 
-      float timeUsed = 0, insecUsed = 0;
+      float timeUsed = 0;
       for (int i = 0; i <= n; i++)
       {
         for (auto *arc : graph->arcs[i])
@@ -413,7 +413,6 @@ void StochasticModel::writeSolution(string result)
           if (y[i][b][r].get(GRB_DoubleAttr_X) > 0.5)
           {
             timeUsed += graph->time_per_block[b];
-            insecUsed += 0;
             if (r == 0)
               output << "Y: " << i << " " << b << " " << r << " = " << graph->cases_per_block[b] << endl;
             else
@@ -431,9 +430,9 @@ void StochasticModel::writeSolution(string result)
       }
 
       output << "Route Time: " << timeUsed << endl;
-      output << "Insecticide Used: " << insecUsed << endl;
     }
     cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+    cout << "Finish write!" << endl;
   }
   catch (GRBException &ex)
   {

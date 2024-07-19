@@ -208,7 +208,7 @@ void Graph::load_scenarios_instance(string instance)
     if (token == "P")
     {
       file >> i >> prob;
-      vector<int> cases_per_block = vector<int>(Graph::B, 0);
+      vector<float> cases_per_block = vector<float>(Graph::B, 0);
       Scenario scn(prob, cases_per_block);
       Graph::scenarios[i] = scn;
     }
