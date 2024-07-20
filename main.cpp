@@ -219,16 +219,16 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 250;
+  int T = 300;
   float alpha = 0.8;
   Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
   if (graph->getS() > 10)
     graph->setS(10);
 
-  float ws = WaitNSeeResults(graph, alpha);
+  float ws = 0; // WaitNSeeResults(graph, alpha);
   float ev = ExpectationExpectedValueResults(graph, alpha);
   float sm = StochasticModelResults(graph, alpha);
-  float dt = DeterministicModelResults(graph, alpha);
+  float dt = 0; // DeterministicModelResults(graph, alpha);
 
   cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
 

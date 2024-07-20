@@ -193,5 +193,55 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
         x.push_back(make_pair(n, 0));
         x.push_back(make_pair(0, n));
     }
+
+    // Compute route time
+    float route_time = 0.0;
+    vector<int> y_line, time;
+    vector<double> cases;
+    set<int> blocks;
+
+    for (auto pair : x)
+    {
+        i = pair.first, j = pair.second;
+        auto arc = graph->getArc(i, j);
+        route_time += arc->getLength();
+
+        for (auto b : graph->nodes[i].second)
+            if (b != -1)
+                blocks.insert(b);
+    }
+
+    graph->populateKnapsackVectors(blocks, cases, time);
+    double knapsack_profit = graph->knapsack(y_line, cases, time, max_time - route_time);
+
+    y = vector<pair<int, int>>();
+    for (auto block : y_line)
+    {
+        bool found = false;
+        for (auto node : graph->nodes_per_block[block])
+        {
+            for (auto pair : x)
+            {
+                i = pair.first, j = pair.second;
+                if (i == node)
+                {
+                    y.push_back(make_pair(i, block));
+                    found = true;
+                    break;
+                }
+                if (j == node)
+                {
+                    y.push_back(make_pair(j, block));
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                break;
+        }
+    }
+
+    // cout << "Knapsack profit: " << knapsack_profit << " | Real OF: " << of << endl;
+
     return of;
 }

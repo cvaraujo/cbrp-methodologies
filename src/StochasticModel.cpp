@@ -150,7 +150,7 @@ void StochasticModel::setStartSolution(int s, vector<pair<int, int>> x, vector<p
       {
         this->x[i][arc->getD()][s].set(GRB_DoubleAttr_Start, 1.0);
         // model.addConstr(this->x[i][arc->getD()][s] == 1);
-        // cout << "[" << s << "] " << i << " -> " << arc->getD() << endl;
+        // cout << "X[" << s << "] " << i << " -> " << arc->getD() << endl;
       }
       else
       {
@@ -167,6 +167,7 @@ void StochasticModel::setStartSolution(int s, vector<pair<int, int>> x, vector<p
     i = pair.first, j = pair.second;
     this->y[i][j][s].set(GRB_DoubleAttr_Start, 1.0);
     // model.addConstr(this->y[i][j][s] == 1);
+    // cout << "Y[" << s << "] " << i << " -> " << j << endl;
   }
   model.update();
 }
