@@ -93,10 +93,82 @@ void StochasticModel::initModelCompact(bool warm_start)
   if (warm_start)
   {
     cout << "[!!!] Calling Warm-Start function!" << endl;
-    // this->WarmStart(maxTime, maxInsecticide, alpha);
+    StochasticWarmStart();
   }
   model.update();
   cout << "[***] done!" << endl;
+}
+
+void StochasticModel::StochasticWarmStart()
+{
+  int i, j;
+  Graph *g1 = new Graph(*graph);
+  Graph *g2 = new Graph(*graph);
+
+  for (int b = 0; b < graph->getB(); b++)
+    for (int r = 0; r < graph->getS(); r++)
+      g1->cases_per_block[b] += this->alpha * graph->scenarios[r].cases_per_block[b];
+
+  // Warm start first stage
+  vector<pair<int, int>> x, y;
+  double of = WarmStart::compute_solution(g1, graph->getT(), x, y);
+  setStartSolution(0, x, y);
+
+  for (int r = 0; r < graph->getS(); r++)
+  {
+    g2->cases_per_block = g1->scenarios[r].cases_per_block;
+    for (auto pair : y)
+      g2->cases_per_block[pair.second] = (1 - this->alpha) * g1->scenarios[r].cases_per_block[pair.second];
+
+    // Warm start second stage
+    vector<pair<int, int>> x2, y2;
+    of = WarmStart::compute_solution(g2, graph->getT(), x2, y2);
+    setStartSolution(r + 1, x2, y2);
+  }
+
+  cout << "Warm Start done!" << endl;
+}
+
+void StochasticModel::setStartSolution(int s, vector<pair<int, int>> x, vector<pair<int, int>> y)
+{
+  for (int i = 0; i <= graph->getN(); i++)
+  {
+    for (auto *arc : graph->arcs[i])
+    {
+      bool is_in = false;
+
+      for (auto pair : x)
+      {
+        int k = pair.first, j = pair.second;
+        if (k == i && j == arc->getD())
+        {
+          is_in = true;
+          break;
+        }
+      }
+      if (is_in)
+      {
+        this->x[i][arc->getD()][s].set(GRB_DoubleAttr_Start, 1.0);
+        // model.addConstr(this->x[i][arc->getD()][s] == 1);
+        // cout << "[" << s << "] " << i << " -> " << arc->getD() << endl;
+      }
+      else
+      {
+        this->x[i][arc->getD()][s].set(GRB_DoubleAttr_Start, 0.0);
+        // model.addConstr(this->x[i][arc->getD()][s] == 0);
+      }
+    }
+  }
+  model.update();
+
+  int i, j;
+  for (auto pair : y)
+  {
+    i = pair.first, j = pair.second;
+    this->y[i][j][s].set(GRB_DoubleAttr_Start, 1.0);
+    // model.addConstr(this->y[i][j][s] == 1);
+  }
+  model.update();
 }
 
 void StochasticModel::objectiveFunction()
@@ -129,43 +201,6 @@ void StochasticModel::objectiveFunction()
       expr += z[b][r + 1];
 
     objective += scenarios[r].probability * expr;
-  }
-
-  model.setObjective(objective, GRB_MAXIMIZE);
-  model.update();
-  cout << "[***] Obj. Function: Maximize profit" << endl;
-}
-
-void StochasticModel::waitAndSeeOF()
-{
-  GRBLinExpr objective;
-  int i, j, n = graph->getN(), s = graph->getS();
-  vector<float> cases = graph->cases_per_block;
-  vector<Scenario> scenarios = graph->scenarios;
-
-  for (i = 0; i < n; i++)
-  {
-    j = graph->nodes[i].first;
-    for (auto b : graph->nodes[i].second)
-    {
-      if (b == -1)
-        break;
-
-      double expr = 0.0;
-      for (int r = 0; r < s; r++)
-        expr += scenarios[r].cases_per_block[b];
-
-      objective += (y[j][b][0] * (cases[b] + this->alpha * expr));
-    }
-  }
-
-  for (int r = 0; r < s; r++)
-  {
-    GRBLinExpr expr;
-    for (int b = 0; b < graph->getB(); b++)
-      expr += z[b][r + 1];
-
-    objective += expr;
   }
 
   model.setObjective(objective, GRB_MAXIMIZE);

@@ -74,7 +74,7 @@ int WarmStart::bfs_first_profit(Graph *graph, int i, float &available_time,
         for (auto *arc : graph->arcs[s])
         {
             j = arc->getD();
-            if (j >= n)
+            if (j >= n || pred[s] != j)
                 continue;
 
             if (!used_arcs[s][j] && !visited[j])
@@ -187,6 +187,11 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
     {
         auto last_arc = x.back();
         x.push_back(make_pair(last_arc.second, n));
+    }
+    else
+    {
+        x.push_back(make_pair(n, 0));
+        x.push_back(make_pair(0, n));
     }
     return of;
 }

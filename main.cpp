@@ -10,7 +10,7 @@ float solveDM(Graph *graph, string result_file, vector<pair<int, int>> &x, vecto
   DeterministicModel dm(graph);
   dm.createVariables();
   dm.initModelCompact(true);
-  dm.solveCompact("3600");
+  dm.solveCompact("600");
   dm.writeSolution(result_file);
 
   for (int i = 0; i < graph->getN(); i++)
@@ -30,8 +30,8 @@ float solveSM(Graph *graph, string result_file, vector<vector<pair<int, int>>> &
 {
   StochasticModel sm(graph);
   sm.createVariables();
-  sm.initModelCompact(false);
-  sm.solveCompact("3600");
+  sm.initModelCompact(true);
+  sm.solveCompact("600");
   sm.writeSolution(result_file);
 
   for (int s = 0; s <= graph->getS(); s++)
@@ -101,6 +101,7 @@ float WaitNSeeResults(Graph *graph, float alpha)
 
   for (int s = 0; s < graph->getS(); s++)
   {
+
     g1->scenarios[0] = graph->scenarios[s];
     g1->scenarios[0].probability = 1.0;
 
@@ -218,11 +219,11 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 200;
+  int T = 250;
   float alpha = 0.8;
   Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
-  if (graph->getS() > 20)
-    graph->setS(20);
+  if (graph->getS() > 10)
+    graph->setS(10);
 
   float ws = WaitNSeeResults(graph, alpha);
   float ev = ExpectationExpectedValueResults(graph, alpha);

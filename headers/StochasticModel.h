@@ -9,6 +9,7 @@
 #include "Graph.h"
 #include <gurobi_c++.h>
 #include <vector>
+#include "WarmStart.h"
 using namespace std;
 
 class StochasticModel
@@ -24,9 +25,11 @@ public:
 
   void objectiveFunction();
 
-  void waitAndSeeOF();
-
   StochasticModel(Graph *graph);
+
+  void setStartSolution(int s, vector<pair<int, int>> x, vector<pair<int, int>> y);
+
+  void StochasticWarmStart();
 
   void createVariables();
 
