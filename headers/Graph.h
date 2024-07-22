@@ -8,6 +8,8 @@
 #include "../headers/Arc.h"
 #include "../headers/Scenario.h"
 #include "../headers/Include.h"
+
+#include <boost/graph/johnson_all_pairs_shortest.hpp>
 #include <map>
 
 using namespace boost;
@@ -52,29 +54,44 @@ struct spp_res_cont
 };
 
 typedef adjacency_list<vecS, vecS, directedS, SPPRC_Graph_Vert_Prop, SPPRC_Graph_Arc_Prop> SPPRC_Graph;
-
 typedef graph_traits<SPPRC_Graph>::vertex_descriptor vertex_descriptor;
 typedef graph_traits<SPPRC_Graph>::edge_descriptor edge_descriptor;
+
+typedef adjacency_list<vecS, vecS, directedS, no_property, property<edge_weight_t, int, property<edge_weight2_t, int>>> boostGraph;
 
 class Graph
 {
   int N, M, B, S, PB = 0, T = 1200;
 
 public:
-  vector<vector<Arc *>> arcs;
-  vector<vector<Arc *>> arcs_matrix;
+  vector<vector<Arc *>> arcs, arcs_matrix;
   vector<pair<int, set<int>>> nodes;
-  vector<set<int>> nodes_per_block;
-  vector<vector<Arc *>> arcs_per_block;
-  vector<int> positive_cases_per_block, time_per_block, p_blocks;
-  vector<float> cases_per_block;
-  map<int, int> cases_block;
+  vector<set<int>> nodes_per_block, backup_nodes_per_block;
+  vector<vector<Arc *>> arcs_per_block, backup_arcs_per_block;
+  vector<int> time_per_block, backup_time_per_block;
+  vector<float> cases_per_block, backup_cases_per_block;
   SPPRC_Graph G;
   vector<Scenario> scenarios;
+  vector<vector<int>> dist, next;
+  vector<vector<vector<int>>> ij_path;
+  map<int, int> positive_block_to_block;
+  vector<vector<int>> block_2_block_shp;
+  vector<vector<set<int>>> block_2_block_shp_nodes;
+  vector<vector<vector<Arc *>>> block_2_block_shp_arcs;
 
   Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T);
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
+
+  int getShortestPath(int i, int j, vector<int> &path);
+
+  void reduceGraphToPositiveCases();
+
+  void reduceGraphToCompleteDigraphBlocks();
+
+  void AllPairsShortestPath();
+
+  int SHPBetweenBlocks(int b1, int b2, set<int> &nodes, set<pair<int, int>> &arcs);
 
   void load_scenarios_instance(string instance);
 

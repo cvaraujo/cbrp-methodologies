@@ -127,6 +127,7 @@ void StochasticModel::StochasticWarmStart()
   }
 
   cout << "Warm Start done!" << endl;
+  // getchar();
 }
 
 void StochasticModel::setStartSolution(int s, vector<pair<int, int>> x, vector<pair<int, int>> y)

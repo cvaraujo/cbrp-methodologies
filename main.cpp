@@ -222,34 +222,35 @@ int main(int argc, const char *argv[])
   int T = 300;
   float alpha = 0.8;
   Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
-  if (graph->getS() > 10)
-    graph->setS(10);
+  // graph->showGraph();
+  // if (graph->getS() > 10)
+  //   graph->setS(10);
 
-  float ws = 0; // WaitNSeeResults(graph, alpha);
-  float ev = ExpectationExpectedValueResults(graph, alpha);
-  float sm = StochasticModelResults(graph, alpha);
-  float dt = 0; // DeterministicModelResults(graph, alpha);
+  // float ws = 0; // WaitNSeeResults(graph, alpha);
+  // float ev = ExpectationExpectedValueResults(graph, alpha);
+  // float sm = StochasticModelResults(graph, alpha);
+  // float dt = 0; // DeterministicModelResults(graph, alpha);
 
-  cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
+  // cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
 
-  // File name
-  std::string filename = "analysis.txt";
+  // // File name
+  // std::string filename = "analysis.txt";
 
-  // Open the file in append mode
-  std::ofstream file;
-  file.open(filename, std::ios::app);
+  // // Open the file in append mode
+  // std::ofstream file;
+  // file.open(filename, std::ios::app);
 
-  // Check if the file is open
-  if (!file.is_open())
-  {
-    std::cerr << "Failed to open the file." << std::endl;
-    return 1;
-  }
+  // // Check if the file is open
+  // if (!file.is_open())
+  // {
+  //   std::cerr << "Failed to open the file." << std::endl;
+  //   return 1;
+  // }
 
-  // Write to the file
-  file << "DT: " << dt << " EEV: " << ev << " " << "RP: " << sm << " WS: " << ws << std::endl;
+  // // Write to the file
+  // file << "DT: " << dt << " EEV: " << ev << " " << "RP: " << sm << " WS: " << ws << std::endl;
 
-  // Close the file
-  file.close();
+  // // Close the file
+  // file.close();
   return 0;
 }
