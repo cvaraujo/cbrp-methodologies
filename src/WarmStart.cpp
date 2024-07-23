@@ -196,9 +196,9 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
 
     // Compute route time
     float route_time = 0.0;
-    vector<int> y_line, time;
-    vector<double> cases;
-    set<int> blocks;
+    vector<int> y_line = vector<int>(), time = vector<int>();
+    vector<double> cases = vector<double>();
+    set<int> blocks = set<int>();
 
     for (auto pair : x)
     {
@@ -212,12 +212,17 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
     }
 
     graph->populateKnapsackVectors(blocks, cases, time);
+    if (cases.empty() || blocks.empty())
+        return of;
+
     double knapsack_profit = graph->knapsack(y_line, cases, time, max_time - route_time);
 
     y = vector<pair<int, int>>();
     for (auto block_idx : y_line)
     {
         set<int>::iterator it = blocks.begin();
+        if (it == blocks.end())
+            break;
         std::advance(it, block_idx);
         int block = *it;
 
@@ -245,7 +250,7 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
         }
     }
 
-    // cout << "Knapsack profit: " << knapsack_profit << " | Real OF: " << of << endl;
+    cout << "Knapsack profit: " << knapsack_profit << " | Real OF: " << of << endl;
 
     return of;
 }

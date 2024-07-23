@@ -55,11 +55,14 @@ public:
 };
 // end data structures for shortest path problem with resource constraint
 
-Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T)
+Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s)
 {
   this->T = T;
   load_instance(instance, graph_adapt, km_path, km_nebulize, T);
   load_scenarios_instance(scenarios);
+
+  if (s < S)
+    this->S = s;
 
   if (graph_adapt == 1)
     reduceGraphToPositiveCases();
@@ -552,7 +555,7 @@ double Graph::run_spprc(set<pair<int, int>> &x)
 
 double Graph::knapsack(vector<int> &y, vector<double> cases, vector<int> time, int MT)
 {
-  if (cases.empty() || MT <= 1)
+  if (cases.size() <= 0 || MT <= 1)
     return 0;
 
   int i, w;
@@ -611,6 +614,8 @@ void Graph::populateKnapsackVectors(set<int> blocks, vector<double> &cases, vect
 {
   for (auto b : blocks)
   {
+    if (cases_per_block[b] <= 0)
+      continue;
     cases.push_back(cases_per_block[b]);
     time.push_back(time_per_block[b]);
   }

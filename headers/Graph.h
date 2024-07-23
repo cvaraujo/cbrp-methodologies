@@ -79,7 +79,7 @@ public:
   vector<vector<set<int>>> block_2_block_shp_nodes;
   vector<vector<vector<Arc *>>> block_2_block_shp_arcs;
 
-  Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T);
+  Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s);
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
 

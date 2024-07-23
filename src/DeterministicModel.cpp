@@ -303,7 +303,6 @@ void DeterministicModel::solveCompact(string timeLimit)
   try
   {
     model.set("TimeLimit", timeLimit);
-
     model.update();
     // model.set("OutputFlag", "0");
     // model.computeIIS();
@@ -378,7 +377,7 @@ void DeterministicModel::writeSolution(string result)
     output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
     cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
-    cout << ex.getMessage() << endl;
+    cout << "ERROR: " << ex.getMessage() << endl;
   }
 }
 

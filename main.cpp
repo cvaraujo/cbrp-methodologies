@@ -54,6 +54,44 @@ float solveSM(Graph *graph, string result_file, vector<vector<pair<int, int>>> &
   return sm.model.get(GRB_DoubleAttr_ObjVal);
 }
 
+float solveSMfromStartSol(
+    Graph *graph,
+    string result_file,
+    vector<vector<pair<int, int>>> &x,
+    vector<vector<pair<int, int>>> &y,
+    vector<vector<pair<int, int>>> sol_x,
+    vector<vector<pair<int, int>>> sol_y)
+{
+  StochasticModel sm(graph);
+  sm.createVariables();
+  sm.initModelCompact(false);
+
+  for (int s = 0; s <= graph->getS(); s++)
+    sm.setStartSolution(s, sol_x[s], sol_y[s]);
+
+  sm.solveCompact("60");
+  sm.writeSolution(result_file);
+
+  for (int s = 0; s <= graph->getS(); s++)
+  {
+    for (int i = 0; i < graph->getN(); i++)
+      for (auto b : graph->nodes[i].second)
+      {
+        if (b == -1)
+          continue;
+
+        if (sm.y[i][b][s].get(GRB_DoubleAttr_X) > 0.5)
+          y[s].push_back(make_pair(i, b));
+      }
+
+    for (int i = 0; i <= graph->getN(); i++)
+      for (auto arc : graph->arcs[i])
+        if (sm.x[i][arc->getD()][s].get(GRB_DoubleAttr_X) > 0.5)
+          x[s].push_back(make_pair(i, arc->getD()));
+  }
+  return sm.model.get(GRB_DoubleAttr_ObjVal);
+}
+
 float getRealOfFromSolution(vector<float> cases_fs, vector<float> cases_ss, vector<pair<int, int>> y_fs, vector<pair<int, int>> y_ss, float alpha)
 {
   float of = 0.0;
@@ -116,7 +154,7 @@ float WaitNSeeResults(Graph *graph, float alpha)
   return of;
 }
 
-float ExpectationExpectedValueResults(Graph *graph, float alpha)
+float ExpectationExpectedValueResults(Graph *graph, float alpha, vector<vector<pair<int, int>>> &x_sol, vector<vector<pair<int, int>>> &y_sol)
 {
   Graph *g1 = new Graph(*graph);
   Graph *g2 = new Graph(*graph);
@@ -145,6 +183,8 @@ float ExpectationExpectedValueResults(Graph *graph, float alpha)
   vector<vector<pair<int, int>>> x_s(2), y_s(2);
   solveSM(g1, "result_ev_g1.txt", x_s, y_s);
 
+  y_sol.push_back(y_s[0]), x_sol.push_back(x_s[0]);
+
   // Compute second stage solutions
   probability = 1.0 / float(graph->getS());
 
@@ -152,12 +192,28 @@ float ExpectationExpectedValueResults(Graph *graph, float alpha)
   {
     // Update cases in Scenario s
     g1->cases_per_block = g2->scenarios[s].cases_per_block;
+    bool all_zero = true;
+
     for (auto pair : y_s[0])
-      g1->cases_per_block[pair.second] *= (1.0 - alpha);
+    {
+      g1->cases_per_block[pair.second] = g1->cases_per_block[pair.second] * (1.0 - alpha);
+    }
+
+    for (int b = 0; b < graph->getB(); b++)
+    {
+      if (g1->cases_per_block[b] > 0)
+      {
+        all_zero = false;
+        break;
+      }
+    }
 
     // Solve Second Stage
     vector<pair<int, int>> x, y;
-    solveDM(g1, "result_ws_g2.txt", x, y);
+    if (!all_zero)
+      solveDM(g1, "result_ws_g2.txt", x, y);
+
+    y_sol.push_back(y), x_sol.push_back(x);
 
     // Get Real Objective value
     of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y_s[0], y, alpha);
@@ -165,11 +221,11 @@ float ExpectationExpectedValueResults(Graph *graph, float alpha)
   return of;
 }
 
-float StochasticModelResults(Graph *graph, float alpha)
+float StochasticModelResults(Graph *graph, float alpha, vector<vector<pair<int, int>>> x_sol, vector<vector<pair<int, int>>> y_sol, bool start_from_sol)
 {
   // Get First Stage Solution
   int S = graph->getS();
-  float probability = 1 / float(S), of = 0.0;
+  float probability = 1.0 / float(S), of = 0.0;
   vector<vector<pair<int, int>>> x_s, y_s;
   for (int s = 0; s <= S; s++)
   {
@@ -177,7 +233,10 @@ float StochasticModelResults(Graph *graph, float alpha)
     y_s.push_back(vector<pair<int, int>>());
   }
 
-  solveSM(graph, "result_stochastic_g1.txt", x_s, y_s);
+  if (start_from_sol)
+    solveSMfromStartSol(graph, "result_stochastic_g1.txt", x_s, y_s, x_sol, y_sol);
+  else
+    solveSM(graph, "result_stochastic_g1.txt", x_s, y_s);
 
   for (int s = 0; s < S; s++)
   {
@@ -219,25 +278,15 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 7000;
+  int T = 6000;
   float alpha = 0.8;
-  Graph *graph = new Graph(argv[1], argv[2], stoi(argv[3]), 20, 10, T);
-  graph->scenarios.erase(graph->scenarios.begin());
-  graph->setS(5);
+  Graph *graph = new Graph(argv[1], argv[2], stoi(argv[3]), 20, 10, T, 20);
 
-  // graph->showScenarios();
-  // StochasticModel dm(graph);
-  // dm.createVariables();
-  // dm.initModelCompact(false);
-  // dm.solveCompact("3600");
-  // dm.check_solution(T, 9999);
-  // dm.writeSolution("reduced.txt");
-  // if (graph->getS() > 10)
-  //   graph->setS(10);
+  vector<vector<pair<int, int>>> x, y;
 
   float ws = 0; // WaitNSeeResults(graph, alpha);
-  float ev = ExpectationExpectedValueResults(graph, alpha);
-  float sm = StochasticModelResults(graph, alpha);
+  float ev = ExpectationExpectedValueResults(graph, alpha, x, y);
+  float sm = StochasticModelResults(graph, alpha, x, y, true);
   float dt = 0; // DeterministicModelResults(graph, alpha);
 
   cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;

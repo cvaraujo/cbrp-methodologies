@@ -120,6 +120,19 @@ void StochasticModel::StochasticWarmStart()
     for (auto pair : y)
       g2->cases_per_block[pair.second] = (1 - this->alpha) * g1->scenarios[r].cases_per_block[pair.second];
 
+    bool all_zero = true;
+    for (int b = 0; b < graph->getB(); b++)
+    {
+      if (g2->cases_per_block[b] > 0)
+      {
+        all_zero = false;
+        break;
+      }
+    }
+
+    if (all_zero)
+      continue;
+
     // Warm start second stage
     vector<pair<int, int>> x2, y2;
     of = WarmStart::compute_solution(g2, graph->getT(), x2, y2);
@@ -396,7 +409,6 @@ void StochasticModel::solveCompact(string timeLimit)
   try
   {
     model.set("TimeLimit", timeLimit);
-
     model.update();
     // model.set("OutputFlag", "0");
     // model.computeIIS();
