@@ -21,6 +21,7 @@ DeterministicModel::~DeterministicModel()
 void DeterministicModel::createVariables()
 {
   int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB();
+
   try
   {
     env.set("LogFile", "MS_mip.log");
@@ -46,7 +47,7 @@ void DeterministicModel::createVariables()
     for (int i = 0; i < n; i++)
     {
       o = graph->nodes[i].first;
-      for (int bl = 0; bl < graph->getB(); bl++)
+      for (auto bl : graph->nodes[i].second)
       {
         sprintf(name, "y_%d_%d", o, bl);
         y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
@@ -80,9 +81,9 @@ void DeterministicModel::initModelCompact(bool warm_start)
   cout << "[!!!] Creating the model!" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), timeConstraint();
+  maxAttending(), attendingPath();
+  timeConstraint();
   compactTimeConstraint();
-  attendingPath();
 
   if (warm_start)
   {
@@ -149,9 +150,6 @@ void DeterministicModel::objectiveFunction()
     j = graph->nodes[i].first;
     for (auto b : graph->nodes[i].second)
     {
-      if (b == -1)
-        break;
-
       objective += (y[j][b] * graph->cases_per_block[b]);
     }
   }
@@ -174,7 +172,6 @@ void DeterministicModel::artificialNodes()
 
   model.addConstr(sink == 1, "sink_constraint");
   model.addConstr(target == 1, "target_constraint");
-
   cout << "[***] Contraint: dummy depot" << endl;
 }
 
@@ -260,7 +257,7 @@ void DeterministicModel::timeConstraint()
       if (b != -1)
         blockTravel += y[i][b] * graph->time_per_block[b];
   }
-  model.addConstr(arcTravel + blockTravel <= graph->getT(), "max_time");
+  model.addConstr(blockTravel + arcTravel <= graph->getT(), "max_time");
 
   cout << "[***] Constraint: time limit" << endl;
 }
@@ -280,21 +277,24 @@ void DeterministicModel::compactTimeConstraint()
       if (j >= n)
         continue;
 
-      GRBLinExpr time_blocks_j = 0;
+      GRBLinExpr time_ij = 0;
+      time_ij += t[i][j] + arc->getLength() * x[i][j];
+
       for (auto b : graph->nodes[j].second)
-        if (b != -1)
-          time_blocks_j += y[j][b] * graph->time_per_block[b];
+        time_ij += y[j][b] * graph->time_per_block[b];
 
       for (auto *arcl : graph->arcs[j])
       {
         k = arcl->getD();
-        model.addConstr(t[j][k] >= t[i][j] + time_blocks_j + x[j][k] * arc->getLength() - ((2 - x[i][j] - x[j][k]) * graph->getT()), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+        model.addConstr(time_ij <= t[j][k] + ((2 - x[i][j] - x[j][k]) * graph->getT()), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+        // model.addConstr(time_ij >= t[j][k] - ((2 - x[i][j] - x[j][k]) * graph->getT()), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
       }
     }
   }
   for (i = 0; i < n; i++)
-    model.addConstr(t[i][n] <= graph->getT() * x[i][n], "max_time");
-
+  {
+    model.addConstr(t[i][n] <= graph->getT(), "max_time");
+  }
   cout << "[***] Constraint: Time limit" << endl;
 }
 
@@ -305,7 +305,7 @@ void DeterministicModel::solveCompact(string timeLimit)
     model.set("TimeLimit", timeLimit);
 
     model.update();
-    model.set("OutputFlag", "0");
+    // model.set("OutputFlag", "0");
     // model.computeIIS();
     model.write("model.lp");
     model.optimize();
@@ -335,7 +335,7 @@ void DeterministicModel::writeSolution(string result)
     output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
-    float timeUsed = 0, insecUsed = 0;
+    float timeUsed = 0;
     for (int i = 0; i <= n; i++)
     {
       for (auto *arc : graph->arcs[i])
@@ -362,7 +362,6 @@ void DeterministicModel::writeSolution(string result)
     }
 
     output << "Route Time: " << timeUsed << endl;
-    output << "Insecticide Used: " << insecUsed << endl;
     cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
   }
   catch (GRBException &ex)
@@ -431,7 +430,6 @@ bool DeterministicModel::check_solution(float max_time, float max_insecticide)
       if (y[i][b].get(GRB_DoubleAttr_X) > 0.5)
       {
         time += graph->time_per_block[b];
-        insecticide += 0;
 
         if (!visited[i])
         {
@@ -443,12 +441,13 @@ bool DeterministicModel::check_solution(float max_time, float max_insecticide)
 
     for (auto *arc : graph->arcs[i])
     {
-      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
+      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.8)
       {
         time += arc->getLength();
-        if (!used_arc[i][arc->getD()] && insecticide > 0)
+        if (!used_arc[i][arc->getD()])
         {
-          cout << "[!!!] Not used arc" << endl;
+          cout << "[!!!] Not used arc!" << endl;
+          cout << i << " " << arc->getD() << endl;
           return false;
         }
       }

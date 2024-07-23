@@ -23,6 +23,10 @@ public:
   int getLength() const;
 
   void setBlock(int block);
+
+  void setO(int o);
+
+  void setD(int d);
 };
 
 #endif // MRP_ARC_H

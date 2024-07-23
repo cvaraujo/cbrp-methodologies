@@ -61,7 +61,15 @@ Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, in
   load_instance(instance, graph_adapt, km_path, km_nebulize, T);
   load_scenarios_instance(scenarios);
 
-  reduceGraphToPositiveCases();
+  if (graph_adapt == 1)
+    reduceGraphToPositiveCases();
+  else
+  {
+    nodes_per_block = backup_nodes_per_block;
+    arcs_per_block = backup_arcs_per_block;
+    cases_per_block = backup_cases_per_block;
+    time_per_block = backup_time_per_block;
+  }
 }
 
 void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T)
@@ -89,8 +97,8 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
   backup_time_per_block = vector<int>(B, 0);
 
   // Load Graph
-  double mp_path = ((km_path * 1000) / 60);
-  double mp_nebu = ((km_nebulize * 1000) / 60);
+  double mp_path = (float(km_path * 1000) / 60.0);
+  double mp_nebu = (float(km_nebulize * 1000) / 60.0);
 
   while (!file.eof())
   {
@@ -119,8 +127,8 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       if (token != "A")
         continue;
 
-      file.ignore(numeric_limits<streamsize>::max(), '\n');
-      int travel_time = length <= 0 ? 1 : 10 * (length / mp_path);
+      // file.ignore(numeric_limits<streamsize>::max(), '\n');
+      int travel_time = length <= 0.0 ? 1 : 100.0 * (length / mp_path);
 
       Arc *arc = new Arc(i, j, travel_time, block);
 
@@ -128,7 +136,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       if (block != -1)
       {
         backup_arcs_per_block[block].push_back(arc);
-        backup_time_per_block[block] += length <= 0 ? 0 : 10 * (length / mp_nebu);
+        backup_time_per_block[block] += length <= 0.0 ? 1 : 100.0 * (length / mp_nebu);
       }
       add_edge(i, j, travel_time, G);
     }
@@ -167,7 +175,6 @@ void Graph::AllPairsShortestPath()
     }
   }
 
-#pragma omp parallel for (schedule dynamic)
   for (int k = 0; k < N; ++k)
   {
     for (int i = 0; i < N; ++i)
@@ -184,38 +191,58 @@ void Graph::AllPairsShortestPath()
   }
 }
 
-int Graph::getShortestPath(int i, int j, vector<int> &path)
+int Graph::getShortestPath(int s, int t, vector<int> &path)
 {
-  if (next[i][j] == -1 || dist[i][j] == INF)
+  if (dist[s][t] == INF)
     return INF;
 
-  if (ij_path[i][j].size() > 0)
+  if (s == t)
   {
-    path = ij_path[i][j];
-    return dist[i][j];
+    path.push_back(s);
+    return 0;
   }
 
+  if (ij_path[s][t].size() > 0)
+  {
+    path = ij_path[s][t];
+    return dist[s][t];
+  }
+
+  int i = s, j = t;
   path.push_back(i);
   while (i != j)
   {
     i = next[i][j];
     path.push_back(i);
   }
-  ij_path[i][j] = path;
-  return dist[i][j];
+  ij_path[s][t] = path;
+
+  return dist[s][t];
 }
 
 void Graph::reduceGraphToPositiveCases()
 {
   // Re-map blocks
   positive_block_to_block = map<int, int>();
-  positive_block_to_block[1] = 2;
 
   int new_index = 0;
 
   for (int b = 0; b < B; b++)
   {
-    if (backup_cases_per_block[b] > 0)
+    bool has_cases = backup_cases_per_block[b] > 0;
+    if (!has_cases)
+    {
+      for (int s = 0; s < S; s++)
+      {
+        if (scenarios[s].cases_per_block[b] > 0)
+        {
+          has_cases = true;
+          break;
+        }
+      }
+    }
+
+    if (has_cases)
     {
       positive_block_to_block[b] = new_index++;
       cases_per_block.push_back(backup_cases_per_block[b]);
@@ -228,8 +255,19 @@ void Graph::reduceGraphToPositiveCases()
   }
 
   PB = new_index;
+
+  for (int s = 0; s < S; s++)
+  {
+    vector<float> cases_per_block_s(PB, 0);
+    for (int b = 0; b < B; b++)
+      if (positive_block_to_block[b] != -1)
+        cases_per_block_s[positive_block_to_block[b]] = scenarios[s].cases_per_block[b];
+    scenarios[s].cases_per_block = cases_per_block_s;
+  }
+
   cout << "[*] Reduction of " << B - PB << " blocks" << endl;
 
+  B = PB;
   // Re-map blocks in nodes and arcs
   for (int i = 0; i < N; i++)
   {
@@ -240,7 +278,7 @@ void Graph::reduceGraphToPositiveCases()
     {
       if (block == -1)
       {
-        nodes[i].second = set<int>{-1};
+        nodes[i].second = set<int>{};
         break;
       }
       auto new_block = positive_block_to_block.find(block);
@@ -249,7 +287,7 @@ void Graph::reduceGraphToPositiveCases()
     }
 
     if (nodes[i].second.size() == 0)
-      nodes[i].second = set<int>{-1};
+      nodes[i].second = set<int>{};
 
     for (auto arc : arcs[i])
     {
@@ -260,7 +298,6 @@ void Graph::reduceGraphToPositiveCases()
   }
 
   // Get all pairs shortest Path
-
   AllPairsShortestPath();
 
   // Remove unecessary arcs between blocks
@@ -269,15 +306,14 @@ void Graph::reduceGraphToPositiveCases()
   block_2_block_shp_arcs = vector<vector<vector<Arc *>>>(PB, vector<vector<Arc *>>(PB, vector<Arc *>()));
 
   set<int> set_of_used_nodes;
-  set<pair<int, int>> set_of_used_arcs;
+  map<int, map<int, bool>> map_used_arcs;
 
-  for (int b = 0; b < PB; b++)
+  for (int b = 0; b < PB - 1; b++)
   {
-
     for (int b2 = b + 1; b2 < PB; b2++)
     {
       set<int> nodes_in_path;
-      set<pair<int, int>> arcs_in_path;
+      map<int, map<int, bool>> arcs_in_path;
       int cost = SHPBetweenBlocks(b, b2, nodes_in_path, arcs_in_path);
 
       if (cost < INF)
@@ -285,21 +321,89 @@ void Graph::reduceGraphToPositiveCases()
         set<int> union_set;
         set_union(nodes_in_path.begin(), nodes_in_path.end(), set_of_used_nodes.begin(), set_of_used_nodes.end(), inserter(union_set, union_set.begin()));
         set_of_used_nodes = union_set;
+
+        for (auto it = arcs_in_path.begin(); it != arcs_in_path.end(); ++it)
+          for (auto it2 = it->second.begin(); it2 != it->second.end(); ++it2)
+            map_used_arcs[it->first][it2->first] = map_used_arcs[it2->first][it->first] = true;
       }
     }
   }
 
-  cout << "[*] Reduction of nodes from " << N << " to " << set_of_used_nodes.size() << endl;
-  for (auto node : set_of_used_nodes)
-    cout << node << " ";
-  cout << endl;
+  int newN = 0;
+  vector<vector<Arc *>> new_arcs;
+  vector<pair<int, set<int>>> new_nodes = vector<pair<int, set<int>>>();
+  map<int, int> map_new_nodes = map<int, int>();
+  nodes_per_block = vector<set<int>>(PB);
+
+  for (int i = 0; i < N; i++)
+  {
+    if (set_of_used_nodes.find(i) != set_of_used_nodes.end())
+    {
+      new_nodes.push_back(nodes[i]);
+      new_nodes[newN].first = newN;
+      map_new_nodes[i] = newN;
+
+      for (int b : nodes[i].second)
+        if (b != -1)
+          nodes_per_block[b].insert(newN);
+
+      new_arcs.push_back(vector<Arc *>());
+      newN++;
+    }
+  }
+  for (int i = 0; i < N; i++)
+  {
+    if (map_new_nodes.find(i) == map_new_nodes.end())
+      continue;
+
+    for (auto arc : arcs[i])
+    {
+      int new_o = map_new_nodes[i];
+
+      if (map_new_nodes.find(arc->getD()) != map_new_nodes.end()) //(map_used_arcs[i][arc->getD()])
+      {
+        int new_d = map_new_nodes[arc->getD()];
+        auto new_arc = new Arc(*arc);
+        new_arc->setO(new_o), new_arc->setD(new_d);
+        new_arcs[new_o].push_back(new_arc);
+      }
+    }
+  }
+  arcs = new_arcs;
+  nodes = new_nodes;
+  cout << "[*] Reduction of nodes from " << N << " to " << newN << endl;
+
+  N = newN;
+  nodes.push_back(make_pair(N, set<int>()));
+  arcs.push_back(vector<Arc *>());
+  for (int i = 0; i < N; i++)
+    arcs[N].push_back(new Arc(N, i, 0, -1)), arcs[i].push_back(new Arc(i, N, 0, -1));
+
+  // for (int i = 0; i < N; i++)
+  // {
+  //   cout << "N" << i << ": " << endl;
+  //   for (auto block : nodes[i].second)
+  //     cout << "B" << block << " [" << time_per_block[block] << ", " << cases_per_block[block] << "]; " << endl;
+  //   cout << endl;
+  // }
+
+  // for (int b = 0; b < B; b++)
+  // {
+  //   cout << "Nodes from " << b << ": " << endl;
+  //   for (auto node : nodes_per_block[b])
+  //   {
+  //     cout << node << ", ";
+  //   }
+  //   cout << endl;
+  // }
+
+  // cout << "[*] Reduction Finished!" << endl;
 }
 
-int Graph::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, set<pair<int, int>> &arcs)
+int Graph::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map<int, bool>> &arcs)
 {
   auto nodes_from_b1 = nodes_per_block[b1];
   auto nodes_from_b2 = nodes_per_block[b2];
-  set<int> opt_nodes;
 
   if (nodes_from_b1.size() == 0 || nodes_from_b2.size() == 0)
     return INF;
@@ -317,6 +421,7 @@ int Graph::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, set<pair<int, int>>
 
   int shortest_path = INF;
   vector<int> shp;
+
   for (int node : nodes_from_b1)
   {
     for (int node2 : nodes_from_b2)
@@ -329,10 +434,17 @@ int Graph::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, set<pair<int, int>>
     }
   }
 
+  // cout << "Shortest path between blocks " << b1 << " and " << b2 << ": " << shortest_path << endl;
   if (shortest_path < INF)
   {
-    set<int> shp_nodes(shp.begin(), shp.end());
-    nodes = shp_nodes;
+    for (int i = 0; i < shp.size(); i++)
+    {
+      nodes.insert(shp[i]);
+      if (i + 1 < shp.size())
+      {
+        arcs[shp[i]][shp[i + 1]] = true;
+      }
+    }
     return shortest_path;
   }
 
@@ -376,7 +488,7 @@ void Graph::showGraph()
 {
   for (int i = 0; i <= N; i++)
     for (auto *arc : arcs[i])
-      cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << endl;
+      cout << "[" << i << ", " << arc->getD() << "] - " << arc->getBlock() << endl;
 }
 
 void Graph::showScenarios()

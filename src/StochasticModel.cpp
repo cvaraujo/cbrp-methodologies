@@ -369,20 +369,24 @@ void StochasticModel::compactTimeConstraint()
         if (j >= n)
           continue;
 
-        GRBLinExpr time_blocks_j = 0;
+        GRBLinExpr time_ij;
+        time_ij += t[i][j][s] + arc->getLength() * x[i][j][s];
+
         for (auto b : graph->nodes[j].second)
           if (b != -1)
-            time_blocks_j += y[j][b][s] * graph->time_per_block[b];
+            time_ij += y[j][b][s] * graph->time_per_block[b];
 
         for (auto *arcl : graph->arcs[j])
         {
           k = arcl->getD();
-          model.addConstr(t[j][k][s] >= t[i][j][s] + time_blocks_j + x[j][k][s] * arc->getLength() - ((2 - x[i][j][s] - x[j][k][s]) * graph->getT()), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+          model.addConstr(time_ij <= t[j][k][s] + ((2 - x[i][j][s] - x[j][k][s]) * graph->getT()), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
         }
       }
     }
     for (i = 0; i < n; i++)
+    {
       model.addConstr(t[i][n][s] <= graph->getT() * x[i][n][s], "max_time");
+    }
   }
   cout << "[***] Constraint: Time limit" << endl;
 }

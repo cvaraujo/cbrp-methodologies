@@ -215,8 +215,12 @@ double WarmStart::compute_solution(Graph *graph, int max_time, vector<pair<int, 
     double knapsack_profit = graph->knapsack(y_line, cases, time, max_time - route_time);
 
     y = vector<pair<int, int>>();
-    for (auto block : y_line)
+    for (auto block_idx : y_line)
     {
+        set<int>::iterator it = blocks.begin();
+        std::advance(it, block_idx);
+        int block = *it;
+
         bool found = false;
         for (auto node : graph->nodes_per_block[block])
         {

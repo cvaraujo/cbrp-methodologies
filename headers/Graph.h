@@ -83,7 +83,7 @@ public:
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
 
-  int getShortestPath(int i, int j, vector<int> &path);
+  int getShortestPath(int s, int t, vector<int> &path);
 
   void reduceGraphToPositiveCases();
 
@@ -91,7 +91,7 @@ public:
 
   void AllPairsShortestPath();
 
-  int SHPBetweenBlocks(int b1, int b2, set<int> &nodes, set<pair<int, int>> &arcs);
+  int SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map<int, bool>> &arcs);
 
   void load_scenarios_instance(string instance);
 

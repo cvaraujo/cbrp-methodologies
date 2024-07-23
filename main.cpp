@@ -219,19 +219,28 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 300;
+  int T = 7000;
   float alpha = 0.8;
-  Graph *graph = new Graph(argv[1], argv[2], 0, 20, 10, T);
-  // graph->showGraph();
+  Graph *graph = new Graph(argv[1], argv[2], stoi(argv[3]), 20, 10, T);
+  graph->scenarios.erase(graph->scenarios.begin());
+  graph->setS(5);
+
+  // graph->showScenarios();
+  // StochasticModel dm(graph);
+  // dm.createVariables();
+  // dm.initModelCompact(false);
+  // dm.solveCompact("3600");
+  // dm.check_solution(T, 9999);
+  // dm.writeSolution("reduced.txt");
   // if (graph->getS() > 10)
   //   graph->setS(10);
 
-  // float ws = 0; // WaitNSeeResults(graph, alpha);
-  // float ev = ExpectationExpectedValueResults(graph, alpha);
-  // float sm = StochasticModelResults(graph, alpha);
-  // float dt = 0; // DeterministicModelResults(graph, alpha);
+  float ws = 0; // WaitNSeeResults(graph, alpha);
+  float ev = ExpectationExpectedValueResults(graph, alpha);
+  float sm = StochasticModelResults(graph, alpha);
+  float dt = 0; // DeterministicModelResults(graph, alpha);
 
-  // cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
+  cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
 
   // // File name
   // std::string filename = "analysis.txt";

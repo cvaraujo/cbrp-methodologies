@@ -36,3 +36,13 @@ void Arc::setBlock(int block)
 {
     this->block = block;
 }
+
+void Arc::setO(int o)
+{
+    this->o = o;
+}
+
+void Arc::setD(int d)
+{
+    this->d = d;
+}
