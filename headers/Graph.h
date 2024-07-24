@@ -62,6 +62,7 @@ typedef adjacency_list<vecS, vecS, directedS, no_property, property<edge_weight_
 class Graph
 {
   int N, M, B, S, PB = 0, T = 1200;
+  float alpha = 0.8;
 
 public:
   vector<vector<Arc *>> arcs, arcs_matrix;
@@ -79,7 +80,7 @@ public:
   vector<vector<set<int>>> block_2_block_shp_nodes;
   vector<vector<vector<Arc *>>> block_2_block_shp_arcs;
 
-  Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s);
+  Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s, float alpha);
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
 
@@ -98,6 +99,8 @@ public:
   double run_spprc(set<pair<int, int>> &x);
 
   double knapsack(vector<int> &y, vector<double> cases, vector<int> time, int MT);
+
+  int ConnectBlocks(vector<int> blocks);
 
   set<int> getBlocksFromRoute(set<pair<int, int>> x);
 
@@ -126,6 +129,8 @@ public:
   void showGraph();
 
   void showScenarios();
+
+  float getAlpha() const;
 
   Arc *getArc(int i, int j);
 };

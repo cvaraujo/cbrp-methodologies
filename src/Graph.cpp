@@ -55,9 +55,10 @@ public:
 };
 // end data structures for shortest path problem with resource constraint
 
-Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s)
+Graph::Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s, float alpha)
 {
   this->T = T;
+  this->alpha = alpha;
   load_instance(instance, graph_adapt, km_path, km_nebulize, T);
   load_scenarios_instance(scenarios);
 
@@ -130,7 +131,7 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       if (token != "A")
         continue;
 
-      // file.ignore(numeric_limits<streamsize>::max(), '\n');
+      file.ignore(numeric_limits<streamsize>::max(), '\n');
       int travel_time = length <= 0.0 ? 1 : 100.0 * (length / mp_path);
 
       Arc *arc = new Arc(i, j, travel_time, block);
@@ -149,7 +150,6 @@ void Graph::load_instance(string instance, int graph_adapt, int km_path, int km_
       backup_cases_per_block[block] = cases;
     }
   }
-
   nodes.push_back(make_pair(N, set<int>()));
   for (i = 0; i < N; i++)
     arcs[N].push_back(new Arc(N, i, 0, -1)), arcs[i].push_back(new Arc(i, N, 0, -1));
@@ -579,15 +579,11 @@ double Graph::knapsack(vector<int> &y, vector<double> cases, vector<int> time, i
   int res = dp[s][MT];
   w = MT;
 
-  for (i = s; i > 0 && res > 0; i--)
+  for (i = s; i > 0; i--)
   {
-    if (res == dp[i - 1][w])
-      continue;
-    else
+    if (dp[i][w] != dp[i - 1][w])
     {
       y.push_back(i - 1);
-
-      res -= cases[i - 1];
       w -= time[i - 1];
     }
   }
@@ -632,6 +628,40 @@ void Graph::updateBoostArcCost(int i, int j, double new_cost)
   {
     SPPRC_Graph_Arc_Prop &arc = get(edge_bundle, G)[ed];
     arc.cost = new_cost;
+  }
+}
+
+int Graph::ConnectBlocks(vector<int> blocks)
+{
+  vector<int> connect_order = vector<int>();
+  vector<int> backup_blocks = blocks;
+
+  while (connect_order.size() < blocks.size())
+  {
+    if (connect_order.empty())
+    {
+      connect_order.push_back(blocks[0]);
+      backup_blocks.erase(backup_blocks.begin());
+    }
+
+    int best_block = -1, shp = INF;
+    for (int i = 0; i < int(backup_blocks.size()); i++)
+    {
+      if (block_2_block_shp[connect_order.back()][backup_blocks[i]] < shp)
+      {
+        shp = block_2_block_shp[connect_order.back()][backup_blocks[i]];
+        best_block = i;
+
+        if (shp == 0)
+          break;
+      }
+    }
+
+    if (best_block == -1)
+    {
+      connect_order.push_back(blocks[best_block]);
+      backup_blocks.erase(backup_blocks.begin() + best_block);
+    }
   }
 }
 
@@ -693,4 +723,9 @@ int Graph::getSink() const
 void Graph::setS(int s)
 {
   this->S = s;
+}
+
+float Graph::getAlpha() const
+{
+  return alpha;
 }
