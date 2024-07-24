@@ -262,12 +262,26 @@ float DeterministicModelResults(Graph *graph, float alpha)
   {
     // Update cases in Scenario s
     g1->cases_per_block = g2->scenarios[s].cases_per_block;
+    bool all_zero = true;
+
     for (auto pair : y)
-      g1->cases_per_block[pair.second] *= (1.0 - alpha);
+    {
+      g1->cases_per_block[pair.second] = g1->cases_per_block[pair.second] * (1.0 - alpha);
+    }
+
+    for (int b = 0; b < graph->getB(); b++)
+    {
+      if (g1->cases_per_block[b] > 0)
+      {
+        all_zero = false;
+        break;
+      }
+    }
 
     // Solve Second Stage
     vector<pair<int, int>> x_s, y_s;
-    solveDM(g1, "result_ws_g2.txt", x_s, y_s);
+    if (!all_zero)
+      solveDM(g1, "result_dt_g2.txt", x_s, y_s);
 
     // Get Real Objective value
     of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y, y_s, alpha);
@@ -287,7 +301,7 @@ int main(int argc, const char *argv[])
   float ws = 0; // WaitNSeeResults(graph, alpha);
   float ev = ExpectationExpectedValueResults(graph, alpha, x, y);
   float sm = StochasticModelResults(graph, alpha, x, y, true);
-  float dt = 0; // DeterministicModelResults(graph, alpha);
+  float dt = DeterministicModelResults(graph, alpha);
 
   cout << "DT: " << dt << ", EEV: " << ev << ", " << "RP: " << sm << ", WS: " << ws << endl;
 
