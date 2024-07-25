@@ -15,6 +15,8 @@
 using namespace boost;
 using namespace std;
 
+typedef pair<int, int> dpair;
+
 struct SPPRC_Graph_Vert_Prop
 {
   SPPRC_Graph_Vert_Prop(int n = 0, int l = 0, int m = 0) : num(n), lim(l), max(m) {}
@@ -79,12 +81,16 @@ public:
   vector<vector<int>> block_2_block_shp;
   vector<vector<set<int>>> block_2_block_shp_nodes;
   vector<vector<vector<Arc *>>> block_2_block_shp_arcs;
+  map<string, double> savedBlockConn = map<string, double>();
+  map<string, vector<int>> savedBlockConnPath = map<string, vector<int>>();
 
   Graph(string instance, string scenarios, int graph_adapt, int km_path, int km_nebulize, int T, int s, float alpha);
 
   void load_instance(string instance, int graph_adapt, int km_path, int km_nebulize, int T);
 
   int getShortestPath(int s, int t, vector<int> &path);
+
+  string generateStringFromIntVector(vector<int> blocks);
 
   void reduceGraphToPositiveCases();
 
@@ -100,7 +106,9 @@ public:
 
   double knapsack(vector<int> &y, vector<double> cases, vector<int> time, int MT);
 
-  int ConnectBlocks(vector<int> blocks);
+  int ConnectBlocks(vector<int> blocks, string keys);
+
+  int DijkstraDAG(int N, vector<vector<Arc>> dag, string key, map<int, int> dag_2_graph);
 
   set<int> getBlocksFromRoute(set<pair<int, int>> x);
 

@@ -46,3 +46,8 @@ void Arc::setD(int d)
 {
     this->d = d;
 }
+
+void Arc::setLength(int length)
+{
+    this->length = length;
+}

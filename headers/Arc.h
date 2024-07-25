@@ -22,6 +22,8 @@ public:
 
   int getLength() const;
 
+  void setLength(int length);
+
   void setBlock(int block);
 
   void setO(int o);

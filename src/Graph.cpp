@@ -324,6 +324,8 @@ void Graph::reduceGraphToPositiveCases()
         set<int> union_set;
         set_union(nodes_in_path.begin(), nodes_in_path.end(), set_of_used_nodes.begin(), set_of_used_nodes.end(), inserter(union_set, union_set.begin()));
         set_of_used_nodes = union_set;
+        block_2_block_shp[b][b2] = cost;
+        block_2_block_shp[b2][b] = cost;
 
         for (auto it = arcs_in_path.begin(); it != arcs_in_path.end(); ++it)
           for (auto it2 = it->second.begin(); it2 != it->second.end(); ++it2)
@@ -631,10 +633,20 @@ void Graph::updateBoostArcCost(int i, int j, double new_cost)
   }
 }
 
-int Graph::ConnectBlocks(vector<int> blocks)
+string Graph::generateStringFromIntVector(vector<int> blocks)
+{
+  stringstream result;
+  copy(blocks.begin(), blocks.end(), ostream_iterator<int>(result, ""));
+
+  return result.str();
+}
+
+int Graph::ConnectBlocks(vector<int> blocks, string key)
 {
   vector<int> connect_order = vector<int>();
-  vector<int> backup_blocks = blocks;
+  vector<int> backup_blocks = blocks, path;
+  vector<vector<Arc>> dag = vector<vector<Arc>>();
+  map<int, int> dag_2_graph = map<int, int>();
 
   while (connect_order.size() < blocks.size())
   {
@@ -657,12 +669,135 @@ int Graph::ConnectBlocks(vector<int> blocks)
       }
     }
 
-    if (best_block == -1)
+    if (best_block != -1)
     {
-      connect_order.push_back(blocks[best_block]);
+      connect_order.push_back(backup_blocks[best_block]);
       backup_blocks.erase(backup_blocks.begin() + best_block);
     }
   }
+
+  // cout << "Connect order: " << endl;
+  // for (auto b : connect_order)
+  // {
+  //   cout << b << " ";
+  //   cout << endl;
+  // }
+
+  // Create DAG
+
+  int V = 0;
+  for (int i = 0; i < connect_order.size(); i++)
+    V += nodes_per_block[connect_order[i]].size();
+  dag = vector<vector<Arc>>(V + 2, vector<Arc>());
+
+  // cout << "V: " << V << endl;
+  dag_2_graph[V] = dag_2_graph[V + 1] = getN();
+
+  int inserted_nodes = 0;
+  bool insert_depot = false;
+  for (int i = 0; i < connect_order.size() - 1; i++)
+  {
+    int b1 = connect_order[i];
+    int b2 = connect_order[i + 1];
+
+    int jp = inserted_nodes;
+    int start_k = jp + nodes_per_block[b1].size();
+
+    if (i + 1 >= connect_order.size() - 1)
+      insert_depot = true;
+
+    for (int j : nodes_per_block[b1])
+    {
+      // Dummy depot
+      if (i == 0)
+        dag[V].push_back(Arc(V, jp, 0, 0));
+
+      dag_2_graph[jp] = j;
+      int kp = start_k;
+
+      for (int k : nodes_per_block[b2])
+      {
+        dag_2_graph[kp] = k;
+        Arc arc = Arc(jp, kp, 0, 0);
+
+        if (j != k)
+          arc.setLength(getShortestPath(j, k, path));
+
+        dag[jp].push_back(arc);
+
+        if (insert_depot)
+          dag[kp].push_back(Arc(kp, V + 1, 0, 0));
+
+        kp++;
+      }
+      if (i + 1 >= connect_order.size() - 1)
+        insert_depot = false;
+
+      jp++;
+    }
+    inserted_nodes += nodes_per_block[b1].size();
+  }
+
+  // for (int i = 0; i < dag.size(); i++)
+  //   for (auto arc : dag[i])
+  //     cout << i << " -> " << arc.getD() << " (" << arc.getLength() << ")" << endl;
+  // SHP on DAG
+  int cost = DijkstraDAG(V + 2, dag, key, dag_2_graph);
+  this->savedBlockConn[key] = cost;
+  return cost;
+}
+
+int Graph::DijkstraDAG(int N, vector<vector<Arc>> dag, string key, map<int, int> dag_2_graph)
+{
+  priority_queue<dpair, vector<dpair>, greater<dpair>> pq;
+  int n = N;
+  int s = n - 2, t = n - 1;
+
+  vector<int> distance(n, INF);
+  vector<int> predecessor(n, -1);
+
+  pq.push(make_pair(0, s));
+  distance[s] = 0;
+  predecessor[s] = s;
+
+  while (!pq.empty())
+  {
+    int u = pq.top().second;
+    pq.pop();
+
+    for (auto arc : dag[u])
+    {
+      int v = arc.getD();
+
+      if (distance[v] > distance[u] + arc.getLength())
+      {
+        distance[v] = distance[u] + arc.getLength();
+        predecessor[v] = u;
+        pq.push(make_pair(distance[v], v));
+      }
+    }
+  }
+
+  // Get the path
+  int v = t;
+  vector<int> path;
+  int last_inserted = -1;
+  while (v != predecessor[v])
+  {
+    if (dag_2_graph[v] != last_inserted)
+    {
+      path.push_back(dag_2_graph[v]);
+      last_inserted = dag_2_graph[v];
+    }
+    v = predecessor[v];
+
+    if (v == -1)
+      return INF;
+  }
+  path.push_back(dag_2_graph[s]);
+
+  this->savedBlockConnPath[key] = path;
+  return distance[t];
 }
 
 Arc *Graph::getArc(int i, int j)

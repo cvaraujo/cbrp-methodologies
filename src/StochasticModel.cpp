@@ -173,16 +173,16 @@ void StochasticModel::setStartSolution(int s, vector<pair<int, int>> x, vector<p
       }
     }
   }
-  model.update();
+  // model.update();
 
-  int i, j;
-  for (auto pair : y)
-  {
-    i = pair.first, j = pair.second;
-    this->y[i][j][s].set(GRB_DoubleAttr_Start, 1.0);
-    // model.addConstr(this->y[i][j][s] == 1);
-    // cout << "Y[" << s << "] " << i << " -> " << j << endl;
-  }
+  // int i, j;
+  // for (auto pair : y)
+  // {
+  //   i = pair.first, j = pair.second;
+  //   // this->y[i][j][s].set(GRB_DoubleAttr_Start, 1.0);
+  //   // model.addConstr(this->y[i][j][s] == 1);
+  //   // cout << "Y[" << s << "] " << i << " -> " << j << endl;
+  // }
   model.update();
 }
 
@@ -410,7 +410,7 @@ void StochasticModel::solveCompact(string timeLimit)
   {
     model.set("TimeLimit", timeLimit);
     model.update();
-    // model.set("OutputFlag", "0");
+    model.set("OutputFlag", "0");
     // model.computeIIS();
     model.write("model.lp");
     model.optimize();
