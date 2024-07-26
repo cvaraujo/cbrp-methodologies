@@ -5,6 +5,7 @@ Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int def
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
     this->loadScenarios(scenarios_graph);
     this->sp = new ShortestPath(this->graph);
+    this->bc = new BlockConnection(this->graph, this->sp);
     this->T = T;
     this->graph_adapt = graph_adapt;
     this->default_vel = default_vel;
@@ -18,7 +19,7 @@ void Input::reduceGraphToPositiveCases()
 {
     // Re-map blocks
     map<int, int> positive_block_to_block;
-    vector<double> cases_per_block;
+    vector<double> cases_per_block = graph->getCasesPerBlock();
     vector<int> time_per_block;
     vector<set<int>> nodes_per_block;
     int B = graph->getB(), new_index = 0, N = graph->getN();
@@ -59,7 +60,7 @@ void Input::reduceGraphToPositiveCases()
         scenarios[s].setCasesPerBlock(cases_per_block_s);
     }
 
-#ifdef Silence
+#ifndef Silence
     cout << "[*] Reduction of " << B - new_index << " blocks" << endl;
 #endif
 
@@ -108,6 +109,8 @@ void Input::reduceGraphToPositiveCases()
             }
         }
     }
+
+    this->bc->setBlock2BlockCost(block_2_block_cost);
 
     int newN = 0;
     vector<vector<Arc *>> new_arcs;
@@ -163,7 +166,7 @@ void Input::reduceGraphToPositiveCases()
         new_arcs[N].push_back(new Arc(N, i, 0, -1)), new_arcs[i].push_back(new Arc(i, N, 0, -1));
     graph->setArcs(new_arcs), graph->setNodes(new_nodes);
 
-#ifdef Silence
+#ifndef Silence
     cout << "[*] Preprocessing Finished!" << endl;
 #endif
 }

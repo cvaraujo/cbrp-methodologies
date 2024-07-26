@@ -1,13 +1,9 @@
 
 #include "BlockConnection.hpp"
 
-int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, string key)
+int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, vector<int> blocks, string key)
 {
-    Graph *graph = input->getGraph();
-    ShortestPath *sp = input->getShortestPath();
-
-    vector<int> connect_order, path, backup_blocks = blocks;
-    vector<vector<Arc>> dag;
+    vector<int> connect_order, path;
     map<int, int> dag_2_graph;
     int N = graph->getN();
     vector<set<int>> nodes_per_block = graph->getNodesPerBlock();
@@ -25,6 +21,44 @@ int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, 
     }
 
     // Heuristic to define the sequence of attending blocks
+    connect_order = this->getBestOrderToAttendBlocks(blocks);
+
+    // Create the DAG
+    int V;
+    vector<vector<Arc>> dag = this->createLayeredDag(connect_order, dag_2_graph, V);
+
+    // SHP on DAG
+    vector<int> pred;
+    path = vector<int>();
+    int cost = ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, pred);
+
+    // Get the path
+    int v = V + 1, last_inserted = -1;
+
+    while (v != pred[v])
+    {
+        if (dag_2_graph[v] != last_inserted)
+        {
+            path.push_back(dag_2_graph[v]);
+            last_inserted = dag_2_graph[v];
+        }
+        v = pred[v];
+
+        if (v == -1)
+            return INF;
+    }
+
+    path.push_back(dag_2_graph[V]);
+
+    this->setBlocksAttendPath(key, path);
+    this->setBlocksAttendCost(key, cost);
+    return cost;
+}
+
+vector<int> BlockConnection::getBestOrderToAttendBlocks(vector<int> blocks)
+{
+    vector<int> connect_order, backup_blocks = blocks;
+
     while (connect_order.size() < blocks.size())
     {
         if (connect_order.empty())
@@ -33,9 +67,9 @@ int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, 
         int best_block = -1, shp = INF;
         for (int i = 0; i < int(backup_blocks.size()); i++)
         {
-            if (this->block_2_block_shp[connect_order.back()][backup_blocks[i]] < shp)
+            if (this->block_2_block_cost[connect_order.back()][backup_blocks[i]] < shp)
             {
-                shp = this->block_2_block_shp[connect_order.back()][backup_blocks[i]];
+                shp = this->block_2_block_cost[connect_order.back()][backup_blocks[i]];
                 best_block = i;
 
                 // Lowest possible cost
@@ -48,22 +82,31 @@ int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, 
             connect_order.push_back(backup_blocks[best_block]), backup_blocks.erase(backup_blocks.begin() + best_block);
     }
 
-    // Create the DAG
-    int V = 0;
-    for (int i = 0; i < connect_order.size(); i++)
-        V += nodes_per_block[connect_order[i]].size();
+    return connect_order;
+}
+
+vector<vector<Arc>> BlockConnection::createLayeredDag(vector<int> nodes, map<int, int> &dag_2_graph, int &V)
+{
+    V = 0;
+    vector<set<int>> nodes_per_block = this->graph->getNodesPerBlock();
+    vector<vector<Arc>> dag;
+    vector<int> path;
+
+    for (int i = 0; i < nodes.size(); i++)
+        V += nodes_per_block[nodes[i]].size();
+
     dag = vector<vector<Arc>>(V + 2, vector<Arc>());
-    dag_2_graph[V] = dag_2_graph[V + 1] = N;
+    dag_2_graph[V] = dag_2_graph[V + 1] = graph->getN();
 
     // Populate the Layered DAG
     int inserted_nodes = 0;
     bool insert_depot = false;
-    for (int i = 0; i < connect_order.size() - 1; i++)
+    for (int i = 0; i < nodes.size() - 1; i++)
     {
-        int b1 = connect_order[i], b2 = connect_order[i + 1];
+        int b1 = nodes[i], b2 = nodes[i + 1];
         int jp = inserted_nodes, start_k = jp + nodes_per_block[b1].size();
 
-        if (i + 1 >= connect_order.size() - 1)
+        if (i + 1 >= nodes.size() - 1)
             insert_depot = true;
 
         for (int j : nodes_per_block[b1])
@@ -89,7 +132,7 @@ int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, 
 
                 kp++;
             }
-            if (i + 1 >= connect_order.size() - 1)
+            if (i + 1 >= nodes.size() - 1)
                 insert_depot = false;
 
             jp++;
@@ -97,29 +140,5 @@ int BlockConnection::HeuristicBlockConnection(Input *input, vector<int> blocks, 
         inserted_nodes += nodes_per_block[b1].size();
     }
 
-    // SHP on DAG
-    vector<int> pred, path = vector<int>();
-    int cost = ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, path);
-
-    // Get the path
-    int v = V + 1, last_inserted = -1;
-
-    while (v != pred[v])
-    {
-        if (dag_2_graph[v] != last_inserted)
-        {
-            path.push_back(dag_2_graph[v]);
-            last_inserted = dag_2_graph[v];
-        }
-        v = pred[v];
-
-        if (v == -1)
-            return INF;
-    }
-
-    path.push_back(dag_2_graph[V]);
-
-    this->setBlocksAttendPath(key, path);
-    this->setBlocksAttendCost(key, cost);
-    return cost;
+    return dag;
 }

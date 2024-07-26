@@ -5,25 +5,34 @@
 #ifndef DPARP_DETERMINISTIC_MODEL_H
 #define DPARP_DETERMINISTIC_MODEL_H
 
-#include "Include.h"
-#include "Graph.h"
+#include "../classes/Parameters.hpp"
+#include "../classes/Input.hpp"
 #include <gurobi_c++.h>
-#include <vector>
-#include "WarmStart.h"
-using namespace std;
 
 class DeterministicModel
 {
-public:
-  Graph *graph;
+  Input *input;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
   vector<vector<GRBVar>> x, y, t;
   int num_lazy_cuts, num_frac_cuts;
 
-  DeterministicModel(Graph *graph);
+public:
+  DeterministicModel(Input *input)
+  {
+    if (input != nullptr)
+      this->input = input;
+    else
+      exit(EXIT_FAILURE);
+  }
 
-  ~DeterministicModel();
+  ~DeterministicModel()
+  {
+    x.clear(), y.clear(), t.clear();
+    model.terminate();
+  }
+
+  bool Run();
 
   void objectiveFunction();
 

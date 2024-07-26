@@ -14,7 +14,6 @@ class ShortestPath
 
 private:
     Graph *graph;
-    vector<vector<double>> block_2_block_shp;
     vector<vector<int>> dist, next;
     vector<vector<vector<int>>> ij_path;
 

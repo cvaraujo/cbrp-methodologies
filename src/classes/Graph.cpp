@@ -96,7 +96,7 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize)
     arcs_matrix[N][i] = from_s, arcs_matrix[i][N] = to_t;
   }
 
-#ifdef Silence
+#ifndef Silence
   cout << "[*] Load graph successfully!" << endl;
 #endif
 

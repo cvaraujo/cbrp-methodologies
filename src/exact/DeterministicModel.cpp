@@ -2,21 +2,7 @@
 // Created by carlos on 06/07/21.
 //
 
-#include "../headers/DeterministicModel.h"
-
-DeterministicModel::DeterministicModel(Graph *graph)
-{
-  if (graph != nullptr)
-    this->graph = graph;
-  else
-    exit(EXIT_FAILURE);
-}
-
-DeterministicModel::~DeterministicModel()
-{
-  x.clear(), y.clear(), t.clear();
-  model.terminate();
-}
+#include "DeterministicModel.hpp"
 
 void DeterministicModel::createVariables()
 {
