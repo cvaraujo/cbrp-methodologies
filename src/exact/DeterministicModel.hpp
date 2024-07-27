@@ -7,6 +7,7 @@
 
 #include "../classes/Parameters.hpp"
 #include "../classes/Input.hpp"
+#include "../classes/Solution.hpp"
 #include <gurobi_c++.h>
 
 class DeterministicModel
@@ -32,7 +33,9 @@ public:
     model.terminate();
   }
 
-  bool Run();
+  Solution getSolution();
+
+  Solution Run(bool use_warm_start, string time_limit, string output_file);
 
   void objectiveFunction();
 
@@ -54,11 +57,11 @@ public:
 
   void compactTimeConstraint();
 
-  void solveCompact(string timeLimit);
+  void solveCompact(string time_limit);
 
   void writeSolution(string result);
 
-  bool check_solution(float max_time, float max_insecticide);
+  bool checkSolution();
 };
 
 #endif // DPARP_MODEL_H
