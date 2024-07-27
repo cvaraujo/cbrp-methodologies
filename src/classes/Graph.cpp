@@ -22,6 +22,12 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize)
 
   file.open(instance, fstream::in);
 
+  if (!file.is_open())
+  {
+    cout << "[!] Could not open file: " << instance << endl;
+    exit(EXIT_FAILURE);
+  }
+
   // Default Graph dimensions
   file >> Graph::N >> Graph::M >> Graph::B;
 

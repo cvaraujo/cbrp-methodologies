@@ -4,7 +4,260 @@
 
 #include "DeterministicModel.hpp"
 
-Solution DeterministicModel::Run(bool use_warm_start, string time_limit, string output_file)
+class cyclecallback : public GRBCallback
+{
+
+public:
+  double lastiter, lastnode;
+  int numvars, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
+  bool frac_cut = false;
+  vector<vector<GRBVar>> x, y;
+  typedef ListDigraph G;
+  typedef G::Arc Arc;
+  typedef G::ArcIt ArcIt;
+  typedef G::Node Node;
+  typedef G::ArcMap<double> LengthMap;
+  typedef G::NodeMap<bool> BoolNodeMap;
+  Graph *graph;
+
+  cyclecallback(Graph *xgraph, int xnumvars, vector<vector<GRBVar>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
+  {
+    lastiter = lastnode = 0;
+    numvars = xnumvars;
+    x = xx;
+    y = yy;
+    graph = xgraph;
+    this->frac_cut = frac_cut;
+  }
+
+protected:
+  void callback()
+  {
+    try
+    {
+      if (where == GRB_CB_MIPSOL)
+      {
+        int i, j, s, n = graph->getN();
+        vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
+        vector<bool> used_node = vector<bool>(n + 1);
+
+        for (i = 0; i <= n; i++)
+        {
+          for (auto *arc : graph->getArcs(i))
+          {
+            if (getSolution(x[i][arc->getD()]) >= 0.1)
+            {
+              g[i].push_back(arc->getD());
+              used_node[i] = used_node[arc->getD()] = true;
+            }
+          }
+        }
+
+        vector<bool> visited(n + 1, false);
+        vector<int> conn_comp = vector<int>(n + 1, -1);
+        vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
+
+        for (i = n; i >= 0; i--)
+        {
+          if (!used_node[i])
+            continue;
+
+          vector<int> stack;
+          stack.push_back(i);
+
+          while (!stack.empty())
+          {
+            s = stack.back();
+            stack.pop_back();
+
+            if (!visited[s])
+            {
+              conn[i].push_back(s);
+              conn_comp[s] = i;
+              visited[s] = true;
+            }
+
+            for (auto k : g[s])
+              if (!visited[k])
+                stack.push_back(k);
+          }
+        }
+
+        int num_comp = 0;
+        for (i = n; i >= 0; i--)
+        {
+          if (conn[i].size() > 1)
+            num_comp++;
+          if (num_comp > 1)
+            break;
+        }
+
+        if (num_comp == 1)
+          return;
+
+        for (i = 0; i <= n; i++)
+        {
+          if (!used_node[i])
+            continue;
+
+          GRBLinExpr expr = 0;
+          bool has_constr = false;
+
+          for (auto v : conn[i])
+          {
+            for (auto *arc : graph->getArcs(v))
+            {
+              j = arc->getD();
+              if (conn_comp[j] != i)
+              {
+                expr += x[v][j];
+                has_constr = true;
+              }
+            }
+          }
+
+          if (has_constr)
+          {
+            for (auto v : conn[i])
+            {
+              for (auto b : graph->getNode(v).second)
+              {
+                if (getSolution(y[v][b]) >= 0.1)
+                {
+                  addLazy(expr >= y[v][b]);
+                  num_lazy_cuts++;
+                }
+              }
+            }
+          }
+        }
+      }
+      else if (where == GRB_CB_MIPNODE)
+      {
+        if (!frac_cut)
+          return;
+
+        int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
+        // double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
+
+        if (mipStatus == GRB_OPTIMAL)
+        {
+          int i, j, u, v, n = graph->getN();
+          // Basic structures to use Lemon
+          G flow_graph;
+          LengthMap capacity(flow_graph);
+          vector<Node> setNodes = vector<Node>(n + 1);
+          vector<bool> usedNode = vector<bool>(n, false);
+          vector<Arc> setArcs;
+
+          // Create the node set
+          for (i = 0; i <= n; i++)
+            setNodes[i] = flow_graph.addNode();
+
+          // Create the edge set
+          for (i = 0; i < n; i++)
+          {
+            for (auto *arc : graph->getArcs(i))
+            {
+              j = arc->getD();
+
+              if (getNodeRel(x[i][j]) >= 0.1)
+              {
+                setArcs.push_back(flow_graph.addArc(setNodes[i], setNodes[j]));
+                capacity[setArcs[setArcs.size() - 1]] = double(getNodeRel(x[i][j]));
+                usedNode[i] = usedNode[j] = true;
+              }
+            }
+          }
+          // Init necessary structures
+          double mincut_value;
+          bool source_side, has_constr, need_cut;
+
+          // cout << "Add Cut" << endl;
+          for (i = 0; i < n; i++)
+          {
+            // If there is no arc using this node, ignore it
+            if (!usedNode[i])
+              continue;
+
+            // Lemon MaxFlow instance
+            Preflow<G, LengthMap> preflow(flow_graph, capacity, setNodes[i], setNodes[n]);
+            preflow.runMinCut();
+            mincut_value = preflow.flowValue();
+
+            // Create basic variables
+            // BoolNodeMap bm(flow_graph);
+            source_side = preflow.minCut(setNodes[i]);
+
+            // Check the need for cutting
+            need_cut = false;
+            for (auto b : graph->getNode(i).second)
+            {
+              if (mincut_value < getNodeRel(y[i][b]))
+              {
+                need_cut = true;
+                break;
+              }
+            }
+
+            if (!need_cut)
+              continue;
+
+            GRBLinExpr expr = 0;
+            has_constr = false;
+
+            for (u = 0; u < n; u++)
+            {
+              if (preflow.minCut(setNodes[u]) != source_side)
+                continue;
+
+              for (auto *arc : graph->getArcs(u))
+              {
+                v = arc->getD();
+                if (preflow.minCut(setNodes[v]) != source_side)
+                {
+                  expr += x[u][v];
+                  has_constr = true;
+                }
+              }
+            }
+
+            if (has_constr)
+            {
+              for (u = 0; u < n; u++)
+              {
+                if (usedNode[u] && preflow.minCut(setNodes[u]))
+                {
+                  usedNode[u] = false;
+                  for (auto b : graph->getNode(u).second)
+                  {
+                    if (getNodeRel(y[u][b]) > mincut_value)
+                    {
+                      addCut(expr >= y[u][b]);
+                      num_frac_cuts++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch (GRBException e)
+    {
+      cout << "Error number: " << e.getErrorCode() << endl;
+      cout << e.getMessage() << endl;
+      getchar();
+    }
+    catch (...)
+    {
+      cout << "Error during callback" << endl;
+    }
+  }
+};
+
+Solution DeterministicModel::Run(bool use_warm_start, string time_limit)
 {
   this->createVariables();
   this->initModelCompact(use_warm_start);
@@ -42,7 +295,6 @@ void DeterministicModel::createVariables()
         x[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
     }
-
     // Y
     for (int i = 0; i < n; i++)
     {
@@ -161,7 +413,9 @@ void DeterministicModel::objectiveFunction()
   {
     j = graph->getNode(i).first;
     for (auto b : graph->getNode(i).second)
+    {
       objective += (y[j][b] * graph->getCasesPerBlock(b));
+    }
   }
 
   model.setObjective(objective, GRB_MAXIMIZE);
@@ -375,7 +629,7 @@ Solution DeterministicModel::getSolution()
     for (int b : graph->getNode(i).second)
       if (this->y[i][b].get(GRB_DoubleAttr_X) > 0.5)
       {
-        y.push_back(i);
+        y.push_back(b);
         time_used += graph->getTimePerBlock(b);
       }
   }

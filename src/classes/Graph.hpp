@@ -64,6 +64,18 @@ public:
 
   vector<Arc *> getArcsPerBlock(int block) { return arcs_per_block[block]; }
 
+  void setCasesPerBlock(int block, double cases) { cases_per_block[block] = cases; }
+
+  void setCasesPerBlock(vector<double> cases) { cases_per_block = cases; }
+
+  void setTimePerBlock(int block, int time) { time_per_block[block] = time; }
+
+  void setTimePerBlock(vector<int> time) { time_per_block = time; }
+
+  void setNodesPerBlock(int block, set<int> nodes) { nodes_per_block[block] = nodes; }
+
+  void setNodesPerBlock(vector<set<int>> nodes) { nodes_per_block = nodes; }
+
   double getCasesPerBlock(int block) { return cases_per_block[block]; }
 
   vector<double> getCasesPerBlock() { return cases_per_block; }

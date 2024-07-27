@@ -64,19 +64,19 @@ public:
 
     output << "Route Time: " << this->time_used << endl;
     output.close();
-  }
+  };
 
   double getOf() { return of; }
 
-  double setOf(double of) { this->of = of; }
+  void setOf(double of) { this->of = of; }
 
   double getUB() { return UB; }
 
-  double setUB(double UB) { this->UB = UB; }
+  void setUB(double UB) { this->UB = UB; }
 
   double getRuntime() { return runtime; }
 
-  double setRuntime(double runtime) { this->runtime = runtime; }
+  void setRuntime(double runtime) { this->runtime = runtime; }
 
   vector<int> getY() { return y; }
 

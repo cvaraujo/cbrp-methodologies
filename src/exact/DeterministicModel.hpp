@@ -10,6 +10,8 @@
 #include "../classes/Solution.hpp"
 #include <gurobi_c++.h>
 
+using namespace lemon;
+
 class DeterministicModel
 {
   Input *input;
@@ -35,7 +37,7 @@ public:
 
   Solution getSolution();
 
-  Solution Run(bool use_warm_start, string time_limit, string output_file);
+  Solution Run(bool use_warm_start, string time_limit);
 
   void objectiveFunction();
 

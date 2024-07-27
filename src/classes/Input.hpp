@@ -10,12 +10,12 @@
 class Input
 {
 private:
-    int S, T, graph_adapt, default_vel, neblize_vel;
+    int S = 0, T = 0, graph_adapt = 0, default_vel = 20, neblize_vel = 10;
     double alpha = 0.8;
     Graph *graph;
-    vector<Scenario> scenarios;
     ShortestPath *sp;
     BlockConnection *bc;
+    vector<Scenario> scenarios;
 
 public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp) : graph(graph), scenarios(scenarios), sp(sp) {}

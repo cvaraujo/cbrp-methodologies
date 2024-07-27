@@ -3,7 +3,9 @@
 Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int default_vel, int neblize_vel, int T, double alpha)
 {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
-    this->loadScenarios(scenarios_graph);
+    if (scenarios_graph != "")
+        this->loadScenarios(scenarios_graph);
+
     this->sp = new ShortestPath(this->graph);
     this->bc = new BlockConnection(this->graph, this->sp);
     this->T = T;
@@ -14,19 +16,23 @@ Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int def
 
     if (this->graph_adapt == 1)
         this->reduceGraphToPositiveCases();
+
+#ifndef Silence
+    cout << "[***] Input constructed Successfully!" << endl;
+#endif
 }
 void Input::reduceGraphToPositiveCases()
 {
     // Re-map blocks
     map<int, int> positive_block_to_block;
-    vector<double> cases_per_block = graph->getCasesPerBlock();
+    vector<double> cases_per_block;
     vector<int> time_per_block;
     vector<set<int>> nodes_per_block;
     int B = graph->getB(), new_index = 0, N = graph->getN();
 
     for (int b = 0; b < B; b++)
     {
-        bool has_cases = cases_per_block[b] > 0;
+        bool has_cases = graph->getCasesPerBlock(b) > 0;
         if (!has_cases)
         {
             for (int s = 0; s < S; s++)
@@ -65,8 +71,6 @@ void Input::reduceGraphToPositiveCases()
 #endif
 
     // Re-map blocks in nodes and arcs
-    graph->setB(new_index);
-    B = graph->getB();
     for (int i = 0; i < N; i++)
     {
         auto blocks_from_i = graph->getNodes(i).second;
@@ -113,22 +117,29 @@ void Input::reduceGraphToPositiveCases()
     this->bc->setBlock2BlockCost(block_2_block_cost);
 
     int newN = 0;
+    graph->setB(new_index);
+    B = graph->getB();
     vector<vector<Arc *>> new_arcs;
     vector<pair<int, set<int>>> new_nodes;
     map<int, int> map_new_nodes;
     nodes_per_block = vector<set<int>>(B);
+    graph->setCasesPerBlock(cases_per_block);
+    graph->setTimePerBlock(time_per_block);
 
     for (int i = 0; i < N; i++)
     {
         if (set_of_used_nodes.find(i) != set_of_used_nodes.end())
         {
-            new_nodes.push_back(graph->getNode(i));
+            new_nodes.push_back(pair<int, set<int>>());
             new_nodes[newN].first = newN;
             map_new_nodes[i] = newN;
 
             for (int b : graph->getNode(i).second)
                 if (b != -1)
+                {
                     nodes_per_block[b].insert(newN);
+                    new_nodes[newN].second.insert(b);
+                }
 
             new_arcs.push_back(vector<Arc *>());
             newN++;
@@ -165,6 +176,17 @@ void Input::reduceGraphToPositiveCases()
     for (int i = 0; i < N; i++)
         new_arcs[N].push_back(new Arc(N, i, 0, -1)), new_arcs[i].push_back(new Arc(i, N, 0, -1));
     graph->setArcs(new_arcs), graph->setNodes(new_nodes);
+    graph->setN(N);
+    graph->setNodesPerBlock(nodes_per_block);
+
+    // for (auto node : new_nodes)
+    // {
+    //     cout << "N: " << node.first << endl;
+    //     for (auto block : node.second)
+    //         cout << "B:" << block << " ";
+    //     cout << endl;
+    // }
+    // getchar();
 
 #ifndef Silence
     cout << "[*] Preprocessing Finished!" << endl;
@@ -178,6 +200,13 @@ void Input::loadScenarios(string instance)
     int i, block, cases;
     double probability;
     file.open(instance, fstream::in);
+
+    if (!file.is_open())
+    {
+        cout << "[!] Could not open file: " << instance << endl;
+        exit(EXIT_FAILURE);
+    }
+
     file >> this->S;
     this->scenarios = vector<Scenario>(S);
 
