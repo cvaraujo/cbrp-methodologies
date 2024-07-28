@@ -11,12 +11,12 @@ class Solution
 
 private:
   double of = 0.0, UB = INF, runtime = 0.0;
-  int time_used = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
-  vector<int> y;
-  vector<int_pair> x;
+  int time_used = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0, S = 0;
+  vector<vector<int>> y;
+  vector<vector<int_pair>> x;
 
 public:
-  Solution(double of, vector<int> y, vector<int_pair> x)
+  Solution(double of, vector<vector<int>> y, vector<vector<int_pair>> x)
   {
     this->of = of;
     this->y = y;
@@ -26,11 +26,11 @@ public:
   Solution()
   {
     this->of = 0.0;
-    this->y = vector<int>();
-    this->x = vector<int_pair>();
+    this->y = vector<vector<int>>();
+    this->x = vector<vector<int_pair>>();
   }
 
-  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<int> y, vector<int_pair> x)
+  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
   {
     this->of = of;
     this->UB = UB;
@@ -57,13 +57,19 @@ public:
     output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
     output << "Runtime: " << this->runtime << endl;
 
-    for (auto arc : this->x)
-      output << "X: " << arc.first << " " << arc.second << endl;
-    for (auto b : this->y)
-      output << "Y: " << b << endl;
-
-    output << "Route Time: " << this->time_used << endl;
+    for (int s = 0; s <= S; s++)
+    {
+      output << "Scenario: " << s << endl;
+      for (auto arc : this->x[s])
+        output << "X: " << arc.first << " " << arc.second << endl;
+      for (auto b : this->y[s])
+        output << "Y: " << b << endl;
+      output << "Route Time: " << this->time_used << endl;
+    }
     output.close();
+#ifndef Silence
+    cout << "[***] Solution writed!" << endl;
+#endif
   };
 
   double getOf() { return of; }
@@ -78,17 +84,21 @@ public:
 
   void setRuntime(double runtime) { this->runtime = runtime; }
 
-  vector<int> getY() { return y; }
+  void setS(int s) { this->S = s; }
 
-  void setY(vector<int> y) { this->y = y; }
+  int getS() { return S; }
 
-  vector<int_pair> getX() { return x; }
+  vector<vector<int>> getY() { return y; }
 
-  void setX(vector<int_pair> x) { this->x = x; }
+  void setY(vector<vector<int>> y) { this->y = y; }
 
-  void addAttendedToY(int block) { this->y.push_back(block); }
+  vector<vector<int_pair>> getX() { return x; }
 
-  void addArcToX(int o, int d) { this->x.push_back(make_pair(o, d)); }
+  void setX(vector<vector<int_pair>> x) { this->x = x; }
+
+  void addAttendedToY(int s, int block) { this->y[s].push_back(block); }
+
+  void addArcToX(int s, int o, int d) { this->x[s].push_back(make_pair(o, d)); }
 };
 
 #endif

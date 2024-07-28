@@ -257,15 +257,22 @@ protected:
   }
 };
 
-Solution DeterministicModel::Run(bool use_warm_start, string time_limit)
+Solution DeterministicModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts)
 {
   this->createVariables();
-  this->initModelCompact(use_warm_start);
-  this->solveCompact(time_limit);
+  this->initModel(model);
 
-#ifndef Silence
+  if (model == "MTZ")
+    this->solveCompact(time_limit);
+  else if (model == "EXP")
+    this->solveExponential(time_limit, use_cuts);
+  else
+  {
+    cout << "[!] Model not found!" << endl;
+    exit(EXIT_FAILURE);
+  }
+
   this->checkSolution();
-#endif
 
   return this->getSolution();
 }
@@ -330,31 +337,26 @@ void DeterministicModel::createVariables()
   }
 }
 
-void DeterministicModel::initModelCompact(bool warm_start)
+void DeterministicModel::initModel(string model)
 {
 #ifndef Silence
-  cout << "[!!!] Creating the model!" << endl;
+  cout << "[***] Creating " << model << " model!" << endl;
 #endif
 
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath();
   timeConstraint();
-  compactTimeConstraint();
+  if (model == "MTZ")
+    compactTimeConstraint();
 
-  if (warm_start)
-  {
-#ifndef Silence
-    cout << "[!!!] Calling Warm-Start function!" << endl;
-#endif
+  this->model.update();
 
-    // this->WarmStart();
-  }
-  model.update();
 #ifndef Silence
-  cout << "[***] done!" << endl;
+  cout << "[***] Constraints and objective function created!" << endl;
 #endif
 }
+
 /*
 void DeterministicModel::WarmStart()
 {
@@ -593,10 +595,40 @@ void DeterministicModel::solveCompact(string time_limit)
     model.update();
 #ifndef Silence
     model.set("OutputFlag", "1");
+    model.update();
 #endif
-    // model.computeIIS();
     model.write("model.lp");
     model.optimize();
+  }
+  catch (GRBException &ex)
+  {
+    cout << ex.getMessage() << endl;
+  }
+}
+
+void DeterministicModel::solveExponential(string time_limit, bool frac_cut)
+{
+  try
+  {
+    auto graph = input->getGraph();
+    model.set("TimeLimit", time_limit);
+    model.set(GRB_DoubleParam_Heuristics, 1.0);
+    model.set(GRB_IntParam_LazyConstraints, 1);
+    cyclecallback cb = cyclecallback(graph, graph->getN(), x, y, frac_cut);
+    model.setCallback(&cb);
+    model.set("OutputFlag", "0");
+    model.update();
+
+#ifndef Silence
+    model.set("OutputFlag", "1");
+    model.update();
+#endif
+
+    model.write("model.lp");
+    model.optimize();
+
+    // Save the number of cuts
+    num_lazy_cuts = cb.num_lazy_cuts, num_frac_cuts = cb.num_frac_cuts;
   }
   catch (GRBException &ex)
   {
@@ -615,21 +647,23 @@ Solution DeterministicModel::getSolution()
   int num_frac_cuts = this->num_frac_cuts;
   int time_used = 0;
 
-  vector<int> y;
-  vector<int_pair> x;
+  vector<vector<int>> y;
+  vector<vector<int_pair>> x;
+  y.push_back(vector<int>()), x.push_back(vector<int_pair>());
+
   for (int i = 0; i <= graph->getN(); i++)
   {
     for (auto *arc : graph->getArcs(i))
       if (this->x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
       {
-        x.push_back(make_pair(i, arc->getD()));
+        x[0].push_back(make_pair(i, arc->getD()));
         time_used += arc->getLength();
       }
 
     for (int b : graph->getNode(i).second)
       if (this->y[i][b].get(GRB_DoubleAttr_X) > 0.5)
       {
-        y.push_back(b);
+        y[0].push_back(b);
         time_used += graph->getTimePerBlock(b);
       }
   }

@@ -3,6 +3,7 @@
 #include "../src/classes/Graph.hpp"
 #include "../src/classes/Input.hpp"
 #include "../src/exact/DeterministicModel.hpp"
+#include "../src/exact/StochasticModel.hpp"
 
 #define BOOST_TEST_MODULE your_test_module
 #include <boost/test/included/unit_test.hpp>
@@ -156,8 +157,9 @@ BOOST_AUTO_TEST_CASE(testBlockConnection)
   BOOST_TEST(bc->getBlocksAttendPath(key) == corect_path);
 }
 
-BOOST_AUTO_TEST_CASE(testDeterministicModel)
+BOOST_AUTO_TEST_CASE(testDeterministicModelCompact)
 {
+  cout << "Deterministic Model Compact" << endl;
   string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
   string file_scenarios = "";
   int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
@@ -166,9 +168,99 @@ BOOST_AUTO_TEST_CASE(testDeterministicModel)
   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
 
   DeterministicModel *dm = new DeterministicModel(input);
-  Solution sol = dm->Run(false, "60");
+  Solution sol = dm->Run(false, "60", "MTZ", false);
 
-  sol.WriteSolution("result_deterministic.txt");
+  sol.WriteSolution("result_deterministic_mtz.txt");
 
   BOOST_TEST(sol.getOf() == 80);
+}
+
+BOOST_AUTO_TEST_CASE(testDeterministicModelExp)
+{
+  cout << "Deterministic Model Exponential" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 1000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  DeterministicModel *dm = new DeterministicModel(input);
+  Solution sol = dm->Run(false, "60", "EXP", false);
+
+  sol.WriteSolution("result_deterministic_exp.txt");
+
+  BOOST_TEST(sol.getOf() == 68);
+}
+
+BOOST_AUTO_TEST_CASE(testDeterministicModelExpFrac)
+{
+  cout << "Deterministic Model Exponential Frac. Cuts" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  DeterministicModel *dm = new DeterministicModel(input);
+  Solution sol = dm->Run(false, "60", "EXP", true);
+
+  sol.WriteSolution("result_deterministic_exp_frac.txt");
+
+  BOOST_TEST(sol.getOf() == 80);
+}
+
+BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
+{
+  cout << "Stochastic Model Compact" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  StochasticModel *sm = new StochasticModel(input);
+  Solution sol = sm->Run(false, "60", "MTZ", false);
+
+  sol.WriteSolution("result_stochastic_mtz.txt");
+
+  BOOST_TEST(sol.getOf() == 496.80000000000007);
+}
+
+BOOST_AUTO_TEST_CASE(testStochasticModelExp)
+{
+  cout << "Stochastic Model Exponential" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  StochasticModel *sm = new StochasticModel(input);
+  Solution sol = sm->Run(false, "60", "EXP", false);
+
+  sol.WriteSolution("result_stochastic_mtz.txt");
+
+  BOOST_TEST(sol.getOf() == 496.80000000000007);
+}
+
+BOOST_AUTO_TEST_CASE(testStochasticModelExpFrac)
+{
+  cout << "Stochastic Model Exponential Frac. Cuts" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  StochasticModel *sm = new StochasticModel(input);
+  Solution sol = sm->Run(false, "60", "EXP", true);
+
+  sol.WriteSolution("result_stochastic_mtz.txt");
+
+  BOOST_TEST(sol.getOf() == 496.80000000000007);
 }

@@ -37,15 +37,15 @@ public:
 
   Solution getSolution();
 
-  Solution Run(bool use_warm_start, string time_limit);
+  Solution Run(bool use_warm_start, string time_limit, string model, bool use_cuts);
+
+  void solveExponential(string time_limit, bool frac_cut);
 
   void objectiveFunction();
 
-  void WarmStart();
-
   void createVariables();
 
-  void initModelCompact(bool warm_start);
+  void initModel(string model);
 
   void artificialNodes();
 
@@ -60,8 +60,6 @@ public:
   void compactTimeConstraint();
 
   void solveCompact(string time_limit);
-
-  void writeSolution(string result);
 
   bool checkSolution();
 };

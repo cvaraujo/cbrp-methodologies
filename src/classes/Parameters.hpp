@@ -23,7 +23,11 @@
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
+#include <lemon/list_graph.h>
+#include <lemon/preflow.h>
+
 using namespace std;
+using namespace lemon;
 
 const int INF = INT_MAX;
 

@@ -4,8 +4,9 @@ Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int def
 {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
     if (scenarios_graph != "")
+    {
         this->loadScenarios(scenarios_graph);
-
+    }
     this->sp = new ShortestPath(this->graph);
     this->bc = new BlockConnection(this->graph, this->sp);
     this->T = T;
