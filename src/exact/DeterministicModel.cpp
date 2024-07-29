@@ -208,7 +208,7 @@ protected:
 
             for (u = 0; u < n; u++)
             {
-              if (preflow.minCut(setNodes[u]) != source_side)
+              if (!usedNode[u] || preflow.minCut(setNodes[u]) != source_side)
                 continue;
 
               for (auto *arc : graph->getArcs(u))
@@ -753,6 +753,8 @@ bool DeterministicModel::checkSolution()
     return false;
   }
 
+#ifndef Silence
   cout << "[***] Instance ok!!!" << endl;
+#endif
   return true;
 }

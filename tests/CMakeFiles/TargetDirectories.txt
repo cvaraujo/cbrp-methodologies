@@ -1,3 +1,0 @@
-/home/araujo/Documents/cbrp-lagrangean/tests/CMakeFiles/test.dir
-/home/araujo/Documents/cbrp-lagrangean/tests/CMakeFiles/edit_cache.dir
-/home/araujo/Documents/cbrp-lagrangean/tests/CMakeFiles/rebuild_cache.dir

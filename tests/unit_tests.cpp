@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
-  BOOST_TEST(sol.getOf() == 496.80000000000007);
+  BOOST_TEST(sol.getOf() == 241);
 }
 
 BOOST_AUTO_TEST_CASE(testStochasticModelExp)
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelExp)
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
-  BOOST_TEST(sol.getOf() == 496.80000000000007);
+  BOOST_TEST(sol.getOf() == 241);
 }
 
 BOOST_AUTO_TEST_CASE(testStochasticModelExpFrac)
@@ -262,5 +262,33 @@ BOOST_AUTO_TEST_CASE(testStochasticModelExpFrac)
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
-  BOOST_TEST(sol.getOf() == 496.80000000000007);
+  BOOST_TEST(sol.getOf() == 241);
+}
+
+BOOST_AUTO_TEST_CASE(checkStochasticModels)
+{
+  cout << "Stochastic Model Exponential Frac. Cuts" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-200-1.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-200-1.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  StochasticModel *sm = new StochasticModel(input);
+  StochasticModel *sm2 = new StochasticModel(input);
+  StochasticModel *sm3 = new StochasticModel(input);
+
+  Solution sol = sm->Run(false, "600", "MTZ", false);
+  Solution sol2 = sm2->Run(false, "600", "EXP", false);
+  Solution sol3 = sm3->Run(false, "600", "EXP", true);
+
+  sol.WriteSolution("result_stochastic_mtz.txt");
+  sol2.WriteSolution("result_stochastic_exp.txt");
+  sol3.WriteSolution("result_stochastic_exp_frac.txt");
+
+  cout << sol.getOf() << ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+
+  BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
+  BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
 }
