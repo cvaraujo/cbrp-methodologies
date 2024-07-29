@@ -54,3 +54,4 @@ tests/model.lp
 cbrp
 build/
 .vscode/
+tests/test
