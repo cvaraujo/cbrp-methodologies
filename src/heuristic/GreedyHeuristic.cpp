@@ -1,20 +1,19 @@
-#include "../headers/GreedyHeuristic.h"
+#include "GreedyHeuristic.hpp"
 
-GreedyHeuristic::GreedyHeuristic(Graph *graph)
-{
-    this->graph = graph;
-}
-
-float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, float route_time_increase, int max_tries, vector<int> &y, vector<dpair> &x)
+float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, float route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x)
 {
     // Start greedy heuristic
-    int T = graph->getT();
-    int available_time = T * (1.0 - route_time_increase), tries = 1;
+    Graph *graph = input->getGraph();
+    BlockConnection *bc = input->getBlockConnection();
+    int T = input->getT();
+    int available_time = T, tries = 1;
     double of = 0;
+
+    // cout << "Available time: " << available_time << endl;
 
     while (tries <= max_tries)
     {
-        of = graph->knapsack(y, cases, time, available_time);
+        of = Knapsack::Run(y, cases, time, available_time);
 
         if (y.empty())
             break;
@@ -22,22 +21,19 @@ float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, flo
         // Get attend time
         int block_attended_time = 0;
         for (auto b : y)
-            block_attended_time += graph->time_per_block[b];
+            block_attended_time += graph->getTimePerBlock(b);
 
         // Generate a hash to solution
         sort(y.begin(), y.end());
-        string key = graph->generateStringFromIntVector(y);
+        string key = bc->GenerateStringFromIntVector(y);
 
         // Get route cost
-        if (graph->savedBlockConn.find(key) == graph->savedBlockConn.end())
-            graph->ConnectBlocks(y, key);
+        if (!bc->keyExists(key))
+            bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
 
-        // cout << key << endl;
-        // cout << block_attended_time << ", " << graph->savedBlockConn[key] << " <= " << available_time << endl;
-        // getchar();
-        if (block_attended_time + graph->savedBlockConn[key] <= T)
+        if (block_attended_time + bc->getBlocksAttendCost(key) <= T)
         {
-            auto vertices = graph->savedBlockConnPath[key];
+            auto vertices = bc->getBlocksAttendPath(key);
             for (int j = 0; j < vertices.size() - 1; j++)
                 x.push_back({vertices[j], vertices[j + 1]});
             break;
@@ -45,8 +41,8 @@ float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, flo
         else
         {
             y = vector<int>();
-            x = vector<dpair>();
-            available_time = T * (1.0 - float(++tries) * route_time_increase);
+            x = vector<int_pair>();
+            available_time = T * (1.0 - float(tries++) * route_time_increase);
         }
     }
 
@@ -56,26 +52,31 @@ float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, flo
 float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y)
 {
     // Get all blocks
-    int S = graph->getS(), T = graph->getT(), B = graph->getB();
+    Graph *graph = input->getGraph();
+    int S = input->getS(), T = input->getT(), B = graph->getB();
     vector<int> blocks = vector<int>(B, 0), time = vector<int>(B, 0);
     vector<double> cases = vector<double>(B, 0);
     vector<bool> in_first_stage = vector<bool>(B, false);
-    float alpha = graph->getAlpha();
+    float alpha = input->getAlpha();
     double of = 0;
 
     // Solve First Stage
     for (int i = 0; i < B; i++)
     {
         blocks[i] = i;
-        time[i] = graph->time_per_block[i];
-        cases[i] = graph->cases_per_block[i];
+        time[i] = graph->getTimePerBlock(i);
+        cases[i] = graph->getCasesPerBlock(i);
 
         for (int s = 0; s < S; s++)
-            cases[i] += (alpha * graph->scenarios[s].probability * graph->scenarios[s].cases_per_block[i]);
+        {
+            Scenario scenario = input->getScenario(s);
+            cases[i] += (alpha * scenario.getProbability() * scenario.getCasesPerBlock(i));
+        }
+        // cout << "B" << i << ": " << cases[i] << ", " << time[i] << endl;
     }
 
     vector<vector<int>> y = vector<vector<int>>(S + 1, vector<int>());
-    vector<vector<dpair>> x = vector<vector<dpair>>(S + 1, vector<dpair>());
+    vector<vector<int_pair>> x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
     of += SolveScenario(cases, time, route_time_increase, max_tries, y[0], x[0]);
 
     // cout << "OF: " << of << endl;
@@ -90,7 +91,7 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
         bool all_zeros = true;
         for (int i = 0; i < B; i++)
         {
-            cases[i] = graph->scenarios[s].cases_per_block[i];
+            cases[i] = input->getScenario(s).getCasesPerBlock(i);
             if (in_first_stage[i])
                 cases[i] *= (1 - alpha);
 
@@ -101,7 +102,7 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
         }
 
         if (!all_zeros)
-            of += graph->scenarios[s].probability * SolveScenario(cases, time, route_time_increase, max_tries, y[s + 1], x[s + 1]);
+            of += input->getScenario(s).getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, y[s + 1], x[s + 1]);
 
         // cout << "OF: " << of << endl;
         // getchar();
@@ -111,10 +112,15 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
     {
         sol_y.push_back(vector<pair<int, int>>());
         sol_x.push_back(vector<pair<int, int>>());
+#ifndef Silence
         cout << "Scenario " << s << endl;
-
+#endif
         for (auto b : y[s])
+        {
+#ifndef Silence
             cout << "Y: " << b << endl;
+#endif
+        }
 
         for (auto i : x[s])
             if (i.first > graph->getN())
@@ -122,9 +128,13 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
             else
             {
                 sol_x[s].push_back({i.second, i.first});
+#ifndef Silence
                 cout << "X: " << i.second << " - " << i.first << endl;
+#endif
             }
+#ifndef Silence
         cout << "--------------------------" << endl;
+#endif
     }
 
     return of;

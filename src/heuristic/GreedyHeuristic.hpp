@@ -5,20 +5,25 @@
 #ifndef DPARP_GREEDYHEURISTIC_H
 #define DPARP_GREEDYHEURISTIC_H
 
-#include "Include.h"
-#include "Graph.h"
+#include "../classes/Parameters.hpp"
+#include "../classes/Input.hpp"
+#include "../common/Knapsack.hpp"
+#include "../common/BlockConnection.hpp"
 
 class GreedyHeuristic
 {
-    Graph *graph;
+    Input *input;
     vector<vector<pair<int, int>>> y;
     vector<pair<int, int>> x;
     float objective_value;
 
 public:
-    GreedyHeuristic(Graph *graph);
+    GreedyHeuristic(Input *input)
+    {
+        this->input = input;
+    };
 
-    float SolveScenario(vector<double> cases, vector<int> time, float route_time_increase, int max_tries, vector<int> &y, vector<dpair> &x);
+    float SolveScenario(vector<double> cases, vector<int> time, float route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x);
 
     float Run(float route_time_increase, int max_tries, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y);
 };

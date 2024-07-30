@@ -141,7 +141,6 @@ void Input::reduceGraphToPositiveCases()
                     nodes_per_block[b].insert(newN);
                     new_nodes[newN].second.insert(b);
                 }
-
             new_arcs.push_back(vector<Arc *>());
             newN++;
         }

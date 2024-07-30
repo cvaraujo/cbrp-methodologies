@@ -29,6 +29,8 @@ set(
     ../src/exact/DeterministicModel.cpp
     ../src/exact/StochasticModel.hpp
     ../src/exact/StochasticModel.cpp
+    ../src/heuristic/GreedyHeuristic.hpp
+    ../src/heuristic/GreedyHeuristic.cpp
 )
 
 add_executable(test ${sources})

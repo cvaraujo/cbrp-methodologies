@@ -4,6 +4,7 @@
 #include "../src/classes/Input.hpp"
 #include "../src/exact/DeterministicModel.hpp"
 #include "../src/exact/StochasticModel.hpp"
+#include "../src/heuristic/GreedyHeuristic.hpp"
 
 #define BOOST_TEST_MODULE your_test_module
 #include <boost/test/included/unit_test.hpp>
@@ -291,4 +292,40 @@ BOOST_AUTO_TEST_CASE(checkStochasticModels)
 
   BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
   BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
+}
+
+BOOST_AUTO_TEST_CASE(testGreedyHeuristicFullTime)
+{
+  cout << "[!] Stochastic Greedy Heuristic" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 12000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  GreedyHeuristic *gh = new GreedyHeuristic(input);
+  vector<vector<int_pair>> x;
+  vector<vector<int_pair>> y;
+  double of = gh->Run(0.01, 1000, x, y);
+
+  BOOST_TEST(of == 241);
+}
+
+BOOST_AUTO_TEST_CASE(testGreedyHeuristic)
+{
+  cout << "[!] Stochastic Greedy Heuristic" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 600;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  GreedyHeuristic *gh = new GreedyHeuristic(input);
+  vector<vector<int_pair>> x;
+  vector<vector<int_pair>> y;
+  double of = gh->Run(0.01, 1000, x, y);
+
+  BOOST_TEST(of == 190.19999694824219);
 }
