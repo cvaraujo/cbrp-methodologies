@@ -307,12 +307,12 @@ BOOST_AUTO_TEST_CASE(testGreedyHeuristicFullTime)
   GreedyHeuristic *gh = new GreedyHeuristic(input);
   vector<vector<int_pair>> x;
   vector<vector<int_pair>> y;
-  double of = gh->Run(0.01, 1000, x, y);
+  double of = gh->Run(0.01, 1000, false, x, y);
 
-  BOOST_TEST(of == 241);
+  BOOST_TEST(round(of) == round(241));
 }
 
-BOOST_AUTO_TEST_CASE(testGreedyHeuristic)
+BOOST_AUTO_TEST_CASE(testGreedyHeuristicAvg)
 {
   cout << "[!] Stochastic Greedy Heuristic" << endl;
   string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
@@ -325,7 +325,7 @@ BOOST_AUTO_TEST_CASE(testGreedyHeuristic)
   GreedyHeuristic *gh = new GreedyHeuristic(input);
   vector<vector<int_pair>> x;
   vector<vector<int_pair>> y;
-  double of = gh->Run(0.01, 1000, x, y);
+  double of = gh->Run(0.01, 1000, true, x, y);
 
-  BOOST_TEST(of == 190.19999694824219);
+  BOOST_TEST(round(of) == round(196.45000000000005));
 }

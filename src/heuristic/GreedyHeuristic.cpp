@@ -1,6 +1,6 @@
 #include "GreedyHeuristic.hpp"
 
-float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, float route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x)
+double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x)
 {
     // Start greedy heuristic
     Graph *graph = input->getGraph();
@@ -9,12 +9,9 @@ float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, flo
     int available_time = T, tries = 1;
     double of = 0;
 
-    // cout << "Available time: " << available_time << endl;
-
     while (tries <= max_tries)
     {
         of = Knapsack::Run(y, cases, time, available_time);
-
         if (y.empty())
             break;
 
@@ -49,7 +46,7 @@ float GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, flo
     return of;
 }
 
-float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y)
+double GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y)
 {
     // Get all blocks
     Graph *graph = input->getGraph();
@@ -57,30 +54,33 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
     vector<int> blocks = vector<int>(B, 0), time = vector<int>(B, 0);
     vector<double> cases = vector<double>(B, 0);
     vector<bool> in_first_stage = vector<bool>(B, false);
-    float alpha = input->getAlpha();
+    double alpha = input->getAlpha();
     double of = 0;
 
     // Solve First Stage
+    vector<double> real_cases = vector<double>(B, 0);
     for (int i = 0; i < B; i++)
     {
         blocks[i] = i;
         time[i] = graph->getTimePerBlock(i);
         cases[i] = graph->getCasesPerBlock(i);
 
-        for (int s = 0; s < S; s++)
+        if (use_avg)
         {
-            Scenario scenario = input->getScenario(s);
-            cases[i] += (alpha * scenario.getProbability() * scenario.getCasesPerBlock(i));
+            pair<double, double> values = getBlockSecondStageProfitAvg(input->getScenarios(), i);
+            real_cases[i] = cases[i] + values.second;
+            cases[i] += values.first;
         }
-        // cout << "B" << i << ": " << cases[i] << ", " << time[i] << endl;
+        else
+            cases[i] += getBlockSecondStageProfitSum(input->getScenarios(), i);
     }
 
     vector<vector<int>> y = vector<vector<int>>(S + 1, vector<int>());
     vector<vector<int_pair>> x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
     of += SolveScenario(cases, time, route_time_increase, max_tries, y[0], x[0]);
 
-    // cout << "OF: " << of << endl;
-    // getchar();
+    if (use_avg)
+        of = getRealValueOfFirstStageSolution(y[0], real_cases);
 
     // Solve Second Stage
     for (auto i : y[0])
@@ -97,15 +97,10 @@ float GreedyHeuristic::Run(float route_time_increase, int max_tries, vector<vect
 
             if (cases[i] > 0)
                 all_zeros = false;
-
-            // cout << "B" << i << ": " << cases[i] << endl;
         }
 
         if (!all_zeros)
             of += input->getScenario(s).getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, y[s + 1], x[s + 1]);
-
-        // cout << "OF: " << of << endl;
-        // getchar();
     }
 
     for (int s = 0; s < S + 1; s++)
