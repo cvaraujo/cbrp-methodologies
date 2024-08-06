@@ -11,7 +11,8 @@ public:
   double lastiter, lastnode;
   int numvars, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
   bool frac_cut = false;
-  vector<vector<vector<GRBVar>>> x, y;
+  vector<vector<vector<GRBVar>>> x;
+  vector<vector<GRBVar>> y;
   typedef ListDigraph G;
   typedef G::Arc Arc;
   typedef G::ArcIt ArcIt;
@@ -20,7 +21,7 @@ public:
   typedef G::NodeMap<bool> BoolNodeMap;
   Input *input;
 
-  stochasticCyclecallback(Input *xinput, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<vector<GRBVar>>> yy, bool frac_cut)
+  stochasticCyclecallback(Input *xinput, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
   {
     lastiter = lastnode = 0;
     numvars = xnumvars;
@@ -46,11 +47,12 @@ protected:
           vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
           vector<bool> used_node = vector<bool>(n + 1);
 
+          // Create graph G'
           for (i = 0; i <= n; i++)
           {
             for (auto *arc : graph->getArcs(i))
             {
-              if (getSolution(x[i][arc->getD()][r]) >= 0.1)
+              if (getSolution(x[i][arc->getD()][r]) > 0.1)
               {
                 g[i].push_back(arc->getD());
                 used_node[i] = used_node[arc->getD()] = true;
@@ -59,13 +61,19 @@ protected:
           }
 
           vector<bool> visited(n + 1, false);
-          vector<int> conn_comp = vector<int>(n + 1, -1);
-          vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
+          vector<int> node_connected_component = vector<int>(n + 1, -1);
+          vector<vector<int>> connected_component;
+          vector<vector<int_pair>> arcs_from_component;
+          int idx = 0;
 
+          // DFS
           for (i = n; i >= 0; i--)
           {
-            if (!used_node[i])
+            if (!used_node[i] || visited[i])
               continue;
+
+            connected_component.push_back(vector<int>());
+            arcs_from_component.push_back(vector<int_pair>());
 
             vector<int> stack;
             stack.push_back(i);
@@ -77,66 +85,48 @@ protected:
 
               if (!visited[s])
               {
-                conn[i].push_back(s);
-                conn_comp[s] = i;
+                connected_component[idx].push_back(s);
+                node_connected_component[s] = idx;
                 visited[s] = true;
               }
 
               for (auto k : g[s])
+              {
                 if (!visited[k])
                   stack.push_back(k);
+                arcs_from_component[idx].push_back(make_pair(s, k));
+              }
             }
+            idx++;
           }
 
-          int num_comp = 0;
-          for (i = n; i >= 0; i--)
-          {
-            if (conn[i].size() > 1)
-              num_comp++;
-            if (num_comp > 1)
-              break;
-          }
-
-          if (num_comp == 1)
+          // Feasible solution
+          if (idx == 1)
             continue;
-          else
-            is_feasible = false;
 
-          for (i = 0; i <= n; i++)
+          // Need Cuts
+          is_feasible = false;
+
+          for (i = 1; i < connected_component.size(); i++)
           {
-            if (!used_node[i])
-              continue;
+            vector<int> s_nodes = connected_component[i];
+            vector<int_pair> s_arcs = arcs_from_component[i];
+            GRBLinExpr in_arcs, cut_arcs;
+            int num_in_arcs = s_arcs.size();
 
-            GRBLinExpr expr = 0;
-            bool has_constr = false;
+            // Arcs inside S
+            for (auto pair : s_arcs)
+              in_arcs += x[pair.first][pair.second][r];
 
-            for (auto v : conn[i])
-            {
-              for (auto *arc : graph->getArcs(v))
-              {
-                j = arc->getD();
-                if (conn_comp[j] != i)
-                {
-                  expr += x[v][j][r];
-                  has_constr = true;
-                }
-              }
-            }
+            // Arcs in the cut S
+            for (int j = 0; j < n; j++)
+              if (node_connected_component[j] != i)
+                for (auto arc : graph->getArcs(j))
+                  if (node_connected_component[arc->getD()] == i)
+                    cut_arcs += x[j][arc->getD()][r];
 
-            if (has_constr)
-            {
-              for (auto v : conn[i])
-              {
-                for (auto b : graph->getNode(v).second)
-                {
-                  if (getSolution(y[v][b][r]) >= 0.1)
-                  {
-                    addLazy(expr >= y[v][b][r]);
-                    num_lazy_cuts++;
-                  }
-                }
-              }
-            }
+            addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
+            num_lazy_cuts++;
           }
         }
         if (is_feasible)
@@ -170,103 +160,89 @@ protected:
           for (int r = 0; r <= input->getS(); r++)
           {
             int i, j, u, v, n = graph->getN();
+
             // Basic structures to use Lemon
             G flow_graph;
             LengthMap capacity(flow_graph);
-            vector<Node> setNodes = vector<Node>(n + 1);
-            vector<bool> usedNode = vector<bool>(n, false);
-            vector<Arc> setArcs;
+            vector<Node> set_nodes = vector<Node>(n + 1);
+            vector<bool> used_node = vector<bool>(n, false);
+            vector<Arc> set_arcs;
 
             // Create the node set
             for (i = 0; i <= n; i++)
-              setNodes[i] = flow_graph.addNode();
+              set_nodes[i] = flow_graph.addNode();
 
             // Create the edge set
-            for (i = 0; i < n; i++)
+            for (i = 0; i <= n; i++)
             {
               for (auto *arc : graph->getArcs(i))
               {
                 j = arc->getD();
 
-                if (getNodeRel(x[i][j][r]) >= 0.1)
+                if (getNodeRel(x[i][j][r]) > 0)
                 {
-                  setArcs.push_back(flow_graph.addArc(setNodes[i], setNodes[j]));
-                  capacity[setArcs[setArcs.size() - 1]] = double(getNodeRel(x[i][j][r]));
-                  usedNode[i] = usedNode[j] = true;
+                  set_arcs.push_back(flow_graph.addArc(set_nodes[i], set_nodes[j]));
+                  capacity[set_arcs[set_arcs.size() - 1]] = double(getNodeRel(x[i][j][r]));
+                  used_node[i] = used_node[j] = true;
                 }
               }
             }
+
             // Init necessary structures
             double mincut_value;
-            bool source_side, has_constr, need_cut;
-
-            // cout << "Add Cut" << endl;
             for (i = 0; i < n; i++)
             {
               // If there is no arc using this node, ignore it
-              if (!usedNode[i])
+              if (!used_node[i])
                 continue;
 
               // Lemon MaxFlow instance
-              Preflow<G, LengthMap> preflow(flow_graph, capacity, setNodes[i], setNodes[n]);
+              Preflow<G, LengthMap> preflow(flow_graph, capacity, set_nodes[n], set_nodes[i]);
               preflow.runMinCut();
               mincut_value = preflow.flowValue();
 
-              // Create basic variables
-              // BoolNodeMap bm(flow_graph);
-              source_side = preflow.minCut(setNodes[i]);
-
-              // Check the need for cutting
-              need_cut = false;
-              for (auto b : graph->getNode(i).second)
-              {
-                if (mincut_value < getNodeRel(y[i][b][r]))
-                {
-                  need_cut = true;
-                  break;
-                }
-              }
-
-              if (!need_cut)
+              if (mincut_value >= 1.0)
                 continue;
 
-              GRBLinExpr expr = 0;
-              has_constr = false;
+              // Create basic variables
+              GRBLinExpr cut_arcs, other_side_arcs;
+              double cut_value = 0, other_side_value = 0;
+              int num_arcs_in_other_side = 0;
 
-              for (u = 0; u < n; u++)
+              // Get S and cut arcs (values)
+              for (j = 0; j <= n; j++)
               {
-                if (!usedNode[u] || preflow.minCut(setNodes[u]) != source_side)
-                  continue;
-
-                for (auto *arc : graph->getArcs(u))
+                if (preflow.minCut(set_nodes[j]))
                 {
-                  v = arc->getD();
-                  if (preflow.minCut(setNodes[v]) != source_side)
+                  for (auto arc : graph->getArcs(j))
                   {
-                    expr += x[u][v][r];
-                    has_constr = true;
+                    if (!preflow.minCut(set_nodes[arc->getD()]))
+                    {
+                      cut_arcs += x[j][arc->getD()][r];
+                      cut_value += getNodeRel(x[j][arc->getD()][r]);
+                    }
                   }
                 }
-              }
-
-              if (has_constr)
-              {
-                for (u = 0; u < n; u++)
+                else
                 {
-                  if (usedNode[u] && preflow.minCut(setNodes[u]))
+                  for (auto arc : graph->getArcs(j))
                   {
-                    usedNode[u] = false;
-                    for (auto b : graph->getNode(u).second)
+                    if (!preflow.minCut(set_nodes[arc->getD()]))
                     {
-                      if (getNodeRel(y[u][b][r]) > mincut_value)
-                      {
-                        addCut(expr >= y[u][b][r]);
-                        num_frac_cuts++;
-                      }
+                      other_side_arcs += x[j][arc->getD()][r];
+                      other_side_value += getNodeRel(x[j][arc->getD()][r]);
+                      num_arcs_in_other_side++;
                     }
                   }
                 }
               }
+
+              // Add cut
+              if (num_arcs_in_other_side <= 0 || other_side_value <= cut_value)
+                continue;
+
+              addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
+              num_frac_cuts++;
             }
           }
         }
@@ -284,11 +260,13 @@ protected:
   }
 };
 
-Solution StochasticModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts)
+Solution StochasticModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts, Solution solution)
 {
   this->createVariables();
   this->initModel(model);
 
+  if (use_warm_start)
+    this->setStartSolution(solution);
   if (model == "MTZ")
     this->solveCompact(time_limit);
   else if (model == "EXP")
@@ -318,7 +296,7 @@ void StochasticModel::createVariables()
 
     x = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(n + 1, vector<GRBVar>(s + 1)));
     t = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(n + 1, vector<GRBVar>(s + 1)));
-    y = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(b, vector<GRBVar>(s + 1)));
+    y = vector<vector<GRBVar>>(b, vector<GRBVar>(s + 1));
     z = vector<vector<GRBVar>>(b, vector<GRBVar>(s + 1));
 
     for (int r = 0; r <= s; r++)
@@ -347,13 +325,10 @@ void StochasticModel::createVariables()
       }
 
       // Y
-      for (o = 0; o < n; o++)
+      for (int bl = 0; bl < b; bl++)
       {
-        for (int bl : graph->getNode(o).second)
-        {
-          sprintf(name, "y_%d_%d_%d", o, bl, r);
-          y[o][bl][r] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
-        }
+        sprintf(name, "y_%d_%d", bl, r);
+        y[bl][r] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
 
       // Z
@@ -385,7 +360,7 @@ void StochasticModel::initModel(string model)
 
   objectiveFunction();
   zValue(), artificialNodes(), flowConservation();
-  maxAttending(), timeConstraint(), attendingPath();
+  timeConstraint(), attendingPath();
 
   if (model == "MTZ")
     compactTimeConstraint();
@@ -403,16 +378,13 @@ void StochasticModel::objectiveFunction()
   GRBLinExpr objective;
   int b, i, j, N = graph->getN(), S = input->getS(), B = graph->getB();
 
-  for (i = 0; i < N; i++)
+  for (auto b = 0; b < B; b++)
   {
-    for (auto b : graph->getNode(i).second)
-    {
-      double expr = 0;
-      for (int s = 0; s < S; s++)
-        expr += input->getScenario(s).getProbability() * input->getAlpha() * input->getScenario(s).getCasesPerBlock(b);
+    double expr = 0;
+    for (int s = 0; s < S; s++)
+      expr += input->getScenario(s).getProbability() * input->getAlpha() * input->getScenario(s).getCasesPerBlock(b);
 
-      objective += (y[i][b][0] * (graph->getCasesPerBlock(b) + expr));
-    }
+    objective += (y[b][0] * (graph->getCasesPerBlock(b) + expr));
   }
 
   for (int s = 0; s < S; s++)
@@ -441,15 +413,8 @@ void StochasticModel::zValue()
 
     for (int b = 0; b < graph->getB(); b++)
     {
-      GRBLinExpr rhs, rhs2;
-      for (auto i : graph->getNodesFromBlock(b))
-      {
-        rhs += y[i][b][s];
-        rhs2 += y[i][b][0];
-      }
-
-      model.addConstr(z[b][s] <= rhs * ((1 - input->getAlpha()) * cases[b]) + (1 - rhs2) * input->getAlpha() * cases[b], "max_z_profit");
-      model.addConstr(z[b][s] <= rhs * cases[b], "z_bigm_profit");
+      model.addConstr(z[b][s] <= y[b][s] * ((1 - input->getAlpha()) * cases[b]) + (1 - y[b][0]) * input->getAlpha() * cases[b], "max_z_profit");
+      model.addConstr(z[b][s] <= y[b][s] * cases[b], "z_bigm_profit");
     }
   }
   model.update();
@@ -519,23 +484,23 @@ void StochasticModel::flowConservation()
 
 void StochasticModel::maxAttending()
 {
-  auto graph = input->getGraph();
-  int bl, b = graph->getB();
+  //   auto graph = input->getGraph();
+  //   int bl, b = graph->getB();
 
-  for (int s = 0; s <= input->getS(); s++)
-  {
-    for (bl = 0; bl < b; bl++)
-    {
-      GRBLinExpr maxServ;
-      for (auto i : graph->getNodesFromBlock(bl))
-        maxServ += y[i][bl][s];
+  //   for (int s = 0; s <= input->getS(); s++)
+  //   {
+  //     for (bl = 0; bl < b; bl++)
+  //     {
+  //       GRBLinExpr maxServ;
+  //       for (auto i : graph->getNodesFromBlock(bl))
+  //         maxServ += y[i][bl][s];
 
-      model.addConstr(maxServ <= 1, "max_service_block_" + to_string(bl));
-    }
-  }
-#ifndef Silence
-  cout << "[***] Constraint: Serve each block at most once" << endl;
-#endif
+  //       model.addConstr(maxServ <= 1, "max_service_block_" + to_string(bl));
+  //     }
+  //   }
+  // #ifndef Silence
+  //   cout << "[***] Constraint: Serve each block at most once" << endl;
+  // #endif
 }
 
 void StochasticModel::attendingPath()
@@ -547,14 +512,12 @@ void StochasticModel::attendingPath()
   {
     for (bl = 0; bl < b; bl++)
     {
+      GRBLinExpr served;
       for (auto i : graph->getNodesFromBlock(bl))
-      {
-        GRBLinExpr served;
         for (auto *arc : graph->getArcs(i))
           served += x[i][arc->getD()][s];
 
-        model.addConstr(served >= y[i][bl][s], "att_path_" + to_string(i) + "_" + to_string(bl));
-      }
+      model.addConstr(served >= y[bl][s], "att_path_" + to_string(bl));
     }
   }
 
@@ -578,9 +541,9 @@ void StochasticModel::timeConstraint()
         j = arc->getD();
         arcTravel += x[i][j][s] * arc->getLength();
       }
-      for (auto b : graph->getNode(i).second)
-        blockTravel += y[i][b][s] * graph->getTimePerBlock(b);
     }
+    for (auto b = 0; b < graph->getB(); b++)
+      blockTravel += y[b][s] * graph->getTimePerBlock(b);
     model.addConstr(arcTravel + blockTravel <= input->getT(), "max_time");
   }
 
@@ -607,19 +570,17 @@ void StochasticModel::compactTimeConstraint()
         if (j >= n)
           continue;
 
-        GRBLinExpr time_ij;
-        time_ij += t[i][j][s] + arc->getLength() * x[i][j][s];
-
-        for (auto b : graph->getNode(j).second)
-          time_ij += y[j][b][s] * graph->getTimePerBlock(b);
-
         for (auto *arcl : graph->getArcs(j))
         {
           k = arcl->getD();
-          model.addConstr(time_ij <= t[j][k][s] + (2 - x[i][j][s] - x[j][k][s]) * input->getT(), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+          model.addConstr(t[j][k][s] >= t[i][j][s] - (2 - x[i][j][s] - x[j][k][s]) * input->getT() + arc->getLength() * x[i][j][s], "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
         }
+
+        for (auto b : graph->getNode(i).second)
+          model.addConstr(t[i][j][s] <= input->getT() - y[b][s] * graph->getTimePerBlock(b), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
       }
     }
+
     for (i = 0; i < n; i++)
       model.addConstr(t[i][n][s] <= input->getT(), "max_time");
   }
@@ -654,7 +615,7 @@ void StochasticModel::solveExponential(string time_limit, bool frac_cut)
   {
     auto graph = input->getGraph();
     model.set("TimeLimit", time_limit);
-    model.set(GRB_DoubleParam_Heuristics, 1.0);
+    model.set(GRB_DoubleParam_Heuristics, 0.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
     stochasticCyclecallback cb = stochasticCyclecallback(input, graph->getN(), x, y, frac_cut);
     model.setCallback(&cb);
@@ -704,14 +665,14 @@ Solution StochasticModel::getSolution()
           x[s].push_back(make_pair(i, arc->getD()));
           time_used += arc->getLength();
         }
-
-      for (int b : graph->getNode(i).second)
-        if (this->y[i][b][s].get(GRB_DoubleAttr_X) > 0.5)
-        {
-          y[s].push_back(b);
-          time_used += graph->getTimePerBlock(b);
-        }
     }
+
+    for (int b = 0; b < graph->getB(); b++)
+      if (this->y[b][s].get(GRB_DoubleAttr_X) > 0.5)
+      {
+        y[s].push_back(b);
+        time_used += graph->getTimePerBlock(b);
+      }
   }
 
   Solution solution = Solution(of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
@@ -766,32 +727,10 @@ bool StochasticModel::checkSolution()
         }
       }
     }
+
     // Check visiting
     for (i = 0; i <= n; i++)
     {
-      for (int b : graph->getNode(i).second)
-      {
-        if (y[i][b][r].get(GRB_DoubleAttr_X) > 0.5)
-        {
-          time += graph->getTimePerBlock(b);
-
-          bool is_node_in_path = false;
-          for (auto j : graph->getNodesFromBlock(b))
-          {
-            if (visited[j])
-            {
-              is_node_in_path = true;
-              break;
-            }
-          }
-          if (!is_node_in_path)
-          {
-            cout << "[!!!] Not visited node!" << endl;
-            return false;
-          }
-        }
-      }
-
       for (auto *arc : graph->getArcs(i))
       {
         if (x[i][arc->getD()][r].get(GRB_DoubleAttr_X) > 0.8)
@@ -803,6 +742,29 @@ bool StochasticModel::checkSolution()
             cout << i << " " << arc->getD() << endl;
             return false;
           }
+        }
+      }
+    }
+
+    for (int b = 0; b < graph->getB(); b++)
+    {
+      if (y[b][r].get(GRB_DoubleAttr_X) > 0.5)
+      {
+        time += graph->getTimePerBlock(b);
+
+        bool is_node_in_path = false;
+        for (auto j : graph->getNodesFromBlock(b))
+        {
+          if (visited[j])
+          {
+            is_node_in_path = true;
+            break;
+          }
+        }
+        if (!is_node_in_path)
+        {
+          cout << "[!!!] Not visited node!" << endl;
+          return false;
         }
       }
     }

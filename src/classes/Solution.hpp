@@ -86,6 +86,10 @@ public:
 
   void setS(int s) { this->S = s; }
 
+  vector<int> getYFromScenario(int s) { return y[s]; }
+
+  vector<int_pair> getXFromScenario(int s) { return x[s]; }
+
   int getS() { return S; }
 
   vector<vector<int>> getY() { return y; }

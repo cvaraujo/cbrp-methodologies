@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
 
   StochasticModel *sm = new StochasticModel(input);
-  Solution sol = sm->Run(false, "60", "MTZ", false);
+  Solution sol = sm->Run(false, "60", "MTZ", false, Solution());
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelExp)
   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
 
   StochasticModel *sm = new StochasticModel(input);
-  Solution sol = sm->Run(false, "60", "EXP", false);
+  Solution sol = sm->Run(false, "60", "EXP", false, Solution());
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelExpFrac)
   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
 
   StochasticModel *sm = new StochasticModel(input);
-  Solution sol = sm->Run(false, "60", "EXP", true);
+  Solution sol = sm->Run(false, "60", "EXP", true, Solution());
 
   sol.WriteSolution("result_stochastic_mtz.txt");
 
@@ -280,9 +280,9 @@ BOOST_AUTO_TEST_CASE(checkStochasticModels)
   StochasticModel *sm2 = new StochasticModel(input);
   StochasticModel *sm3 = new StochasticModel(input);
 
-  Solution sol = sm->Run(false, "600", "MTZ", false);
-  Solution sol2 = sm2->Run(false, "600", "EXP", false);
-  Solution sol3 = sm3->Run(false, "600", "EXP", true);
+  Solution sol = sm->Run(false, "600", "MTZ", false, Solution());
+  Solution sol2 = sm2->Run(false, "600", "EXP", false, Solution());
+  Solution sol3 = sm3->Run(false, "600", "EXP", true, Solution());
 
   sol.WriteSolution("result_stochastic_mtz.txt");
   sol2.WriteSolution("result_stochastic_exp.txt");
@@ -329,3 +329,63 @@ BOOST_AUTO_TEST_CASE(testGreedyHeuristicAvg)
 
   BOOST_TEST(round(of) == round(196.45000000000005));
 }
+
+BOOST_AUTO_TEST_CASE(testDeterministicModels)
+{
+  cout << "Stochastic Model Exponential Frac. Cuts" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 600;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  DeterministicModel *sm = new DeterministicModel(input);
+  DeterministicModel *sm2 = new DeterministicModel(input);
+  DeterministicModel *sm3 = new DeterministicModel(input);
+
+  Solution sol = sm->Run(false, "600", "MTZ", false);
+  sol.WriteSolution("result_deterministic_mtz.txt");
+
+  Solution sol2 = sm2->Run(false, "600", "EXP", false);
+  sol2.WriteSolution("result_deterministic_exp.txt");
+
+  Solution sol3 = sm3->Run(false, "600", "EXP", true);
+  sol2.WriteSolution("result_deterministic_exp_frac.txt");
+
+  cout << sol.getOf() << ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+
+  BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
+  BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
+}
+
+// BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
+// {
+//   cout << "Stochastic Model Exponential Frac. Cuts" << endl;
+//   string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-200-3.txt";
+//   //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
+//   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+//   string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-200-3.txt";
+//   int graph_adapt = 0, default_vel = 20, neblize_vel = 10, T = 600;
+//   double alpha = 0.8;
+
+//   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+//   StochasticModel *sm = new StochasticModel(input);
+//   StochasticModel *sm2 = new StochasticModel(input);
+//   StochasticModel *sm3 = new StochasticModel(input);
+
+//   Solution sol = sm->Run(false, "120", "MTZ", false, Solution());
+//   sol.WriteSolution("result_stochastic_mtz.txt");
+
+//   Solution sol2 = sm2->Run(false, "120", "EXP", false, sol);
+//   sol2.WriteSolution("result_stochastic_exp.txt");
+
+//   Solution sol3 = sm3->Run(false, "120", "EXP", true, sol);
+//   sol3.WriteSolution("result_stochastic_exp_frac.txt");
+
+//   cout << sol.getOf() << ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+
+//   BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
+//   BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
+// }
