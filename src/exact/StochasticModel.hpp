@@ -40,22 +40,30 @@ public:
   void setStartSolution(Solution solution)
   {
     // Route
-    cout << "Setting start solution" << endl;
+#ifndef Silence
+    cout << "[***] Setting start solution" << endl;
+#endif
+
+    Graph *graph = this->input->getGraph();
+    ShortestPath *sp = this->input->getShortestPath();
+
     for (int s = 0; s <= input->getS(); s++)
     {
       // Arc
       for (auto arc : solution.getXFromScenario(s))
       {
-        // cout << "S: " << s << " O: " << arc.first << " D: " << arc.second << endl;
-        x[arc.first][arc.second][s].set(GRB_DoubleAttr_Start, 1.0);
-        // model.addConstr(x[arc.first][arc.second][s] == 1, "solution_x");
+        {
+          cout << "S: " << s << " I: " << arc.first << " J: " << arc.second << endl;
+          this->x[arc.first][arc.second][s].set(GRB_DoubleAttr_Start, 1.0);
+          model.addConstr(x[arc.first][arc.second][s] == 1, "solution_x");
+        }
       }
 
       // Blocks
       for (int b : solution.getYFromScenario(s))
       {
-        // cout << "S: " << s << " B: " << b << endl;
-        y[b][s].set(GRB_DoubleAttr_Start, 1.0);
+        cout << "S: " << s << " B: " << b << endl;
+        // this->y[b][s].set(GRB_DoubleAttr_Start, 1.0);
         // model.addConstr(y[b][s] == 1, "solution_y");
       }
     }

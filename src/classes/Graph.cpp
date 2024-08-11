@@ -3,6 +3,7 @@
 //
 
 #include "Graph.hpp"
+#include "Arc.hpp"
 
 Graph::Graph(string instance, int km_path, int km_nebulize)
 {
@@ -78,8 +79,24 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize)
 
       Arc *arc = new Arc(i, j, travel_time, block);
 
-      arcs_matrix[i][j] = arc;
-      arcs[i].push_back(arc);
+      if (arcs_matrix[i][j] != nullptr)
+      {
+        arcs_matrix[i][j]->setBlock(block);
+        arc = arcs_matrix[i][j];
+      }
+      else
+      {
+        arcs_matrix[i][j] = arc;
+        arcs[i].push_back(arc);
+      }
+
+      if (arcs_matrix[j][i] == nullptr)
+      {
+        Arc *rev_arc = new Arc(j, i, travel_time, -1);
+        arcs_matrix[j][i] = rev_arc;
+        this->arcs[j].push_back(rev_arc);
+      }
+
       if (block != -1)
       {
         arcs_per_block[block].push_back(arc);

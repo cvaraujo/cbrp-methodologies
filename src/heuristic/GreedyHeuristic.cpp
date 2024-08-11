@@ -32,7 +32,10 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, do
         {
             auto vertices = bc->getBlocksAttendPath(key);
             for (int j = 0; j < vertices.size() - 1; j++)
+            {
+                cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
                 x.push_back({vertices[j], vertices[j + 1]});
+            }
             break;
         }
         else
@@ -46,7 +49,7 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, do
     return of;
 }
 
-double GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y)
+Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg)
 {
     // Get all blocks
     Graph *graph = input->getGraph();
@@ -103,34 +106,5 @@ double GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_
             of += input->getScenario(s).getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, y[s + 1], x[s + 1]);
     }
 
-    for (int s = 0; s < S + 1; s++)
-    {
-        sol_y.push_back(vector<pair<int, int>>());
-        sol_x.push_back(vector<pair<int, int>>());
-#ifndef Silence
-        cout << "Scenario " << s << endl;
-#endif
-        for (auto b : y[s])
-        {
-#ifndef Silence
-            cout << "Y: " << b << endl;
-#endif
-        }
-
-        for (auto i : x[s])
-            if (i.first > graph->getN())
-                cout << "X: " << i.first - 1 << " - " << i.second << endl;
-            else
-            {
-                sol_x[s].push_back({i.second, i.first});
-#ifndef Silence
-                cout << "X: " << i.second << " - " << i.first << endl;
-#endif
-            }
-#ifndef Silence
-        cout << "--------------------------" << endl;
-#endif
-    }
-
-    return of;
+    return Solution(of, y, x);
 }

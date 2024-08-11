@@ -35,6 +35,8 @@ public:
     int ShortestPathST(int s, int t, vector<int> &path);
 
     int SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map<int, bool>> &arcs);
+
+    vector<int> getPath(int s, int t);
 };
 
 #endif // SCBRP_SHP_H

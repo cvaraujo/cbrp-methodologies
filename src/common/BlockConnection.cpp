@@ -23,14 +23,27 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
     // Heuristic to define the sequence of attending blocks
     connect_order = this->getBestOrderToAttendBlocks(blocks);
 
+    // cout << "Connect order: " << endl;
+    // for (auto i : connect_order)
+    // {
+    //     cout << "B: " << i << endl;
+    //     for (auto j : nodes_per_block[i])
+    //         cout << "N: " << j << ", ";
+    //     cout << endl;
+    // }
+
     // Create the DAG
     int V;
     vector<vector<Arc>> dag = this->createLayeredDag(connect_order, dag_2_graph, V);
+
+    // cout << "Create DAG" << endl;
 
     // SHP on DAG
     vector<int> pred;
     path = vector<int>();
     int cost = ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, pred);
+
+    // cout << "SHP: " << cost << endl;
 
     // Get the path
     int v = V + 1, last_inserted = -1;
@@ -39,7 +52,16 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
     {
         if (dag_2_graph[v] != last_inserted)
         {
-            path.push_back(dag_2_graph[v]);
+            if (last_inserted != -1 && graph->getArc(last_inserted, dag_2_graph[v]) == nullptr)
+            {
+                vector<int> pair_path = sp->getPath(last_inserted, dag_2_graph[v]);
+                path.insert(path.end(), pair_path.begin() + 1, pair_path.end());
+            }
+            else
+            {
+                path.push_back(dag_2_graph[v]);
+            }
+
             last_inserted = dag_2_graph[v];
         }
         v = pred[v];
@@ -50,8 +72,17 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
 
     path.push_back(dag_2_graph[V]);
 
+    // cout << "SHP that connects blocks: " << cost << endl;
+
+    // for (auto i : path)
+    // {
+    //     cout << i << ", ";
+    // }
+    // cout << endl;
+
     this->setBlocksAttendPath(key, path);
     this->setBlocksAttendCost(key, cost);
+    // getchar();
     return cost;
 }
 

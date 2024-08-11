@@ -59,6 +59,8 @@ public:
 
     vector<vector<int>> getBlock2BlockCost() { return this->block_2_block_cost; }
 
+    int getBlock2BlockCost(int i, int j) { return this->block_2_block_cost[i][j]; }
+
     bool keyExists(string key) { return this->blocks_attend_cost.find(key) != this->blocks_attend_cost.end(); }
 
     void updateBlock2BlockCost(int i, int j, int cost) { this->block_2_block_cost[i][j] = cost; }

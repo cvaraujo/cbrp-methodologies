@@ -145,3 +145,25 @@ void ShortestPath::allPairsShortestPath()
         }
     }
 }
+
+vector<int> ShortestPath::getPath(int s, int t)
+{
+    if (s >= ij_path.size() || t >= ij_path[s].size())
+        return vector<int>();
+
+    if (!ij_path[s][t].empty())
+        return ij_path[s][t];
+
+    // cout << "Path to " << s << " to " << t << endl;
+    vector<int> path = {s};
+    int v = s;
+    while (v != t)
+    {
+        v = next[v][t];
+        path.push_back(v);
+        // cout << "V: " << v << endl;
+    }
+
+    ij_path[s][t] = path;
+    return path;
+}

@@ -1,6 +1,6 @@
 #include "Input.hpp"
 
-Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int default_vel, int neblize_vel, int T, double alpha)
+Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool block_2_block_graph, int default_vel, int neblize_vel, int T, double alpha)
 {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
     if (scenarios_graph != "")
@@ -10,18 +10,44 @@ Input::Input(string file_graph, string scenarios_graph, int graph_adapt, int def
     this->sp = new ShortestPath(this->graph);
     this->bc = new BlockConnection(this->graph, this->sp);
     this->T = T;
-    this->graph_adapt = graph_adapt;
+    this->preprocessing = preprocessing;
     this->default_vel = default_vel;
     this->neblize_vel = neblize_vel;
     this->alpha = alpha;
+    this->is_trail = is_trail;
+    this->block_2_block_graph = block_2_block_graph;
 
-    if (this->graph_adapt == 1)
+    if (preprocessing)
         this->reduceGraphToPositiveCases();
+    else
+    {
+        int B = graph->getB();
+        vector<vector<int>> block_2_block_cost = vector<vector<int>>(B, vector<int>(B, INF));
+
+        for (int b = 0; b < B - 1; b++)
+        {
+            for (int b2 = b + 1; b2 < B; b2++)
+            {
+                set<int> nodes_in_path;
+                map<int, map<int, bool>> arcs_in_path;
+                int cost = sp->SHPBetweenBlocks(b, b2, nodes_in_path, arcs_in_path);
+
+                if (cost < INF)
+                    block_2_block_cost[b][b2] = block_2_block_cost[b2][b] = cost;
+            }
+        }
+
+        this->bc->setBlock2BlockCost(block_2_block_cost);
+    }
+
+    if (block_2_block_graph)
+        this->walkAdaptMTZModel();
 
 #ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;
 #endif
 }
+
 void Input::reduceGraphToPositiveCases()
 {
     // Re-map blocks
@@ -179,6 +205,9 @@ void Input::reduceGraphToPositiveCases()
     graph->setN(N);
     graph->setNodesPerBlock(nodes_per_block);
 
+    // Reset shortest path
+    this->setShortestPath(new ShortestPath(graph));
+
     // for (auto node : new_nodes)
     // {
     //     cout << "N: " << node.first << endl;
@@ -229,4 +258,41 @@ void Input::loadScenarios(string instance)
 #ifndef Silence
     cout << "Load Scenarios successfully" << endl;
 #endif
+}
+
+void Input::walkAdaptMTZModel()
+{
+#ifndef Silence
+    cout << "Walk Adapt MTZ Model" << endl;
+#endif
+
+    // trail adapt MTZ model
+    int i = 0, B = graph->getB(), length;
+    BlockConnection *bc = this->bc;
+    vector<vector<Arc *>> new_arcs = vector<vector<Arc *>>(B);
+    vector<vector<Arc *>> new_arcs_matrix = vector<vector<Arc *>>(B, vector<Arc *>(B));
+    vector<pair<int, set<int>>> new_nodes = vector<pair<int, set<int>>>(B);
+    vector<set<int>> new_nodes_per_block = vector<set<int>>(B);
+
+    int new_n = B;
+    for (int b = 0; b < B; b++)
+    {
+        new_nodes[b].second = set<int>{b};
+        new_nodes_per_block[b] = set<int>{b};
+
+        for (int bl = b + 1; bl < B; bl++)
+        {
+            length = bc->getBlock2BlockCost(b, bl);
+
+            Arc *arc = new Arc(b, bl, length, -1);
+            Arc *rev_arc = new Arc(bl, b, length, -1);
+
+            new_arcs[b].push_back(arc), new_arcs[bl].push_back(rev_arc);
+            new_arcs_matrix[b][bl] = arc, new_arcs_matrix[bl][b] = rev_arc;
+        }
+    }
+
+    this->graph->setArcs(new_arcs), this->graph->setArcsMatrix(new_arcs_matrix);
+    this->graph->setNodes(new_nodes), this->graph->setNodesPerBlock(new_nodes_per_block);
+    this->graph->setN(new_n);
 }

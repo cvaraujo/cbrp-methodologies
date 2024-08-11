@@ -100,6 +100,8 @@ public:
 
   void setArcs(vector<vector<Arc *>> arcs) { this->arcs = arcs; }
 
+  void setArcsMatrix(vector<vector<Arc *>> arcs) { this->arcs_matrix = arcs; }
+
   vector<set<int>> getNodesPerBlock() { return nodes_per_block; }
 
   int getN() const { return N; }

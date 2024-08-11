@@ -7,6 +7,7 @@
 
 #include "../classes/Parameters.hpp"
 #include "../classes/Input.hpp"
+#include "../classes/Solution.hpp"
 #include "../common/Knapsack.hpp"
 #include "../common/BlockConnection.hpp"
 
@@ -49,7 +50,7 @@ public:
 
     double SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x);
 
-    double Run(double route_time_increase, int max_tries, bool use_avg, vector<vector<pair<int, int>>> &sol_x, vector<vector<pair<int, int>>> &sol_y);
+    Solution Run(double route_time_increase, int max_tries, bool use_avg);
 };
 
 #endif

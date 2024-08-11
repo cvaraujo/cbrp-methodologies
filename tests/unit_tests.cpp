@@ -5,7 +5,7 @@
 #include "../src/exact/DeterministicModel.hpp"
 #include "../src/exact/StochasticModel.hpp"
 #include "../src/heuristic/GreedyHeuristic.hpp"
-
+/*
 #define BOOST_TEST_MODULE your_test_module
 #include <boost/test/included/unit_test.hpp>
 
@@ -359,33 +359,69 @@ BOOST_AUTO_TEST_CASE(testDeterministicModels)
   BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
 }
 
-// BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
-// {
-//   cout << "Stochastic Model Exponential Frac. Cuts" << endl;
-//   string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-200-3.txt";
-//   //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
-//   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
-//   string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-200-3.txt";
-//   int graph_adapt = 0, default_vel = 20, neblize_vel = 10, T = 600;
-//   double alpha = 0.8;
+BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
+{
+  cout << "Stochastic Model Exponential Frac. Cuts" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-200-1.txt";
+  //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
+  // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-200-1.txt";
+  int graph_adapt = 0, default_vel = 20, neblize_vel = 10, T = 600;
+  double alpha = 0.8;
 
-//   Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
 
-//   StochasticModel *sm = new StochasticModel(input);
-//   StochasticModel *sm2 = new StochasticModel(input);
-//   StochasticModel *sm3 = new StochasticModel(input);
+  GreedyHeuristic *gh = new GreedyHeuristic(input);
+  // StochasticModel *sm = new StochasticModel(input);
+  // StochasticModel *sm2 = new StochasticModel(input);
+  // StochasticModel *sm3 = new StochasticModel(input);
 
-//   Solution sol = sm->Run(false, "120", "MTZ", false, Solution());
-//   sol.WriteSolution("result_stochastic_mtz.txt");
+  Solution g_sol = gh->Run(0.01, 50, false);
 
-//   Solution sol2 = sm2->Run(false, "120", "EXP", false, sol);
-//   sol2.WriteSolution("result_stochastic_exp.txt");
+  cout << g_sol.getOf() << endl;
+  // Solution sol = sm->Run(true, "120", "MTZ", false, g_sol);
+  // sol.WriteSolution("result_stochastic_mtz.txt");
 
-//   Solution sol3 = sm3->Run(false, "120", "EXP", true, sol);
-//   sol3.WriteSolution("result_stochastic_exp_frac.txt");
+  // Solution sol2 = sm2->Run(true, "120", "EXP", false, g_sol);
+  // sol2.WriteSolution("result_stochastic_exp.txt");
 
-//   cout << sol.getOf() << ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+  // Solution sol3 = sm3->Run(true, "120", "EXP", true, g_sol);
+  // sol3.WriteSolution("result_stochastic_exp_frac.txt");
 
-//   BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
-//   BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
-// }
+  // cout << g_sol.getOf() << " <= " << sol.getOf() << ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+
+  // BOOST_TEST(round(sol.getOf()) == round(sol2.getOf()));
+  // BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
+}
+*/
+int main()
+{
+  cout << "Greedy Algorithm!" << endl;
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
+  //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
+  // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_scenarios = "";
+  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 2000;
+  double alpha = 0.8;
+
+  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+
+  GreedyHeuristic *gh = new GreedyHeuristic(input);
+  StochasticModel *sm = new StochasticModel(input);
+  // StochasticModel *sm2 = new StochasticModel(input);
+  // StochasticModel *sm3 = new StochasticModel(input);
+  Solution g_sol = gh->Run(0.01, 50, false);
+
+  cout << g_sol.getOf() << endl;
+  Solution sol = sm->Run(true, "120", "MTZ", false, g_sol);
+  sol.WriteSolution("result_stochastic_mtz.txt");
+
+  // Solution sol2 = sm2->Run(true, "120", "EXP", false, g_sol);
+  // sol2.WriteSolution("result_stochastic_exp.txt");
+
+  // Solution sol3 = sm3->Run(true, "120", "EXP", true, g_sol);
+  // sol3.WriteSolution("result_stochastic_exp_frac.txt");
+
+  cout << g_sol.getOf() << " <= " << sol.getOf() << endl; //<< ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+  return 0;
+}
