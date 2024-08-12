@@ -394,34 +394,35 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
   // BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
 }
 */
-int main()
+int main(int argc, const char *argv[])
 {
-  cout << "Greedy Algorithm!" << endl;
-  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
   //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
   string file_scenarios = "";
-  int graph_adapt = 1, default_vel = 20, neblize_vel = 10, T = 2000;
+  int default_vel = 20, neblize_vel = 10, T = 2000;
   double alpha = 0.8;
+  bool use_preprocessing = true, is_trail = false, block_2_block_graph = true;
 
-  Input *input = new Input(file_graph, file_scenarios, graph_adapt, default_vel, neblize_vel, T, alpha);
+  Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, block_2_block_graph, default_vel, neblize_vel, T, alpha);
+  input->getGraph()->ShowGraph();
 
-  GreedyHeuristic *gh = new GreedyHeuristic(input);
-  StochasticModel *sm = new StochasticModel(input);
-  // StochasticModel *sm2 = new StochasticModel(input);
-  // StochasticModel *sm3 = new StochasticModel(input);
-  Solution g_sol = gh->Run(0.01, 50, false);
+  // GreedyHeuristic *gh = new GreedyHeuristic(input);
+  // StochasticModel *sm = new StochasticModel(input);
+  // // StochasticModel *sm2 = new StochasticModel(input);
+  // // StochasticModel *sm3 = new StochasticModel(input);
+  // Solution g_sol = gh->Run(0.01, 50, false);
 
-  cout << g_sol.getOf() << endl;
-  Solution sol = sm->Run(true, "120", "MTZ", false, g_sol);
-  sol.WriteSolution("result_stochastic_mtz.txt");
+  // cout << g_sol.getOf() << endl;
+  // Solution sol = sm->Run(true, "120", "MTZ", false, g_sol);
+  // sol.WriteSolution("result_stochastic_mtz.txt");
 
-  // Solution sol2 = sm2->Run(true, "120", "EXP", false, g_sol);
-  // sol2.WriteSolution("result_stochastic_exp.txt");
+  // // Solution sol2 = sm2->Run(true, "120", "EXP", false, g_sol);
+  // // sol2.WriteSolution("result_stochastic_exp.txt");
 
-  // Solution sol3 = sm3->Run(true, "120", "EXP", true, g_sol);
-  // sol3.WriteSolution("result_stochastic_exp_frac.txt");
+  // // Solution sol3 = sm3->Run(true, "120", "EXP", true, g_sol);
+  // // sol3.WriteSolution("result_stochastic_exp_frac.txt");
 
-  cout << g_sol.getOf() << " <= " << sol.getOf() << endl; //<< ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
+  // cout << g_sol.getOf() << " <= " << sol.getOf() << endl; //<< ", " << sol2.getOf() << ", " << sol3.getOf() << endl;
   return 0;
 }

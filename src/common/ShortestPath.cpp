@@ -1,6 +1,6 @@
 #include "ShortestPath.hpp"
 
-int ShortestPath::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map<int, bool>> &arcs)
+int ShortestPath::SHPBetweenBlocks(int b1, int b2, set<int> &nodes)
 {
     auto nodes_from_b1 = graph->getNodesFromBlock(b1);
     auto nodes_from_b2 = graph->getNodesFromBlock(b2);
@@ -19,15 +19,15 @@ int ShortestPath::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map
         }
     }
 
-    int shortest_path = INF;
-    vector<int> shp;
+    int shortest_path = INF, value;
+    vector<int> shp, path;
 
     for (int node : nodes_from_b1)
     {
         for (int node2 : nodes_from_b2)
         {
-            vector<int> path;
-            int value = ShortestPathST(node, node2, path);
+            path = vector<int>();
+            value = ShortestPathST(node, node2, path);
 
             if (value < shortest_path)
                 shortest_path = value, shp = path;
@@ -36,12 +36,8 @@ int ShortestPath::SHPBetweenBlocks(int b1, int b2, set<int> &nodes, map<int, map
 
     if (shortest_path < INF)
     {
-        for (int i = 0; i < shp.size(); i++)
-        {
-            nodes.insert(shp[i]);
-            if (i + 1 < shp.size())
-                arcs[shp[i]][shp[i + 1]] = true;
-        }
+        for (int i : shp)
+            nodes.insert(i);
         return shortest_path;
     }
 

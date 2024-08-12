@@ -14,8 +14,8 @@ private:
     double alpha = 0.8;
     bool preprocessing = false, is_trail = false, block_2_block_graph = false;
     Graph *graph;
-    ShortestPath *sp;
-    BlockConnection *bc;
+    ShortestPath *sp = nullptr;
+    BlockConnection *bc = nullptr;
     vector<Scenario> scenarios;
 
 public:
@@ -24,6 +24,8 @@ public:
     Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool block_2_block_graph, int default_vel, int neblize_vel, int T, double alpha);
 
     ~Input() {}
+
+    void updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes);
 
     void reduceGraphToPositiveCases();
 

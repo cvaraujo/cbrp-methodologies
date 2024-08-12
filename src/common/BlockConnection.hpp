@@ -35,6 +35,33 @@ public:
 
     int HeuristicBlockConnection(Graph *graph, ShortestPath *sp, vector<int> blocks, string key);
 
+    set<int> computeBlock2BlockCost()
+    {
+        // Remove unecessary arcs between blocks
+        int B = graph->getB();
+        this->block_2_block_cost = vector<vector<int>>(B, vector<int>(B, INF));
+        set<int> set_of_used_nodes, nodes_in_path, union_set;
+
+        for (int b = 0; b < B - 1; b++)
+        {
+            for (int b2 = b + 1; b2 < B; b2++)
+            {
+                nodes_in_path = set<int>();
+                int cost = this->sp->SHPBetweenBlocks(b, b2, nodes_in_path);
+
+                if (cost < INF)
+                {
+                    union_set = set<int>();
+                    set_union(nodes_in_path.begin(), nodes_in_path.end(), set_of_used_nodes.begin(), set_of_used_nodes.end(), inserter(union_set, union_set.begin()));
+                    set_of_used_nodes = union_set;
+                    this->block_2_block_cost[b][b2] = this->block_2_block_cost[b2][b] = cost;
+                }
+            }
+        }
+
+        return set_of_used_nodes;
+    };
+
     static string GenerateStringFromIntVector(vector<int> blocks)
     {
         stringstream result;
