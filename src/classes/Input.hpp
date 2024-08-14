@@ -25,11 +25,13 @@ public:
 
     ~Input() {}
 
-    void updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes);
+    void updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs);
 
     void reduceGraphToPositiveCases();
 
     void loadScenarios(string instance);
+
+    void getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>> &used_arcs);
 
     void walkAdaptMTZModel();
 

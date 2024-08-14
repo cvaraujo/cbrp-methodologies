@@ -25,7 +25,7 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
 #endif
 }
 
-void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes)
+void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs)
 {
     // Re-map blocks in nodes and arcs
     int N = graph->getN(), newN = 0, bl;
@@ -38,7 +38,10 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     for (int i = 0; i < N; i++)
     {
         if (set_of_used_nodes.find(i) == set_of_used_nodes.end())
+        {
+            cout << "Remove node " << i << endl;
             continue;
+        }
 
         new_nodes.push_back(pair<int, set<int>>());
         new_nodes[newN].first = newN;
@@ -69,22 +72,69 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
 
         for (auto arc : graph->getArcs(i))
         {
-            int new_o = map_new_nodes[i];
-
-            if (map_new_nodes.find(arc->getD()) != map_new_nodes.end())
+            if (!used_arcs[i][arc->getD()])
             {
-                int new_d = map_new_nodes[arc->getD()];
-                auto new_arc = new Arc(*arc);
-                new_arc->setO(new_o), new_arc->setD(new_d);
-                new_arcs[new_o].push_back(new_arc);
+                cout << "Remove arc " << i << " - " << arc->getD() << endl;
+                continue;
             }
+
+            int new_o = map_new_nodes[i], new_d = map_new_nodes[arc->getD()];
+            auto new_arc = new Arc(*arc);
+            new_arc->setO(new_o), new_arc->setD(new_d);
+            new_arcs[new_o].push_back(new_arc);
         }
     }
 
+    getchar();
     this->graph->setNodes(new_nodes);
     this->graph->setArcs(new_arcs);
     this->graph->setNodesPerBlock(nodes_per_block);
     this->graph->setN(newN);
+}
+
+void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>> &used_arcs)
+{
+    int B = graph->getB();
+    vector<int> path;
+    if (graph->getPB() < 3)
+        return;
+
+    for (int b1 = 0; b1 < B; b1++)
+    {
+        if (graph->getCasesPerBlock(b1) <= 0)
+            continue;
+
+        for (int b2 = 0; b2 < B; b2++)
+        {
+            if (b2 == b1 || graph->getCasesPerBlock(b2) <= 0)
+                continue;
+
+            for (auto i : graph->getNodesFromBlock(b1))
+            {
+                for (auto j : graph->getNodesFromBlock(b2))
+                {
+                    if (i == j)
+                        continue;
+
+                    path = this->sp->getPath(i, j);
+
+                    // Intermediate nodes
+                    for (int k = 0; k < path.size(); k++)
+                    {
+                        int node = path[k];
+                        for (auto b3 : graph->getNode(node).second)
+                        {
+                            if (b3 == -1 || b3 == b1 || b3 == b2 || graph->getCasesPerBlock(b3) <= 0)
+                                continue;
+
+                            used_nodes.insert(node);
+                            used_arcs[path[k - 1]][path[k]] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void Input::reduceGraphToPositiveCases()
@@ -140,12 +190,11 @@ void Input::reduceGraphToPositiveCases()
     if (this->bc == nullptr)
         this->bc = new BlockConnection(graph, sp);
 
-#ifndef Silence
-    cout << "[*] Create SHP and BC" << endl;
-#endif
+    set<int> used_nodes;
+    vector<vector<bool>> used_arcs = vector<vector<bool>>(N + 1, vector<bool>(N + 1, false));
+    this->getSetOfNodesPreprocessing(used_nodes, used_arcs);
 
-    set<int> set_of_used_nodes = bc->computeBlock2BlockCost();
-    this->updateBlocksInGraph(positive_block_to_block, set_of_used_nodes);
+    this->updateBlocksInGraph(positive_block_to_block, used_nodes, used_arcs);
 
     graph->setCasesPerBlock(cases_per_block);
     graph->setTimePerBlock(time_per_block);
