@@ -85,7 +85,6 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
         }
     }
 
-    getchar();
     this->graph->setNodes(new_nodes);
     this->graph->setArcs(new_arcs);
     this->graph->setNodesPerBlock(nodes_per_block);
@@ -261,41 +260,25 @@ void Input::walkAdaptMTZModel()
 #endif
 
     // trail adapt MTZ model
-    int i, length, B = graph->getB();
-    vector<vector<Arc *>> new_arcs = vector<vector<Arc *>>(B + 1);
-    vector<vector<Arc *>> new_arcs_matrix = vector<vector<Arc *>>(B + 1, vector<Arc *>(B + 1));
-    vector<pair<int, set<int>>> new_nodes = vector<pair<int, set<int>>>(B + 1);
-    vector<set<int>> new_nodes_per_block = vector<set<int>>(B + 1);
+    int i, length;
+    vector<int> path;
 
-    int new_n = B;
-    for (int b = 0; b < B; b++)
+    // Add new arcs
+    for (int i = 0; i < graph->getN(); i++)
     {
-        new_nodes[b] = make_pair(b, set<int>{b});
-        new_nodes_per_block[b] = set<int>{b};
-
-        for (int bl = b + 1; bl < B; bl++)
+        for (int j = 0; j < graph->getN(); j++)
         {
-            length = bc->getBlock2BlockCost(b, bl);
-            cout << "Distance from " << b << " to " << bl << ": " << length << endl;
-            Arc *arc = new Arc(b, bl, length, -1);
-            Arc *rev_arc = new Arc(bl, b, length, -1);
+            if (i == j || graph->getArc(i, j) != nullptr)
+                continue;
 
-            new_arcs[b].push_back(arc), new_arcs[bl].push_back(rev_arc);
-            new_arcs_matrix[b][bl] = arc, new_arcs_matrix[bl][b] = rev_arc;
+            length = sp->ShortestPathST(i, j, path);
+            if (length != INF)
+            {
+                Arc *arc = new Arc(i, j, length, -1);
+                graph->addArc(i, arc);
+            }
         }
     }
-
-    getchar();
-    // Add artificial nodes
-    new_nodes.push_back(make_pair(B, set<int>()));
-    new_arcs.push_back(vector<Arc *>());
-    for (int i = 0; i < B; i++)
-        new_arcs[B].push_back(new Arc(B, i, 0, -1)), new_arcs[i].push_back(new Arc(i, B, 0, -1));
-
-    // Update graph
-    this->graph->setArcs(new_arcs), this->graph->setArcsMatrix(new_arcs_matrix);
-    this->graph->setNodes(new_nodes), this->graph->setNodesPerBlock(new_nodes_per_block);
-    this->graph->setN(new_n);
 
     // Show new graph
     for (int i = 0; i <= graph->getN(); i++)
@@ -307,4 +290,42 @@ void Input::walkAdaptMTZModel()
 #ifndef Silence
     cout << "Walk Adapt MTZ Model Finished!" << endl;
 #endif
+
+    getchar();
+}
+
+void Input::filterMostDifferentScenarios(int new_s)
+{
+    vector<double> cases_in_scenarios = this->graph->getCasesPerBlock();
+    vector<Scenario> new_scenarios;
+
+    int ns = 0;
+    while (ns < new_s)
+    {
+        double diff_factor = 0.0;
+        int best_idx = -1;
+
+        for (int s = 0; s < this->S; s++)
+        {
+            Scenario scenario = this->scenarios[s];
+
+            double diff = 0.0;
+            for (int b = 0; b < graph->getB(); b++)
+                diff += abs(scenario.getCasesPerBlock(b) - cases_in_scenarios[b]);
+
+            if (diff > diff_factor)
+            {
+                best_idx = s;
+                diff_factor = diff;
+            }
+        }
+        for (int b = 0; b < graph->getB(); b++)
+            cases_in_scenarios[b] += this->scenarios[best_idx].getCasesPerBlock(b);
+
+        new_scenarios.push_back(this->scenarios[best_idx]);
+        ns++;
+    }
+
+    this->S = newS;
+    this->scenarios = new_scenarios;
 }

@@ -71,6 +71,8 @@ public:
       this->arcs[N].push_back(new Arc(n, i, 0, -1)), this->arcs[i].push_back(new Arc(i, n, 0, -1));
   };
 
+  void addArc(int i, Arc *arc) { this->arcs[i].push_back(arc); }
+
   vector<Arc *> getArcsPerBlock(int block) { return arcs_per_block[block]; }
 
   void setCasesPerBlock(int block, double cases) { cases_per_block[block] = cases; }
