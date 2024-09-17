@@ -123,7 +123,7 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>
                         int node = path[k];
                         for (auto b3 : graph->getNode(node).second)
                         {
-                            if (b3 == -1 || b3 == b1 || b3 == b2 || graph->getCasesPerBlock(b3) <= 0)
+                            if (b3 == -1 || b3 == b1 || b3 == b2)
                                 continue;
 
                             used_nodes.insert(node);
@@ -298,20 +298,24 @@ void Input::filterMostDifferentScenarios(int new_s)
 {
     vector<double> cases_in_scenarios = this->graph->getCasesPerBlock();
     vector<Scenario> new_scenarios;
+    map<int, bool> scenarios_used;
 
     int ns = 0;
     while (ns < new_s)
     {
-        double diff_factor = 0.0;
+        double diff_factor = -INF;
         int best_idx = -1;
 
         for (int s = 0; s < this->S; s++)
         {
+            if (scenarios_used.find(s) != scenarios_used.end())
+                continue;
+
             Scenario scenario = this->scenarios[s];
 
             double diff = 0.0;
             for (int b = 0; b < graph->getB(); b++)
-                diff += abs(scenario.getCasesPerBlock(b) - cases_in_scenarios[b]);
+                diff += scenario.getCasesPerBlock(b) - cases_in_scenarios[b];
 
             if (diff > diff_factor)
             {
@@ -322,10 +326,13 @@ void Input::filterMostDifferentScenarios(int new_s)
         for (int b = 0; b < graph->getB(); b++)
             cases_in_scenarios[b] += this->scenarios[best_idx].getCasesPerBlock(b);
 
+        cout << "Best Scenario: " << best_idx << endl;
+        this->scenarios[best_idx].setProbability(1.0 / double(new_s));
         new_scenarios.push_back(this->scenarios[best_idx]);
+        scenarios_used[best_idx] = true;
         ns++;
     }
 
-    this->S = newS;
+    this->S = new_s;
     this->scenarios = new_scenarios;
 }

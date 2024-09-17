@@ -35,6 +35,8 @@ public:
 
     void walkAdaptMTZModel();
 
+    void filterMostDifferentScenarios(int new_s);
+
     void showScenarios()
     {
         for (int i = 0; i < S; i++)

@@ -396,16 +396,28 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
 */
 int main(int argc, const char *argv[])
 {
-  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
   //  /home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt
-  // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
-  string file_scenarios = "";
-  int default_vel = 20, neblize_vel = 10, T = 2000;
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt";
+  // string file_scenarios = "";
+  int default_vel = 20, neblize_vel = 10, T = 200;
   double alpha = 0.8;
-  bool use_preprocessing = true, is_trail = false, block_2_block_graph = true;
+  bool use_preprocessing = false, is_trail = false, block_2_block_graph = false;
 
   Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, block_2_block_graph, default_vel, neblize_vel, T, alpha);
-  input->getGraph()->ShowGraph();
+  input->filterMostDifferentScenarios(5);
+  for (auto scn : input->getScenarios())
+  {
+    cout << "Scenario: " << scn.getProbability() << endl;
+    for (int b = 0; b < input->getGraph()->getB(); b++)
+    {
+      if (scn.getCasesPerBlock(b) > 0)
+      {
+        cout << b << ": " << scn.getCasesPerBlock(b) << endl;
+      }
+    }
+  }
+  // input->getGraph()->ShowGraph();
 
   // GreedyHeuristic *gh = new GreedyHeuristic(input);
   // StochasticModel *sm = new StochasticModel(input);

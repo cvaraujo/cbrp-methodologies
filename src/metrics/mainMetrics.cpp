@@ -1,124 +1,54 @@
 #include <sys/stat.h>
 #include <string>
 #include <chrono>
-#include "headers/Graph.h"
-#include "headers/DeterministicModel.h"
-#include "headers/StochasticModel.h"
+#include "../src/classes/Input.hpp"
+#include "../src/exact/DeterministicModel.hpp"
+#include "../src/exact/StochasticModel.hpp"
 
-float solveDM(Graph *graph, string result_file, vector<pair<int, int>> &x, vector<pair<int, int>> &y)
+Solution solveDM(Input *input, string result_file)
 {
-  DeterministicModel dm(graph);
+  DeterministicModel dm(input);
   dm.createVariables();
-  dm.initModelCompact(true);
+  dm.initModel("MTZ");
   dm.solveCompact("600");
-  dm.writeSolution(result_file);
-
-  for (int i = 0; i < graph->getN(); i++)
-    for (auto b : graph->nodes[i].second)
-      if (dm.y[i][b].get(GRB_DoubleAttr_X) > 0.5)
-        y.push_back(make_pair(i, b));
-
-  for (int i = 0; i <= graph->getN(); i++)
-    for (auto arc : graph->arcs[i])
-      if (dm.x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
-        x.push_back(make_pair(i, arc->getD()));
-
-  return dm.model.get(GRB_DoubleAttr_ObjVal);
+  return dm.getSolution();
 }
 
-float solveSM(Graph *graph, string result_file, vector<vector<pair<int, int>>> &x, vector<vector<pair<int, int>>> &y)
+Solution solveSM(Input *input, string result_file)
 {
-  StochasticModel sm(graph);
+  StochasticModel sm(input);
   sm.createVariables();
-  sm.initModelCompact(true);
+  sm.initModel("MTZ");
   sm.solveCompact("600");
-  sm.writeSolution(result_file);
-
-  for (int s = 0; s <= graph->getS(); s++)
-  {
-    for (int i = 0; i < graph->getN(); i++)
-      for (auto b : graph->nodes[i].second)
-      {
-        if (b == -1)
-          continue;
-
-        if (sm.y[i][b][s].get(GRB_DoubleAttr_X) > 0.5)
-          y[s].push_back(make_pair(i, b));
-      }
-
-    for (int i = 0; i <= graph->getN(); i++)
-      for (auto arc : graph->arcs[i])
-        if (sm.x[i][arc->getD()][s].get(GRB_DoubleAttr_X) > 0.5)
-          x[s].push_back(make_pair(i, arc->getD()));
-  }
-  return sm.model.get(GRB_DoubleAttr_ObjVal);
+  return sm.getSolution();
 }
 
-float solveSMfromStartSol(
-    Graph *graph,
-    string result_file,
-    vector<vector<pair<int, int>>> &x,
-    vector<vector<pair<int, int>>> &y,
-    vector<vector<pair<int, int>>> sol_x,
-    vector<vector<pair<int, int>>> sol_y)
+Solution solveSMfromStartSol(Input *input, Solution start_sol, string result_file)
 {
-  StochasticModel sm(graph);
+  StochasticModel sm(input);
   sm.createVariables();
-  sm.initModelCompact(false);
+  sm.initModel("MTZ");
+  sm.setStartSolution(start_sol);
 
-  for (int s = 0; s <= graph->getS(); s++)
-    sm.setStartSolution(s, sol_x[s], sol_y[s]);
-
-  sm.solveCompact("60");
-  sm.writeSolution(result_file);
-
-  for (int s = 0; s <= graph->getS(); s++)
-  {
-    for (int i = 0; i < graph->getN(); i++)
-      for (auto b : graph->nodes[i].second)
-      {
-        if (b == -1)
-          continue;
-
-        if (sm.y[i][b][s].get(GRB_DoubleAttr_X) > 0.5)
-          y[s].push_back(make_pair(i, b));
-      }
-
-    for (int i = 0; i <= graph->getN(); i++)
-      for (auto arc : graph->arcs[i])
-        if (sm.x[i][arc->getD()][s].get(GRB_DoubleAttr_X) > 0.5)
-          x[s].push_back(make_pair(i, arc->getD()));
-  }
-  return sm.model.get(GRB_DoubleAttr_ObjVal);
+  sm.solveCompact("600");
+  return sm.getSolution();
 }
 
-float getRealOfFromSolution(vector<float> cases_fs, vector<float> cases_ss, vector<pair<int, int>> y_fs, vector<pair<int, int>> y_ss, float alpha)
+float getRealOfFromSolution(Input *input, int s, vector<double> cases_fs, vector<double> cases_ss, Solution sol, float alpha)
 {
   float of = 0.0;
+  auto Y = sol.getY();
 
   // First Stage Solution
-  for (auto pair : y_fs)
-  {
-    int b = pair.second;
+  for (auto b : Y[0])
     of += cases_fs[b] + alpha * cases_ss[b];
-  }
 
   // Second Stage Solution
-  for (auto pair : y_ss)
+  for (auto b : Y[s])
   {
-    int b = pair.second;
     bool found = false;
 
-    for (auto pair2 : y_fs)
-    {
-      if (b == pair2.second)
-      {
-        found = true;
-        break;
-      }
-    }
-
-    if (!found)
+    if (find(Y[0].begin(), Y[0].end(), b) == Y[0].end())
       of += float(cases_ss[b]);
     else
       of += (1.0 - alpha) * float(cases_ss[b]);
@@ -127,37 +57,44 @@ float getRealOfFromSolution(vector<float> cases_fs, vector<float> cases_ss, vect
   return of;
 }
 
-float WaitNSeeResults(Graph *graph, float alpha)
+float WaitNSeeResults(Input *input, float alpha)
 {
-  Graph *g1 = new Graph(*graph);
+  Input *input1 = new Input(*input);
+  Graph *g1 = input1->getGraph();
+
   float of = 0.0;
 
   // Reset scenarios from G1
-  g1->setS(1);
-  g1->scenarios = vector<Scenario>(1);
-  float probability = 1.0 / float(graph->getS());
+  input1->setS(1);
+  input1->setScenarios(vector<Scenario>(1));
+  float probability = 1.0 / float(input->getS());
 
-  for (int s = 0; s < graph->getS(); s++)
+  for (int s = 0; s < input1->getS(); s++)
   {
 
-    g1->scenarios[0] = graph->scenarios[s];
-    g1->scenarios[0].probability = 1.0;
+    Scenario scn = input->getScenario(s);
+    scn.setProbability(1.0);
+    input1->setScenario(0, scn);
 
     // Get Pair solution
-    vector<vector<pair<int, int>>> x_s(2), y_s(2);
-    solveSM(g1, "result_ws.txt", x_s, y_s);
+    Solution sol = solveSM(input1, "result_ws.txt");
 
     // Get Real Objective Function
-    of += probability * getRealOfFromSolution(graph->cases_per_block, graph->scenarios[s].cases_per_block, y_s[0], y_s[1], alpha);
+    auto scenarioCasesPerBlocks = input1->getScenario(s).getCases();
+    of += probability * getRealOfFromSolution(input1, s, g1->getCasesPerBlock(), scenarioCasesPerBlocks, sol, alpha);
   }
 
   return of;
 }
 
-float ExpectationExpectedValueResults(Graph *graph, float alpha, vector<vector<pair<int, int>>> &x_sol, vector<vector<pair<int, int>>> &y_sol)
+float ExpectationExpectedValueResults(input *Input, float alpha, vector<vector<pair<int, int>>> &x_sol, vector<vector<pair<int, int>>> &y_sol)
 {
-  Graph *g1 = new Graph(*graph);
-  Graph *g2 = new Graph(*graph);
+  Input *input1 = new Input(*input);
+  Input *input2 = new Input(*input);
+
+  Graph g1 = input1.getGraph();
+  Graph g2 = input2.getGraph();
+
   float of = 0.0;
 
   // Reset scenarios from G1
@@ -292,9 +229,14 @@ float DeterministicModelResults(Graph *graph, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  int T = 12000;
-  float alpha = 0.8;
-  Graph *graph = new Graph(argv[1], argv[2], stoi(argv[3]), 20, 10, T, 20);
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt";
+  int default_vel = 20, neblize_vel = 10, T = 200;
+  double alpha = 0.8;
+  bool use_preprocessing = false, is_trail = false, block_2_block_graph = false;
+
+  Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, block_2_block_graph, default_vel, neblize_vel, T, alpha);
+  input->filterMostDifferentScenarios(5);
 
   vector<vector<pair<int, int>>> x, y;
 
@@ -324,46 +266,5 @@ int main(int argc, const char *argv[])
 
   // // Close the file
   // file.close();
-  return 0;
-}
-
-#include <sys/stat.h>
-#include <string>
-#include <chrono>
-#include "headers/Graph.h"
-#include "headers/GreedyHeuristic.h"
-#include "headers/StochasticModel.h"
-
-int main(int argc, const char *argv[])
-{
-  int T = 600;
-  float alpha = 0.8;
-  Graph *graph = new Graph(argv[1], argv[2], stoi(argv[3]), 20, 10, T, 99999, alpha);
-  GreedyHeuristic gh(graph);
-
-  // for (int b = 0; b < graph->getB(); b++)
-  // {
-  //   cout << "B" << b << ": ";
-  //   for (auto i : graph->nodes_per_block[b])
-  //     cout << "N" << i << " ";
-  //   cout << endl;
-  // }
-  // cout << "----------------------" << endl;
-  // TODO: fix OF
-  vector<vector<pair<int, int>>> sol_x;
-  vector<vector<pair<int, int>>> sol_y;
-  float of = gh.Run(0.02, 5, sol_x, sol_y);
-  cout << "Final objective: " << of << endl;
-
-  StochasticModel sm(graph);
-  sm.createVariables();
-  sm.initModelCompact(true);
-
-  // for (int s = 0; s <= graph->getS(); s++)
-  //   sm.setStartSolution(s, sol_x[s], sol_y[s]);
-
-  sm.solveCompact("600");
-  sm.writeSolution("result_sm.txt");
-
   return 0;
 }

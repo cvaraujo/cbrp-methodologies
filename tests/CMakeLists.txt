@@ -31,6 +31,7 @@ set(
     ../src/exact/StochasticModel.cpp
     ../src/heuristic/GreedyHeuristic.hpp
     ../src/heuristic/GreedyHeuristic.cpp
+    ../src/metrics/mainMetrics.cpp
 )
 
 add_executable(test ${sources})
