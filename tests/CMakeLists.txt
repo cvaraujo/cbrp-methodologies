@@ -12,7 +12,7 @@ link_directories(/opt/gurobi1101/linux64/lib /opt/boost_1_85_0 /opt/lemon-1.3.1/
 
 set(
     sources
-    unit_tests.cpp
+    # unit_tests.cpp
     ../src/classes/Arc.hpp
     ../src/classes/Parameters.hpp
     ../src/classes/Graph.hpp

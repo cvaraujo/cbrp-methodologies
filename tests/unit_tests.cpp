@@ -406,6 +406,7 @@ int main(int argc, const char *argv[])
 
   Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, block_2_block_graph, default_vel, neblize_vel, T, alpha);
   input->filterMostDifferentScenarios(5);
+
   for (auto scn : input->getScenarios())
   {
     cout << "Scenario: " << scn.getProbability() << endl;

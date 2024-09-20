@@ -297,7 +297,7 @@ void Input::walkAdaptMTZModel()
 void Input::filterMostDifferentScenarios(int new_s)
 {
     vector<double> cases_in_scenarios = this->graph->getCasesPerBlock();
-    vector<Scenario> new_scenarios;
+    vector<Scenario> new_scenarios = vector<Scenario>(new_s);
     map<int, bool> scenarios_used;
 
     int ns = 0;
@@ -323,16 +323,19 @@ void Input::filterMostDifferentScenarios(int new_s)
                 diff_factor = diff;
             }
         }
+
+        // cout << "Diff Factor: " << diff_factor << endl;
+        cout << "Best Scenario: " << best_idx << endl;
+
         for (int b = 0; b < graph->getB(); b++)
             cases_in_scenarios[b] += this->scenarios[best_idx].getCasesPerBlock(b);
 
-        cout << "Best Scenario: " << best_idx << endl;
         this->scenarios[best_idx].setProbability(1.0 / double(new_s));
-        new_scenarios.push_back(this->scenarios[best_idx]);
+        new_scenarios[ns++] = this->scenarios[best_idx];
         scenarios_used[best_idx] = true;
-        ns++;
     }
 
     this->S = new_s;
     this->scenarios = new_scenarios;
+    // getchar();
 }
