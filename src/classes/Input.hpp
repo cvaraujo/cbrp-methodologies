@@ -12,7 +12,7 @@ class Input
 private:
     int S = 0, T = 0, default_vel = 20, neblize_vel = 10;
     double alpha = 0.8;
-    bool preprocessing = false, is_trail = false, block_2_block_graph = false;
+    bool preprocessing = false, is_trail = false, walk_mtz_model = false;
     Graph *graph;
     ShortestPath *sp = nullptr;
     BlockConnection *bc = nullptr;
@@ -21,7 +21,22 @@ private:
 public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp) : graph(graph), scenarios(scenarios), sp(sp) {}
 
-    Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool block_2_block_graph, int default_vel, int neblize_vel, int T, double alpha);
+    Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha);
+
+    Input(Input *input)
+    {
+        this->S = input->S;
+        this->T = input->T;
+        this->default_vel = input->default_vel;
+        this->neblize_vel = input->neblize_vel;
+        this->alpha = input->alpha;
+        this->preprocessing = input->preprocessing;
+        this->is_trail = input->is_trail;
+        this->graph = new Graph(*input->graph);
+        this->scenarios = input->scenarios;
+        this->sp = new ShortestPath(*input->sp);
+        this->bc = new BlockConnection(*input->bc);
+    };
 
     ~Input() {}
 
@@ -82,7 +97,7 @@ public:
 
     bool isTrail() { return this->is_trail; }
 
-    bool isBlock2BlockGraph() { return this->block_2_block_graph; }
+    bool isWalkMtzGraph() { return this->walk_mtz_model; }
 
     void setBlockConnection(BlockConnection *bc) { this->bc = bc; }
 

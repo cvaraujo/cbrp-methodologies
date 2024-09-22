@@ -1,6 +1,6 @@
 #include "Input.hpp"
 
-Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool block_2_block_graph, int default_vel, int neblize_vel, int T, double alpha)
+Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha)
 {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
     if (scenarios_graph != "")
@@ -12,12 +12,14 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     this->neblize_vel = neblize_vel;
     this->alpha = alpha;
     this->is_trail = is_trail;
-    this->block_2_block_graph = block_2_block_graph;
+    this->walk_mtz_model = walk_mtz_model;
+    this->sp = new ShortestPath(graph);
+    this->bc = new BlockConnection(graph, sp);
 
     if (preprocessing)
         this->reduceGraphToPositiveCases();
 
-    if (block_2_block_graph)
+    if (walk_mtz_model)
         this->walkAdaptMTZModel();
 
 #ifndef Silence
@@ -64,6 +66,8 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
         newN++;
     }
 
+    this->graph->resetArcsMatrix(newN);
+
     // Update Arcs
     for (int i = 0; i < N; i++)
     {
@@ -82,6 +86,7 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
             auto new_arc = new Arc(*arc);
             new_arc->setO(new_o), new_arc->setD(new_d);
             new_arcs[new_o].push_back(new_arc);
+            this->graph->addArcInMatrix(new_o, new_d, new_arc);
         }
     }
 
@@ -324,7 +329,6 @@ void Input::filterMostDifferentScenarios(int new_s)
             }
         }
 
-        // cout << "Diff Factor: " << diff_factor << endl;
         cout << "Best Scenario: " << best_idx << endl;
 
         for (int b = 0; b < graph->getB(); b++)
@@ -337,5 +341,4 @@ void Input::filterMostDifferentScenarios(int new_s)
 
     this->S = new_s;
     this->scenarios = new_scenarios;
-    // getchar();
 }

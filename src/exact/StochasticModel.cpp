@@ -149,7 +149,7 @@ protected:
               num_lazy_cuts++;
             }
 
-            if (input->isBlock2BlockGraph())
+            if (input->isWalkMtzGraph())
             {
               for (i = 0; i <= n; i++)
               {
@@ -290,7 +290,7 @@ protected:
               if (num_arcs_in_other_side <= 0 || other_side_value <= cut_value)
                 continue;
 
-              if (input->isBlock2BlockGraph())
+              if (input->isWalkMtzGraph())
               {
                 for (auto b : graph->getNode(i).second)
                 {

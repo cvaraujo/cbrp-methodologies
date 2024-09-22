@@ -113,6 +113,14 @@ public:
 
   void setArcsMatrix(vector<vector<Arc *>> arcs) { this->arcs_matrix = arcs; }
 
+  void resetArcsMatrix(int N) { this->arcs_matrix = vector<vector<Arc *>>(N + 2, vector<Arc *>(N + 2, nullptr)); }
+
+  void resetArcsMatrixRow(int i) { this->arcs_matrix[i] = vector<Arc *>(N + 2, nullptr); }
+
+  void removeArcFromArcsMatrix(int i, int j) { this->arcs_matrix[i][j] = nullptr; }
+
+  void addArcInMatrix(int i, int j, Arc *arc) { this->arcs_matrix[i][j] = arc; }
+
   vector<set<int>> getNodesPerBlock() { return nodes_per_block; }
 
   int getN() const { return N; }
