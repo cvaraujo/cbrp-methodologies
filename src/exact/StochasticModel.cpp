@@ -148,34 +148,6 @@ protected:
               addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
               num_lazy_cuts++;
             }
-
-            if (input->isWalkMtzGraph())
-            {
-              for (i = 0; i <= n; i++)
-              {
-                if (!used_node[i])
-                  continue;
-
-                GRBLinExpr expr = 0;
-                for (auto v : connected_component[i])
-                {
-                  for (auto *arc : graph->getArcs(v))
-                  {
-                    j = arc->getD();
-                    if (node_connected_component[j] != i)
-                      expr += x[v][j][s];
-                  }
-                }
-
-                for (auto v : connected_component[i])
-                  for (auto b : graph->getNode(v).second)
-                    if (getSolution(y[b][r]) >= 0.1)
-                    {
-                      addLazy(expr >= y[b][r]);
-                      num_lazy_cuts++;
-                    }
-              }
-            }
           }
         }
         if (is_feasible)
@@ -290,15 +262,6 @@ protected:
               if (num_arcs_in_other_side <= 0 || other_side_value <= cut_value)
                 continue;
 
-              if (input->isWalkMtzGraph())
-              {
-                for (auto b : graph->getNode(i).second)
-                {
-                  addCut(cut_arcs >= y[b][r]);
-                  num_frac_cuts++;
-                }
-              }
-
               if (!input->isTrail())
               {
                 addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
@@ -343,7 +306,6 @@ Solution StochasticModel::Run(bool use_warm_start, string time_limit, string mod
     cout << "[!] Model not found!" << endl;
     exit(EXIT_FAILURE);
   }
-
   this->checkSolution();
 
 #ifndef Silence

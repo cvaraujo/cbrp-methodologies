@@ -18,15 +18,15 @@ public:
   typedef G::Node Node;
   typedef G::ArcMap<double> LengthMap;
   typedef G::NodeMap<bool> BoolNodeMap;
-  Graph *graph;
+  Input *input;
 
-  cyclecallback(Graph *xgraph, int xnumvars, vector<vector<GRBVar>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
+  cyclecallback(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
   {
     lastiter = lastnode = 0;
     numvars = xnumvars;
     x = xx;
     y = yy;
-    graph = xgraph;
+    input = xinput;
     this->frac_cut = frac_cut;
   }
 
@@ -38,6 +38,8 @@ protected:
       try
       {
         bool is_feasible = true;
+        Graph *graph = input->getGraph();
+
         int i, j, s, n = graph->getN();
         vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
         vector<bool> used_node = vector<bool>(n + 1);
@@ -102,28 +104,47 @@ protected:
         // Need Cuts
         is_feasible = false;
 
-        for (i = 1; i < connected_component.size(); i++)
+        if(input->isTrail())
         {
-          vector<int> s_nodes = connected_component[i];
-          vector<int_pair> s_arcs = arcs_from_component[i];
-          GRBLinExpr in_arcs, cut_arcs;
-          int num_in_arcs = s_arcs.size();
+            for (i = 1; i < connected_component.size(); i++)
+            {
+            vector<int> s_nodes = connected_component[i];
+            vector<int_pair> s_arcs = arcs_from_component[i];
+            GRBLinExpr in_arcs, cut_arcs;
+            int num_in_arcs = s_arcs.size();
 
-          // Arcs inside S
-          for (auto pair : s_arcs)
-            in_arcs += x[pair.first][pair.second];
+            // Arcs inside S
+            for (auto pair : s_arcs)
+                in_arcs += x[pair.first][pair.second];
 
-          // Arcs in the cut S
-          for (int j = 0; j < n; j++)
-            if (node_connected_component[j] != i)
-              for (auto arc : graph->getArcs(j))
-                if (node_connected_component[arc->getD()] == i)
-                  cut_arcs += x[j][arc->getD()];
+            addLazy(in_arcs <= num_in_arcs - 1);
+            num_lazy_cuts++;
+            }
+        } else
+        {
+            // Need Cuts
+            for (i = 1; i < connected_component.size(); i++)
+            {
+            vector<int> s_nodes = connected_component[i];
+            vector<int_pair> s_arcs = arcs_from_component[i];
+            GRBLinExpr in_arcs, cut_arcs;
+            int num_in_arcs = s_arcs.size();
 
-          addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
-          num_lazy_cuts++;
+            // Arcs inside S
+            for (auto pair : s_arcs)
+                in_arcs += x[pair.first][pair.second];
+
+            // Arcs in the cut S
+            for (int j = 0; j < n; j++)
+                if (node_connected_component[j] != i)
+                for (auto arc : graph->getArcs(j))
+                    if (node_connected_component[arc->getD()] == i)
+                    cut_arcs += x[j][arc->getD()];
+
+            addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
+            num_lazy_cuts++;
+            }
         }
-
         if (is_feasible)
           return;
       }
@@ -150,6 +171,7 @@ protected:
 
         if (mipStatus == GRB_OPTIMAL)
         {
+          Graph *graph = input->getGraph();
           int i, j, u, v, n = graph->getN();
 
           // Basic structures to use Lemon
@@ -232,8 +254,16 @@ protected:
             if (num_arcs_in_other_side <= 0 || other_side_value <= cut_value)
               continue;
 
-            addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
-            num_frac_cuts++;
+            if (!input->isTrail())
+            {
+                addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
+                num_frac_cuts++;
+            }
+            else
+            {
+                addCut(other_side_arcs <= num_arcs_in_other_side - 1);
+                num_frac_cuts++;
+            }
           }
         }
       }
@@ -604,7 +634,7 @@ void DeterministicModel::solveExponential(string time_limit, bool frac_cut)
     model.set("TimeLimit", time_limit);
     model.set(GRB_DoubleParam_Heuristics, 1.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
-    cyclecallback cb = cyclecallback(graph, graph->getN(), x, y, frac_cut);
+    cyclecallback cb = cyclecallback(input, graph->getN(), x, y, frac_cut);
     model.setCallback(&cb);
     model.set("OutputFlag", "0");
     model.update();

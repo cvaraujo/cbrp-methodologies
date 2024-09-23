@@ -394,8 +394,7 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
   // BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
 }
 */
-int main(int argc, const char *argv[])
-{
+int main(int argc, const char *argv[]) {
   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
   // string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt";
   string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
@@ -404,10 +403,12 @@ int main(int argc, const char *argv[])
   // string file_scenarios = "";
   int default_vel = 20, neblize_vel = 10, T = 200;
   double alpha = 0.8;
-  bool use_preprocessing = true, is_trail = false, walk_mtz_graph = true;
+  bool use_preprocessing = false, is_trail = true, walk_mtz_graph = false;
 
   Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, walk_mtz_graph, default_vel, neblize_vel, T, alpha);
-  input->getGraph()->ShowGraph();
+  DeterministicModel *dm = new DeterministicModel(input);
+  Solution sol = dm->Run(false, "120", "EXP", false);
+  // sol.WriteSolution("result_stochastic_exp.txt");
   // for (auto scn : input->getScenarios())
   // {
   //   cout << "Scenario: " << scn.getProbability() << endl;
