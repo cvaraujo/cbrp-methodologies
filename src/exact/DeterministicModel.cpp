@@ -104,10 +104,10 @@ protected:
         // Need Cuts
         is_feasible = false;
 
-        if(input->isTrail())
+        if (input->isTrail())
         {
-            for (i = 1; i < connected_component.size(); i++)
-            {
+          for (i = 1; i < connected_component.size(); i++)
+          {
             vector<int> s_nodes = connected_component[i];
             vector<int_pair> s_arcs = arcs_from_component[i];
             GRBLinExpr in_arcs, cut_arcs;
@@ -115,16 +115,17 @@ protected:
 
             // Arcs inside S
             for (auto pair : s_arcs)
-                in_arcs += x[pair.first][pair.second];
+              in_arcs += x[pair.first][pair.second];
 
             addLazy(in_arcs <= num_in_arcs - 1);
             num_lazy_cuts++;
-            }
-        } else
+          }
+        }
+        else
         {
-            // Need Cuts
-            for (i = 1; i < connected_component.size(); i++)
-            {
+          // Need Cuts
+          for (i = 1; i < connected_component.size(); i++)
+          {
             vector<int> s_nodes = connected_component[i];
             vector<int_pair> s_arcs = arcs_from_component[i];
             GRBLinExpr in_arcs, cut_arcs;
@@ -132,18 +133,18 @@ protected:
 
             // Arcs inside S
             for (auto pair : s_arcs)
-                in_arcs += x[pair.first][pair.second];
+              in_arcs += x[pair.first][pair.second];
 
             // Arcs in the cut S
             for (int j = 0; j < n; j++)
-                if (node_connected_component[j] != i)
+              if (node_connected_component[j] != i)
                 for (auto arc : graph->getArcs(j))
-                    if (node_connected_component[arc->getD()] == i)
+                  if (node_connected_component[arc->getD()] == i)
                     cut_arcs += x[j][arc->getD()];
 
             addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
             num_lazy_cuts++;
-            }
+          }
         }
         if (is_feasible)
           return;
@@ -151,7 +152,6 @@ protected:
       catch (GRBException e)
       {
         cout << "[LAZZY] Error number: " << e.getErrorCode() << endl;
-        cout << "aaaaaaaaa" << endl;
         cout << e.getMessage() << endl;
       }
       catch (...)
@@ -256,13 +256,13 @@ protected:
 
             if (!input->isTrail())
             {
-                addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
-                num_frac_cuts++;
+              addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
+              num_frac_cuts++;
             }
             else
             {
-                addCut(other_side_arcs <= num_arcs_in_other_side - 1);
-                num_frac_cuts++;
+              addCut(other_side_arcs <= num_arcs_in_other_side - 1);
+              num_frac_cuts++;
             }
           }
         }
@@ -659,7 +659,16 @@ void DeterministicModel::solveExponential(string time_limit, bool frac_cut)
 Solution DeterministicModel::getSolution()
 {
   auto graph = input->getGraph();
-  double of = model.get(GRB_DoubleAttr_ObjVal);
+  double of = 0.0;
+  try
+  {
+    of = model.get(GRB_DoubleAttr_ObjVal);
+  }
+  catch (GRBException &ex)
+  {
+    of = 0.0;
+  }
+
   double UB = model.get(GRB_DoubleAttr_ObjBound);
   double runtime = model.get(GRB_DoubleAttr_Runtime);
   int gurobi_nodes = model.get(GRB_DoubleAttr_NodeCount);

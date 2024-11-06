@@ -3,6 +3,7 @@
 Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha)
 {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
+
     if (scenarios_graph != "")
         this->loadScenarios(scenarios_graph);
 
@@ -284,19 +285,9 @@ void Input::walkAdaptMTZModel()
             }
         }
     }
-
-    // Show new graph
-    for (int i = 0; i <= graph->getN(); i++)
-    {
-        for (auto arc : graph->getArcs(i))
-            cout << arc->getO() << " " << arc->getD() << " " << arc->getLength() << endl;
-        cout << endl;
-    }
 #ifndef Silence
-    cout << "Walk Adapt MTZ Model Finished!" << endl;
+    cout << "[*] Create Complete Graph" << endl;
 #endif
-
-    getchar();
 }
 
 void Input::filterMostDifferentScenarios(int new_s)

@@ -221,29 +221,16 @@ float DeterministicModelResults(Input *input, float alpha)
 
 int main(int argc, const char *argv[])
 {
-  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-700-1.txt";
-  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-700-1.txt";
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/tests/instances-random/graph-limoeiro-300-random-5.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/tests/instances-random/scenarios-limoeiro-300-random-5.txt";
   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
   // string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
-  int default_vel = 20, neblize_vel = 10, T = 500;
+  int default_vel = 20, neblize_vel = 10, T = 3000;
   double alpha = 0.8;
-  bool use_preprocessing = false, is_trail = false, block_2_block_graph = false;
+  bool use_preprocessing = true, is_trail = true, block_2_block_graph = false;
 
   Input *input = new Input(file_graph, file_scenarios, use_preprocessing, is_trail, block_2_block_graph, default_vel, neblize_vel, T, alpha);
-  input->filterMostDifferentScenarios(5);
-
-  // for (auto scn : input->getScenarios())
-  // {
-  //   cout << "Scenario: " << scn.getProbability() << endl;
-  //   for (int b = 0; b < input->getGraph()->getB(); b++)
-  //   {
-  //     if (scn.getCasesPerBlock(b) > 0)
-  //     {
-  //       cout << b << ": " << scn.getCasesPerBlock(b) << endl;
-  //     }
-  //   }
-  // }
-  // getchar();
+  cout << "Input constructed Successfully!" << endl;
 
   Input *inpEEV = new Input(*input);
   inpEEV->setGraph(new Graph(*input->getGraph()));

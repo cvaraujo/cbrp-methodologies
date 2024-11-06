@@ -10,7 +10,7 @@
 class Input
 {
 private:
-    int S = 0, T = 0, default_vel = 20, neblize_vel = 10;
+    int S = 0, T = 1200, default_vel = 20, neblize_vel = 10;
     double alpha = 0.8;
     bool preprocessing = false, is_trail = false, walk_mtz_model = false;
     Graph *graph;

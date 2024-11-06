@@ -75,7 +75,7 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize)
         continue;
 
       file.ignore(numeric_limits<streamsize>::max(), '\n');
-      int travel_time = length <= 0.0 ? 1 : 100.0 * (length / mp_path);
+      int travel_time = length <= 0.0 ? 1 : 10.0 * (length / mp_path);
 
       Arc *arc = new Arc(i, j, travel_time, block);
 
@@ -100,7 +100,7 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize)
       if (block != -1)
       {
         arcs_per_block[block].push_back(arc);
-        time_per_block[block] += length <= 0.0 ? 1 : 100.0 * (length / mp_nebu);
+        time_per_block[block] += length <= 0.0 ? 1 : 10.0 * (length / mp_nebu);
       }
     }
     else if (token == "B")

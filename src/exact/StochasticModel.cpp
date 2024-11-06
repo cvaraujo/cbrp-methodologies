@@ -156,7 +156,6 @@ protected:
       catch (GRBException e)
       {
         cout << "[LAZZY] Error number: " << e.getErrorCode() << endl;
-        cout << "aaaaaaaaa" << endl;
         cout << e.getMessage() << endl;
       }
       catch (...)

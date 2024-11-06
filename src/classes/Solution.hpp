@@ -68,7 +68,7 @@ public:
     }
     output.close();
 #ifndef Silence
-    cout << "[***] Solution writed!" << endl;
+    cout << "[*] Solution writed!" << endl;
 #endif
   };
 
