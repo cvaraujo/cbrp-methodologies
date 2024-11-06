@@ -566,7 +566,7 @@ void DeterministicModel::timeConstraint()
   model.addConstr(blockTravel + arcTravel <= input->getT(), "max_time");
 
 #ifndef Silence
-  cout << "[***] Constraint: time limit" << endl;
+  cout << "[***] Constraint: Time limit" << endl;
 #endif
 }
 
@@ -589,16 +589,13 @@ void DeterministicModel::compactTimeConstraint()
       for (auto *arcl : graph->getArcs(j))
       {
         k = arcl->getD();
-        model.addConstr(t[j][k] >= t[i][j] - (2 - x[i][j] - x[j][k]) * input->getT() + arc->getLength() * x[i][j], "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+        model.addConstr(t[j][k] >= t[i][j] + (arc->getLength() * x[i][j]) - ((2 - x[i][j] - x[j][k]) * input->getT()), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
       }
-
-      for (auto b : graph->getNode(i).second)
-        model.addConstr(t[i][j] <= input->getT() - y[i][b] * graph->getTimePerBlock(b), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
     }
   }
   for (i = 0; i < n; i++)
   {
-    model.addConstr(t[i][n] <= input->getT(), "max_time");
+    model.addConstr(t[i][n] <= x[i][n] * input->getT(), "max_time");
   }
 
 #ifndef Silence
@@ -754,7 +751,7 @@ bool DeterministicModel::checkSolution()
 
         if (!visited[i])
         {
-          cout << "[!!!] Not visited node!" << endl;
+          cout << "[!!!] Not visited node: " << i << endl;
           return false;
         }
       }
