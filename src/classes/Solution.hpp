@@ -12,6 +12,9 @@ class Solution
 private:
   double of = 0.0, UB = INF, runtime = 0.0;
   int time_used = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0, S = 0;
+
+  int route_time = 0;
+  vector<int> route, pred;
   vector<vector<int>> y;
   vector<vector<int_pair>> x;
 
