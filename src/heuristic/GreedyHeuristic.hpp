@@ -48,7 +48,7 @@ public:
         this->input = input;
     };
 
-    double SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x);
+    double SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, int T, vector<int> &y, vector<int_pair> &x);
 
     Solution Run(double route_time_increase, int max_tries, bool use_avg);
 };

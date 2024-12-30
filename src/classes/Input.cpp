@@ -20,9 +20,6 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     if (preprocessing)
         this->reduceGraphToPositiveCases();
 
-    if (walk_mtz_model)
-        this->walkAdaptMTZModel();
-
 #ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;
 #endif

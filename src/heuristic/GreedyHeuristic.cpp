@@ -1,11 +1,17 @@
 #include "GreedyHeuristic.hpp"
 
-double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, vector<int> &y, vector<int_pair> &x)
+double GreedyHeuristic::SolveScenario(
+    vector<double> cases,
+    vector<int> time,
+    double route_time_increase,
+    int max_tries,
+    int T,
+    vector<int> &y,
+    vector<int_pair> &x)
 {
     // Start greedy heuristic
     Graph *graph = input->getGraph();
     BlockConnection *bc = input->getBlockConnection();
-    int T = input->getT();
     int available_time = T, tries = 1;
     double of = 0;
 
@@ -33,7 +39,7 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, do
             auto vertices = bc->getBlocksAttendPath(key);
             for (int j = 0; j < vertices.size() - 1; j++)
             {
-                cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
+                // cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
                 x.push_back({vertices[j], vertices[j + 1]});
             }
             break;
@@ -80,7 +86,7 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
 
     vector<vector<int>> y = vector<vector<int>>(S + 1, vector<int>());
     vector<vector<int_pair>> x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
-    of += SolveScenario(cases, time, route_time_increase, max_tries, y[0], x[0]);
+    of += SolveScenario(cases, time, route_time_increase, max_tries, input->getT(), y[0], x[0]);
 
     if (use_avg)
         of = getRealValueOfFirstStageSolution(y[0], real_cases);

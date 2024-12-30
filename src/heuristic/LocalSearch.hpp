@@ -26,7 +26,9 @@ public:
 
     ~LocalSearch() { delete bestSolution, current_solution; }
 
-    Solution *Run2Opt();
+    Solution *getBestSolution() { return bestSolution; }
+
+    void Run2Opt(int i, int j);
 };
 
 #endif

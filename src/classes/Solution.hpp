@@ -24,6 +24,7 @@ public:
     this->of = of;
     this->y = y;
     this->x = x;
+    this->route = vector<int>();
   }
 
   Solution()
@@ -31,6 +32,7 @@ public:
     this->of = 0.0;
     this->y = vector<vector<int>>();
     this->x = vector<vector<int_pair>>();
+    this->route = vector<int>();
   }
 
   Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
@@ -44,6 +46,7 @@ public:
     this->solver_nodes = solver_nodes;
     this->y = y;
     this->x = x;
+    this->route = vector<int>();
   }
 
   ~Solution() { y.clear(), x.clear(); }
@@ -74,6 +77,18 @@ public:
     cout << "[*] Solution writed!" << endl;
 #endif
   };
+
+  vector<int> getRoute() { return route; }
+
+  void setRoute(vector<int> route) { this->route = route; }
+
+  vector<int> getPred() { return pred; }
+
+  void setPred(vector<int> pred) { this->pred = pred; }
+
+  void setRouteTime(int time) { this->route_time = time; }
+
+  int getRouteTime() { return route_time; }
 
   double getOf() { return of; }
 

@@ -394,14 +394,15 @@ BOOST_AUTO_TEST_CASE(testStochasticModelCompact)
   // BOOST_TEST(round(sol3.getOf()) == round(sol2.getOf()));
 }
 */
-int main(int argc, const char *argv[]) {
+int main(int argc, const char *argv[])
+{
   // string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/alto-santo-300-1.txt";
   // string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/simulated-alto-santo/scenarios-alto-santo-300-1.txt";
-  string file_graph = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-graph.txt";
-  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/instances/test/test-scenarios.txt";
+  string file_graph = "/home/araujo/Documents/cbrp-methodologies/tests/instances-random/graph-limoeiro-random.txt";
+  string file_scenarios = "/home/araujo/Documents/cbrp-methodologies/tests/instances-random/scenarios-limoeiro-random.txt";
 
   // string file_scenarios = "";
-  int default_vel = 20, neblize_vel = 10, T = 200;
+  int default_vel = 20, neblize_vel = 10, T = 400;
   double alpha = 0.8;
   bool use_preprocessing = false, is_trail = true, walk_mtz_graph = false;
 

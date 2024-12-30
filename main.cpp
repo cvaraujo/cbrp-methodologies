@@ -5,6 +5,27 @@
 #include "src/exact/DeterministicModel.hpp"
 #include "src/exact/StochasticModel.hpp"
 #include "src/heuristic/GreedyHeuristic.hpp"
+#include "src/heuristic/LocalSearch.hpp"
+
+void test_local_search(const char *argv[])
+{
+  string file_graph = argv[1];
+  string file_scenarios = argv[2];
+  string result_file = argv[3];
+
+  Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 1200, 0.8);
+  Solution *sol = new Solution();
+  vector<int> start_route = vector<int>{10, 0, 3, 1, 2, 8, 7, 4, 5, 6, 10};
+  sol->setRoute(start_route), sol->setRouteTime(36);
+
+  LocalSearch ls = LocalSearch(input, sol);
+  ls.Run2Opt(2, 6), ls.Run2Opt(3, 5), ls.Run2Opt(2, 5);
+
+  cout << ls.getBestSolution()->getRouteTime() << endl;
+  for (auto i : start_route)
+    cout << i << " ";
+  cout << endl;
+}
 
 int main(int argc, const char *argv[])
 {

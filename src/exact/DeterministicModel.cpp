@@ -111,13 +111,13 @@ protected:
             vector<int> s_nodes = connected_component[i];
             vector<int_pair> s_arcs = arcs_from_component[i];
             GRBLinExpr in_arcs, cut_arcs;
-            int num_in_arcs = s_arcs.size();
+            int num_in_nodes = s_nodes.size();
 
             // Arcs inside S
             for (auto pair : s_arcs)
               in_arcs += x[pair.first][pair.second];
 
-            addLazy(in_arcs <= num_in_arcs - 1);
+            addLazy(in_arcs <= num_in_nodes - 1);
             num_lazy_cuts++;
           }
         }
@@ -614,6 +614,7 @@ void DeterministicModel::solveCompact(string time_limit)
     model.set("OutputFlag", "1");
     model.update();
 #endif
+    // model.computeIIS();
     model.write("model.lp");
     model.optimize();
   }
