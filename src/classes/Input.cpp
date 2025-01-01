@@ -20,6 +20,9 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     if (preprocessing)
         this->reduceGraphToPositiveCases();
 
+    if (walk_mtz_model)
+        this->walkAdaptMTZModel();
+
 #ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;
 #endif
@@ -256,6 +259,17 @@ void Input::loadScenarios(string instance)
 #endif
 }
 
+bool isNodeInPositiveValidBlock(Graph *graph, int node)
+{
+    auto node_info = graph->getNode(node);
+
+    for (int b : node_info.second)
+        if (b != -1 && graph->getCasesPerBlock(b) > 0)
+            return true;
+
+    return false;
+}
+
 void Input::walkAdaptMTZModel()
 {
 #ifndef Silence
@@ -269,9 +283,12 @@ void Input::walkAdaptMTZModel()
     // Add new arcs
     for (int i = 0; i < graph->getN(); i++)
     {
+        if (!isNodeInPositiveValidBlock(graph, i))
+            continue;
+
         for (int j = 0; j < graph->getN(); j++)
         {
-            if (i == j || graph->getArc(i, j) != nullptr)
+            if (i == j || !isNodeInPositiveValidBlock(graph, j) || graph->getArc(i, j) != nullptr)
                 continue;
 
             length = sp->ShortestPathST(i, j, path);
