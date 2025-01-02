@@ -49,6 +49,21 @@ public:
     this->route = vector<int>();
   }
 
+  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x, int S)
+  {
+    this->of = of;
+    this->UB = UB;
+    this->runtime = runtime;
+    this->time_used = time_used;
+    this->num_lazy_cuts = num_lazy_cuts;
+    this->num_frac_cuts = num_frac_cuts;
+    this->solver_nodes = solver_nodes;
+    this->y = y;
+    this->x = x;
+    this->route = vector<int>();
+    this->S = S;
+  }
+
   ~Solution() { y.clear(), x.clear(); }
 
   void WriteSolution(string output_file)
@@ -62,8 +77,9 @@ public:
     output << "LAZY_CUTS: " << this->num_lazy_cuts << endl;
     output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
     output << "Runtime: " << this->runtime << endl;
+    this->S = this->x.size();
 
-    for (int s = 0; s <= S; s++)
+    for (int s = 0; s < S; s++)
     {
       output << "Scenario: " << s << endl;
       for (auto arc : this->x[s])

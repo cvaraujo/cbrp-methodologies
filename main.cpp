@@ -1,12 +1,8 @@
-#include "src/common/BlockConnection.hpp"
-#include "src/common/Knapsack.hpp"
 #include "src/classes/Graph.hpp"
 #include "src/classes/Input.hpp"
-#include "src/exact/DeterministicModel.hpp"
-#include "src/exact/StochasticModel.hpp"
-#include "src/heuristic/GreedyHeuristic.hpp"
-#include "src/heuristic/LocalSearch.hpp"
+#include "src/heuristic/stochastic/StartSolution.hpp"
 
+/*
 void test_local_search(const char *argv[])
 {
   string file_graph = argv[1];
@@ -27,7 +23,7 @@ void test_local_search(const char *argv[])
   cout << endl;
 }
 
-int main(int argc, const char *argv[])
+int test_mathematical_models(int argc, const char *argv[])
 {
   string file_graph = argv[1];
   string file_scenarios = argv[2];
@@ -66,4 +62,24 @@ int main(int argc, const char *argv[])
   sol.WriteSolution(result_file);
 
   return 0;
+}
+*/
+
+void test_stochastic_start_solution(const char *argv[])
+{
+  string file_graph = argv[1];
+  string file_scenarios = argv[2];
+  string result_file = argv[3];
+
+  Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 1200, 0.8);
+  cout << "[*] Input loaded!" << endl;
+  Solution sol = StartSolution::CreateStartSolution(input);
+  cout << "[*] Creating Solution!" << endl;
+  sol.WriteSolution(result_file);
+  cout << "[*] Writed!" << endl;
+}
+
+int main(int argc, const char *argv[])
+{
+  test_stochastic_start_solution(argv);
 }

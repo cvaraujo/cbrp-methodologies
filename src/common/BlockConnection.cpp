@@ -8,6 +8,11 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
     int N = graph->getN();
     vector<set<int>> nodes_per_block = graph->getNodesPerBlock();
 
+    // cout << "Heuristic Block Connection" << endl;
+    // for (auto i : blocks)
+    //     cout << i << " ";
+    // cout << endl;
+
     // Route with only one block
     if (blocks.size() == 1)
     {
@@ -36,14 +41,14 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
     int V;
     vector<vector<Arc>> dag = this->createLayeredDag(connect_order, dag_2_graph, V);
 
-    // cout << "Create DAG" << endl;
+    cout << "Create DAG" << endl;
 
     // SHP on DAG
     vector<int> pred;
     path = vector<int>();
     int cost = ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, pred);
 
-    // cout << "SHP: " << cost << endl;
+    cout << "SHP: " << cost << endl;
 
     // Get the path
     int v = V + 1, last_inserted = -1;
@@ -88,12 +93,15 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
 
 vector<int> BlockConnection::getBestOrderToAttendBlocks(vector<int> blocks)
 {
-    vector<int> connect_order, backup_blocks = blocks;
+    vector<int> connect_order = vector<int>();
+    vector<int> backup_blocks = blocks;
 
     while (connect_order.size() < blocks.size())
     {
         if (connect_order.empty())
+        {
             connect_order.push_back(blocks[0]), backup_blocks.erase(backup_blocks.begin());
+        }
 
         int best_block = -1, shp = INF;
         for (int i = 0; i < int(backup_blocks.size()); i++)

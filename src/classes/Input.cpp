@@ -16,6 +16,7 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     this->walk_mtz_model = walk_mtz_model;
     this->sp = new ShortestPath(graph);
     this->bc = new BlockConnection(graph, sp);
+    this->bc->computeBlock2BlockCost();
 
     if (preprocessing)
         this->reduceGraphToPositiveCases();
