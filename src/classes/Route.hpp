@@ -28,6 +28,17 @@ public:
         this->PopulateBlocksDataStructures(blocks);
     };
 
+    ~Route()
+    {
+        route.clear();
+        used_node_attended_block.clear();
+        att_blocks_per_node.clear();
+        preds.clear();
+        route_blocks.clear();
+        blocks_attended.clear();
+        x.clear();
+    };
+
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
         preds = vector<int>(graph->getN() + 1, -1);

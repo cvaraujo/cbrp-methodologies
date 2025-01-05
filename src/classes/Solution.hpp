@@ -14,8 +14,9 @@ private:
   double of = 0.0, UB = INF, runtime = 0.0;
   int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
   Input *input;
-  vector<vector<int>> routes, preds, y;
-  vector<Route *> x;
+  vector<vector<int>> preds, y;
+  vector<vector<int_pair>> x;
+  vector<Route *> routes;
 
 public:
   Solution(double of, vector<vector<int>> y, vector<vector<int_pair>> x, Input *input)
@@ -24,8 +25,12 @@ public:
     this->y = y;
     this->x = x;
     this->input = input;
-    generateRouteFromX();
   }
+
+  Solution(Input *input)
+  {
+    this->input = input;
+  };
 
   Solution()
   {
@@ -47,40 +52,7 @@ public:
     this->x = x;
   }
 
-  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
-  {
-    this->of = of;
-    this->UB = UB;
-    this->runtime = runtime;
-    this->time_used = time_used;
-    this->num_lazy_cuts = num_lazy_cuts;
-    this->num_frac_cuts = num_frac_cuts;
-    this->solver_nodes = solver_nodes;
-    this->y = y;
-    this->x = x;
-  }
-
   ~Solution() { y.clear(), x.clear(); }
-
-  void generateRouteFromX()
-  {
-    int S = input->getS(), N = input->getGraph()->getN();
-    int i, j;
-    this->routes = vector<vector<int>>(S, vector<int>());
-    this->preds = vector<vector<int>>(S, vector<int>());
-
-    for (int s = 0; s <= S; s++)
-    {
-      vector<int> route = vector<int>(N + 1, -1), pred = vector<int>(N + 1, -1);
-
-      for (auto arc : this->x[s])
-      {
-        i = arc.first, j = arc.second;
-        route[i] = j, pred[j] = i;
-      }
-      routes[s] = route, preds[s] = pred;
-    }
-  }
 
   void WriteSolution(string output_file)
   {
@@ -109,25 +81,28 @@ public:
 #endif
   };
 
+  void AddScenarioSolution(int s, vector<int_pair> x, vector<int> y)
+  {
+    if (routes.empty())
+    {
+      int S = this->input->getS();
+      this->y = vector<vector<int>>(S + 1, vector<int>());
+      this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
+      this->routes = vector<Route *>(S + 1);
+    }
+  };
+
+  void ReplaceScenarioSolution() {};
+
   int getS() { return input->getS(); }
 
   Graph *getGraph() { return input->getGraph(); }
 
-  vector<vector<int>> getRoutes() { return this->routes; }
+  vector<Route *> getRoutes() { return this->routes; }
 
-  void setRoute(vector<vector<int>> routes) { this->routes = routes; }
+  void setRoute(Route *route, int s) { this->routes[s] = route; }
 
-  vector<vector<int>> getPreds() { return preds; }
-
-  void setPreds(vector<vector<int>> preds) { this->preds = preds; }
-
-  vector<int> getRouteFromScenario(int s) { return this->routes[s]; }
-
-  vector<int> getPredsFromScenario(int s) { return this->preds[s]; }
-
-  void setRouteTime(int time) { this->route_time = time; }
-
-  int getRouteTime() { return route_time; }
+  Route *getRouteFromScenario(int s) { return this->routes[s]; }
 
   double getOf() { return of; }
 

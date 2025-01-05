@@ -125,5 +125,5 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
             of += input->getScenario(s).getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, T, y[s + 1], x[s + 1]);
     }
 
-    return Solution(of, y, x);
+    return Solution(of, y, x, input);
 }

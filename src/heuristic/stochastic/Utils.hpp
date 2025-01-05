@@ -21,7 +21,7 @@ public:
 
         for (int b = 0; b < B; b++)
         {
-            cost = 0;
+            cost = cases_per_block[0][b];
             for (int s = 0; s < input->getS(); s++)
                 cost += alpha * input->getScenario(s).getProbability() * input->getScenario(s).getCasesPerBlock(b);
             cases_per_block[0][b] = cost;
