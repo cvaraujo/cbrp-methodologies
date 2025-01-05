@@ -47,7 +47,7 @@ public:
             of += input->getScenario(s).getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s + 1], time_per_block, 0.05, 10, T, y[s + 1], x[s + 1]);
         }
 
-        return Solution(of, y, x);
+        return Solution(of, y, x, input);
     };
 };
 

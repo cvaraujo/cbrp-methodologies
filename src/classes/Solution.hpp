@@ -2,6 +2,7 @@
 // Created by Carlos on 26/07/2024.
 //
 #include "Parameters.hpp"
+#include "Route.hpp"
 
 #ifndef DPARP_SOLUTION_H
 #define DPARP_SOLUTION_H
@@ -11,20 +12,19 @@ class Solution
 
 private:
   double of = 0.0, UB = INF, runtime = 0.0;
-  int time_used = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0, S = 0;
-
-  int route_time = 0;
-  vector<int> route, pred;
-  vector<vector<int>> y;
-  vector<vector<int_pair>> x;
+  int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
+  Input *input;
+  vector<vector<int>> routes, preds, y;
+  vector<Route *> x;
 
 public:
-  Solution(double of, vector<vector<int>> y, vector<vector<int_pair>> x)
+  Solution(double of, vector<vector<int>> y, vector<vector<int_pair>> x, Input *input)
   {
     this->of = of;
     this->y = y;
     this->x = x;
-    this->route = vector<int>();
+    this->input = input;
+    generateRouteFromX();
   }
 
   Solution()
@@ -32,7 +32,6 @@ public:
     this->of = 0.0;
     this->y = vector<vector<int>>();
     this->x = vector<vector<int_pair>>();
-    this->route = vector<int>();
   }
 
   Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
@@ -46,10 +45,9 @@ public:
     this->solver_nodes = solver_nodes;
     this->y = y;
     this->x = x;
-    this->route = vector<int>();
   }
 
-  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x, int S)
+  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
   {
     this->of = of;
     this->UB = UB;
@@ -60,11 +58,29 @@ public:
     this->solver_nodes = solver_nodes;
     this->y = y;
     this->x = x;
-    this->route = vector<int>();
-    this->S = S;
   }
 
   ~Solution() { y.clear(), x.clear(); }
+
+  void generateRouteFromX()
+  {
+    int S = input->getS(), N = input->getGraph()->getN();
+    int i, j;
+    this->routes = vector<vector<int>>(S, vector<int>());
+    this->preds = vector<vector<int>>(S, vector<int>());
+
+    for (int s = 0; s <= S; s++)
+    {
+      vector<int> route = vector<int>(N + 1, -1), pred = vector<int>(N + 1, -1);
+
+      for (auto arc : this->x[s])
+      {
+        i = arc.first, j = arc.second;
+        route[i] = j, pred[j] = i;
+      }
+      routes[s] = route, preds[s] = pred;
+    }
+  }
 
   void WriteSolution(string output_file)
   {
@@ -77,9 +93,8 @@ public:
     output << "LAZY_CUTS: " << this->num_lazy_cuts << endl;
     output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
     output << "Runtime: " << this->runtime << endl;
-    this->S = this->x.size();
 
-    for (int s = 0; s < S; s++)
+    for (int s = 0; s <= getS(); s++)
     {
       output << "Scenario: " << s << endl;
       for (auto arc : this->x[s])
@@ -94,13 +109,21 @@ public:
 #endif
   };
 
-  vector<int> getRoute() { return route; }
+  int getS() { return input->getS(); }
 
-  void setRoute(vector<int> route) { this->route = route; }
+  Graph *getGraph() { return input->getGraph(); }
 
-  vector<int> getPred() { return pred; }
+  vector<vector<int>> getRoutes() { return this->routes; }
 
-  void setPred(vector<int> pred) { this->pred = pred; }
+  void setRoute(vector<vector<int>> routes) { this->routes = routes; }
+
+  vector<vector<int>> getPreds() { return preds; }
+
+  void setPreds(vector<vector<int>> preds) { this->preds = preds; }
+
+  vector<int> getRouteFromScenario(int s) { return this->routes[s]; }
+
+  vector<int> getPredsFromScenario(int s) { return this->preds[s]; }
 
   void setRouteTime(int time) { this->route_time = time; }
 
@@ -118,13 +141,9 @@ public:
 
   void setRuntime(double runtime) { this->runtime = runtime; }
 
-  void setS(int s) { this->S = s; }
-
   vector<int> getYFromScenario(int s) { return y[s]; }
 
   vector<int_pair> getXFromScenario(int s) { return x[s]; }
-
-  int getS() { return S; }
 
   vector<vector<int>> getY() { return y; }
 
