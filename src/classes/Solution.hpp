@@ -90,9 +90,17 @@ public:
       this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
       this->routes = vector<Route *>(S + 1);
     }
+
+    Graph *graph = this->input->getGraph();
+    this->routes[s] = new Route(graph, x, y);
+    this->x[s] = x, this->y[s] = y;
   };
 
-  void ReplaceScenarioSolution() {};
+  void ReplaceScenarioSolution(int s, vector<int_pair> x, vector<int> y, Route *route)
+  {
+    this->routes[s] = route;
+    this->x[s] = x, this->y[s] = y;
+  };
 
   int getS() { return input->getS(); }
 

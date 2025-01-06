@@ -19,8 +19,9 @@ public:
         Graph *graph = input->getGraph();
         int S = input->getS(), T = input->getT(), B = graph->getB();
         double alpha = input->getAlpha();
-        vector<vector<int>> y = vector<vector<int>>(S + 1, vector<int>());
-        vector<vector<int_pair>> x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
+        vector<int> y_0 = vector<int>(), y;
+        vector<int_pair> x = vector<int_pair>();
+        Solution solution = Solution(input);
 
         // Getting all cases in a matrix
         vector<vector<double>> cases_per_block = vector<vector<double>>(S + 1, vector<double>());
@@ -36,18 +37,25 @@ public:
         Utils::UpdateFirstStageCosts(input, cases_per_block);
 
         auto time_per_block = graph->getTimePerBlock();
-        double of = greedy_heuristic.SolveScenario(cases_per_block[0], time_per_block, 0.05, 10, T, y[0], x[0]);
-        cout << "OF from Scenario: " << of << endl;
+        double of = greedy_heuristic.SolveScenario(cases_per_block[0], time_per_block, 0.005, 10, T, y_0, x);
+        solution.AddScenarioSolution(0, x, y_0);
+
+        cout << "OF from Scenario[0]: " << of << endl;
 
         // Solve second stage problems
-        for (int s = 0; s < S; s++)
+        for (int s = 1; s <= S; s++)
         {
             // Update second stage costs
-            Utils::UpdateSecondStageCosts(input, y[0], cases_per_block, s + 1);
-            of += input->getScenario(s).getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s + 1], time_per_block, 0.05, 10, T, y[s + 1], x[s + 1]);
+            y = vector<int>(), x = vector<int_pair>();
+            Utils::UpdateSecondStageCosts(input, y_0, cases_per_block, s);
+            of += input->getScenario(s - 1).getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s], time_per_block, 0.05, 10, T, y, x);
+            cout << "OF from Scenario[" << s << "]: " << of << endl;
         }
 
-        return Solution(of, y, x, input);
+        // Update OF
+        solution.setOf(of);
+
+        return solution;
     };
 };
 
