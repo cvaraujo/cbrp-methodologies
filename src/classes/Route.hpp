@@ -17,6 +17,7 @@ private:
     vector<int> preds, route_blocks;
     vector<bool> blocks_attended;
     int time_blocks = 0, time_route = 0;
+    pair<int, double> lowest_profitable_block = make_pair(-1, 0.0);
     vector<pair<int, int>> x;
 
 public:
@@ -130,6 +131,47 @@ public:
 
         blocks_attended[b] = true;
         this->time_blocks += graph->getTimePerBlock(b);
+    };
+
+    bool isBlockInRoute(int b)
+    {
+        for (auto block : this->route_blocks)
+        {
+            if (block == b)
+                return true;
+        }
+        return false;
+    };
+
+    bool isBlockAttended(int b)
+    {
+        return this->blocks_attended[b];
+    };
+
+    bool isSwapFeasible(int b1, int b2)
+    {
+        if (!this->blocks_attended[b1] || this->blocks_attended[b2] || this->used_node_attended_block.find(b1) == this->used_node_attended_block.end())
+            return false;
+
+        if (this->time_blocks - graph->getTimePerBlock(b1) + graph->getTimePerBlock(b2) > graph->getT())
+            return false;
+
+        return true;
+    };
+
+    vector<int> getBlocks()
+    {
+        return this->route_blocks;
+    };
+
+    bool isSwapTimeLowerThanT(int b1, int b2)
+    {
+        return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= graph->getT();
+    };
+
+    pair<int, double> getLowestProfitableBlock()
+    {
+        return this->lowest_profitable_block;
     };
 };
 #endif

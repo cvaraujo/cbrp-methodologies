@@ -79,6 +79,8 @@ public:
 
   void setCasesPerBlock(vector<double> cases) { cases_per_block = cases; }
 
+  double getCasesPerBlock(int block) { return cases_per_block[block]; }
+
   void setTimePerBlock(int block, int time) { time_per_block[block] = time; }
 
   void setTimePerBlock(vector<int> time) { time_per_block = time; }
