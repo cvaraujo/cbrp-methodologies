@@ -15,7 +15,7 @@ double GreedyHeuristic::SolveScenario(
     int available_time = T, tries = 1;
     double of = 0;
 
-    cout << "Available Time: " << available_time << ", Max Tries: " << max_tries << endl;
+    // cout << "Available Time: " << available_time << ", Max Tries: " << max_tries << endl;
     while (tries <= max_tries)
     {
         of = Knapsack::Run(y, cases, time, available_time);
@@ -23,7 +23,7 @@ double GreedyHeuristic::SolveScenario(
         if (y.empty())
             break;
 
-        cout << "Knapsack OF: " << of << " in iteration " << tries << endl;
+        // cout << "Knapsack OF: " << of << " in iteration " << tries << endl;
         // cout << "Selected Blocks" << endl;
         // for (auto i : y)
         //     cout << i << " ";
@@ -40,7 +40,7 @@ double GreedyHeuristic::SolveScenario(
         sort(y.begin(), y.end());
         string key = bc->GenerateStringFromIntVector(y);
 
-        cout << "Key: " << key << endl;
+        // cout << "Key: " << key << endl;
         // Get route cost
         if (!bc->keyExists(key))
             bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
@@ -52,7 +52,7 @@ double GreedyHeuristic::SolveScenario(
             auto vertices = bc->getBlocksAttendPath(key);
             for (int j = 0; j < vertices.size() - 1; j++)
             {
-                cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
+                // cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
                 x.push_back({vertices[j], vertices[j + 1]});
             }
             break;
@@ -113,7 +113,7 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
         bool all_zeros = true;
         for (int i = 0; i < B; i++)
         {
-            cases[i] = input->getScenario(s).getCasesPerBlock(i);
+            cases[i] = input->getScenario(s)->getCasesPerBlock(i);
             if (in_first_stage[i])
                 cases[i] *= (1 - alpha);
 
@@ -122,7 +122,7 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
         }
 
         if (!all_zeros)
-            of += input->getScenario(s).getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, T, y[s + 1], x[s + 1]);
+            of += input->getScenario(s)->getProbability() * SolveScenario(cases, time, route_time_increase, max_tries, T, y[s + 1], x[s + 1]);
     }
 
     return Solution(of, y, x, input);

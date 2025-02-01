@@ -13,27 +13,28 @@ class LocalSearch
 {
 
 public:
-    static void RunRandom2OPT(Input *input, Solution *solution)
+    static void RunMoreProfitable2OPT(Input *input, Solution *solution, string delta_type)
     {
-        Route *route = solution->getRouteFromScenario(0);
+        vector<pair<int, int>> best_fs_swap = LocalSearch::ComputeBestSwapBlocksStartScenario(input, solution, delta_type);
+        if (best_fs_swap.size() > 0)
+            cout << "Best swap: " << best_fs_swap[0].first << " " << best_fs_swap[0].second << endl;
+        getchar();
     };
 
-    /*
-        Consider the block swap in S0 without changing nothing in the routes.
-    */
     static double GetWeakDeltaSwapBlocksStartScenario(Input *input, Solution *solution, int b1, int b2)
     {
+        Graph *graph = input->getGraph();
         double delta = 0.0, cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2);
         double alpha = input->getAlpha(), prob;
-        Graph *graph = input->getGraph();
         int S = input->getS();
+        // First Stage delta
         delta = cases_b2 - cases_b1;
 
         for (int s = 1; s <= S; s++)
         {
-            Scenario scenario = input->getScenario(s - 1);
-            prob = scenario.getProbability();
-            delta += prob * alpha * (scenario.getCasesPerBlock(b2) - scenario.getCasesPerBlock(b1));
+            Scenario *scenario = input->getScenario(s - 1);
+            prob = scenario->getProbability();
+            delta += prob * alpha * (scenario->getCasesPerBlock(b2) - scenario->getCasesPerBlock(b1));
         }
 
         return delta;
@@ -45,7 +46,7 @@ public:
         return attended_first_stage ? (1.0 - alpha) * cases : cases;
     }
 
-    static double GetUpdatedFirstStageCases(Input *input, int block)
+    double GetUpdatedFirstStageCases(Input *input, int block)
     {
         Graph *graph = input->getGraph();
         int S = input->getS();
@@ -53,31 +54,77 @@ public:
 
         for (int s = 0; s < S; s++)
         {
-            Scenario scenario = input->getScenario(s);
-            delta += scenario.getProbability() * alpha * scenario.getCasesPerBlock(block);
+            Scenario *scenario = input->getScenario(s);
+            delta += scenario->getProbability() * alpha * scenario->getCasesPerBlock(block);
         }
 
         return delta;
     }
 
+    static pair<int, double> GetBestSecondStageOptionIfB1EnterFSSolution(
+        Input *input, Scenario *scenario, Route *f_stage_route, Route *s_stage_route, int b1)
+    {
+        double best_profit = LocalSearch::GetUpdatedSecondStageCases(input, scenario, b1, false);
+        int best_block = -1;
+
+        for (auto block : s_stage_route->getBlocks())
+        {
+            bool is_block_attended_fs = f_stage_route->isBlockAttended(block);
+            bool is_block_attended_ss = s_stage_route->isBlockAttended(block);
+            double profit_block = LocalSearch::GetUpdatedSecondStageCases(input, scenario, block, is_block_attended_fs);
+
+            if (block == b1 || !is_block_attended_ss || !s_stage_route->isSwapTimeLowerThanT(b1, block))
+                continue;
+
+            if (profit_block < best_profit)
+                best_block = block, best_profit = profit_block;
+        }
+
+        return make_pair(best_block, best_profit);
+    }
+
+    static pair<int, double> GetBestSecondStageOptionIfB1LeaveFSSolution(
+        Input *input, Scenario *scenario, Route *f_stage_route, Route *s_stage_route, int b1)
+    {
+        double best_profit = GetUpdatedSecondStageCases(input, scenario, b1, true);
+        int best_block = -1;
+
+        for (auto block : s_stage_route->getBlocks())
+        {
+            bool is_block_attended_fs = f_stage_route->isBlockAttended(block);
+            bool is_block_attended_ss = s_stage_route->isBlockAttended(block);
+            double profit_block = GetUpdatedSecondStageCases(input, scenario, block, is_block_attended_fs);
+
+            if (block == b1 || is_block_attended_ss || !s_stage_route->isSwapTimeLowerThanT(b1, block))
+                continue;
+
+            if (profit_block > best_profit)
+                best_block = block, best_profit = profit_block;
+        }
+
+        return make_pair(best_block, best_profit);
+    }
+
     /*
+        TODO: Need to copy the route and update the values
+
         Consider the block swap in S0 and the replacement
         of the new block, if is necessary for another feasible block in the route.
     */
     static double GetModerateDeltaSwapBlocksStartScenario(Input *input, Solution *solution, int b1, int b2)
     {
-        double cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2);
-        double alpha = input->getAlpha(), prob, lowest_old_profit = INF;
         Graph *graph = input->getGraph();
-        int S = input->getS(), lowest_block = -1;
+        double cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2);
+        double alpha = input->getAlpha(), prob;
+        int S = input->getS(), lowest_block = -1, highest_block = -1;
         double delta = cases_b2 - cases_b1;
         Route *first_stage_route = solution->getRouteFromScenario(0);
 
         for (int s = 1; s <= S; s++)
         {
-            Scenario scenario = input->getScenario(s - 1);
+            Scenario *scenario = input->getScenario(s - 1);
             Route *s_route = solution->getRouteFromScenario(s);
-            prob = scenario.getProbability();
+            prob = scenario->getProbability();
 
             /*
                 B1 was attendent,   then not    -> increase value in scenario S
@@ -94,83 +141,91 @@ public:
 
             */
 
+            pair<int, double> pair_swap_s_stage;
             if (!s_route->isBlockAttended(b1) && s_route->isBlockInRoute(b1))
             {
-                double profit_b1 = getUpdatedSecondStageCases(input, scenario, b1, false);
+                pair_swap_s_stage = LocalSearch::GetBestSecondStageOptionIfB1EnterFSSolution(input, scenario, first_stage_route, s_route, b1);
+                lowest_block = pair_swap_s_stage.first;
 
-                // Check if B1 can replace another attended block in the route
-                for (auto block : s_route->getBlocks())
-                {
-                    bool is_block_attended_fs = first_stage_route->isBlockAttended(block);
-                    bool is_block_attended_ss = s_route->isBlockAttended(block);
-                    double profit_block = getUpdatedSecondStageCases(input, scenario, block, is_block_attended_fs);
-
-                    if (block == b1 || !is_block_attended_ss || !s_route->isSwapTimeLowerThanT(b1, block))
-                        continue;
-
-                    if (profit_b1 > profit_block && profit_block < lowest_old_profit)
-                    {
-                        lowest_block = block;
-                        lowest_old_profit = profit_block;
-                    }
-                }
+                if (lowest_block != -1)
+                    delta += prob * alpha * (scenario->getCasesPerBlock(b1) - scenario->getCasesPerBlock(lowest_block));
             }
 
             if (s_route->isBlockAttended(b2))
             {
-                double profit_b2 = getUpdatedSecondStageCases(input, scenario, b2, true);
+                pair_swap_s_stage = LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(input, scenario, first_stage_route, s_route, b2);
+                highest_block = pair_swap_s_stage.first;
 
-                // Check if B2 could be replaced by another block in the route
-                for (auto block : s_route->getBlocks())
-                {
-                    bool is_block_attended_fs = first_stage_route->isBlockAttended(block);
-                    bool is_block_attended_ss = s_route->isBlockAttended(block);
-                    double profit_block = getUpdatedSecondStageCases(input, scenario, block, is_block_attended_fs);
-
-                    if (block == b2 || is_block_attended_ss || !s_route->isSwapTimeLowerThanT(b2, block))
-                        continue;
-
-                    if (profit_block > profit_b2 && profit_block < lowest_old_profit)
-                    {
-                        lowest_block = block;
-                        lowest_old_profit = profit_block;
-                    }
-                }
+                if (highest_block != -1)
+                    delta += prob * alpha * (scenario->getCasesPerBlock(highest_block) - scenario->getCasesPerBlock(b2));
             }
-
-            delta += prob * alpha * (scenario.getCasesPerBlock(b2) - scenario.getCasesPerBlock(b1));
         }
 
         return delta;
     };
 
-    double ComputeBestInRouteBlockSwap(Input *input, Route *route)
+    static vector<pair<int, int>> ComputeBestSwapBlocksStartScenario(Input *input, Solution *solution, string delta_type)
     {
-        double best = 0.0;
+        vector<pair<int, int>> best_swap;
+        Route *route = solution->getRouteFromScenario(0);
+        double best = 0.0, delta = 0.0;
         vector<int> blocks = route->getBlocks();
-        int i, j, b1, b2;
+        int i, j, b1, b2, best_b1 = -1, best_b2 = -1;
+
+        if (delta_type == "weak")
+            best_swap = vector<pair<int, int>>(1);
+
+        cout << "Possible blocks to swap: " << endl;
+        for (auto i : blocks)
+            cout << i << " ";
+        cout << endl;
 
         for (i = 0; i < blocks.size(); i++)
         {
             b1 = blocks[i];
-
+            // If the block is not attended, continue
             if (!route->isBlockAttended(b1))
                 continue;
+
+            cout << "Check to swap: " << b1 << endl;
 
             for (j = 0; j < blocks.size(); j++)
             {
                 b2 = blocks[j];
-                if (i == j || route->isBlockAttended(b2))
+                // If the block is attended, continue
+                if (i == j || route->isBlockAttended(b2) || !route->isSwapFeasible(b1, b2))
                     continue;
 
-                if (route->isSwapFeasible(b1, b2))
+                cout << "With: " << b2 << endl;
+                getchar();
+                delta = 0.0;
+                if (delta_type == "weak")
                 {
-                    double delta = route->getDeltaSwapBlocks(b1, b2);
-                    if (delta < best)
-                        best = delta;
+                    cout << "[!] Weak" << endl;
+                    delta = GetWeakDeltaSwapBlocksStartScenario(input, solution, b1, b2);
+                    cout << "B1: " << b1 << " B2: " << b2 << " Delta: " << delta << endl;
+                    getchar();
                 }
+                else if (delta_type == "moderate")
+                {
+                    cout << "[!] Moderate" << endl;
+                    // delta = route->getDeltaSwapBlocksModerate(input, b1, b2);
+                }
+                else if (delta_type == "strong")
+                {
+                    cout << "[!] Strong" << endl;
+                    // delta = route->getDeltaSwapBlocksStrong(input, b1, b2);}
+                }
+
+                if (delta > best)
+                    best = delta, best_b1 = b1, best_b2 = b2;
             }
         }
-    };
+
+        best_swap[0] = make_pair(best_b1, best_b2);
+        cout << "[*] Best swap: " << best_swap[0].first << " " << best_swap[0].second << endl;
+        getchar();
+        return best_swap;
+    }
 };
 #endif

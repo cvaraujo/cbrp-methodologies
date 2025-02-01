@@ -410,7 +410,7 @@ void StochasticModel::objectiveFunction()
   {
     double expr = 0;
     for (int s = 0; s < S; s++)
-      expr += input->getScenario(s).getProbability() * input->getAlpha() * input->getScenario(s).getCasesPerBlock(b);
+      expr += input->getScenario(s)->getProbability() * input->getAlpha() * input->getScenario(s)->getCasesPerBlock(b);
 
     objective += (y[b][0] * (graph->getCasesPerBlock(b) + expr));
   }
@@ -421,7 +421,7 @@ void StochasticModel::objectiveFunction()
     for (int b = 0; b < graph->getB(); b++)
       expr += z[b][s + 1];
 
-    objective += input->getScenario(s).getProbability() * expr;
+    objective += input->getScenario(s)->getProbability() * expr;
   }
 
   model.setObjective(objective, GRB_MAXIMIZE);
@@ -437,7 +437,7 @@ void StochasticModel::zValue()
   auto graph = this->input->getGraph();
   for (int s = 1; s <= input->getS(); s++)
   {
-    vector<double> cases = input->getScenario(s - 1).getCases();
+    vector<double> cases = input->getScenario(s - 1)->getCases();
 
     for (int b = 0; b < graph->getB(); b++)
     {
@@ -714,7 +714,6 @@ Solution StochasticModel::getSolution()
   }
 
   Solution solution = Solution(of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
-  solution.setS(input->getS());
   return solution;
 }
 

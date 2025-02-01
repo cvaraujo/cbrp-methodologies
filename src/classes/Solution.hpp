@@ -92,7 +92,7 @@ public:
     }
 
     Graph *graph = this->input->getGraph();
-    this->routes[s] = new Route(graph, x, y);
+    this->routes[s] = new Route(this->input, x, y);
     this->x[s] = x, this->y[s] = y;
   };
 

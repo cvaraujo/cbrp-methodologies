@@ -35,6 +35,8 @@ public:
 
     int HeuristicBlockConnection(Graph *graph, ShortestPath *sp, vector<int> blocks, string key);
 
+    int SimplePathBlockConnection(vector<int> blocks, vector<int> &pred);
+
     set<int> computeBlock2BlockCost()
     {
         // Remove unecessary arcs between blocks
@@ -68,7 +70,7 @@ public:
         copy(blocks.begin(), blocks.end(), ostream_iterator<int>(result, ""));
 
         return result.str();
-    }
+    };
 
     vector<vector<Arc>> createLayeredDag(vector<int> nodes, map<int, int> &dag_2_graph, int &V);
 

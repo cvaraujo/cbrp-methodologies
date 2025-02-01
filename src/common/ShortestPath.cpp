@@ -51,23 +51,51 @@ int ShortestPath::ShortestPathST(int s, int t, vector<int> &path)
 
     if (s == t)
     {
+        cout << "[ShortestPathST] Entrei nessa merda?" << endl;
+        getchar();
         path.push_back(s);
         return 0;
     }
-
-    if (ij_path[s][t].size() > 0)
+    if (!ij_path[s][t].empty())
     {
+        // if (s == 33 && t == 65)
+        // {
+        //     cout << "[ShortestPathST] Condicional 3!" << endl;
+
+        //     for (auto i : ij_path[s][t])
+        //         cout << i << " ";
+        //     cout << endl;
+        //     getchar();
+        // }
+
         path = ij_path[s][t];
         return dist[s][t];
     }
 
+    if (this->graph->getArc(s, t) != nullptr)
+    {
+        path = vector<int>{s, t};
+        return dist[s][t];
+    }
+
     int i = s, j = t;
+    path = vector<int>();
     path.push_back(i);
     while (i != j)
     {
         i = next[i][j];
         path.push_back(i);
     }
+    // if (s == 33 && t == 65)
+    // {
+    //     cout << "[ShortestPathST] Fluxo normal!" << endl;
+
+    //     for (auto i : path)
+    //         cout << i << " ";
+    //     cout << endl;
+    //     getchar();
+    // }
+
     ij_path[s][t] = path;
 
     return dist[s][t];
@@ -114,15 +142,15 @@ void ShortestPath::allPairsShortestPath()
     // Initialize the next matrix
     for (int i = 0; i < N; i++)
     {
-        dist[i][i] = 0;
+        dist[i][i] = 0, next[i][i] = i;
         for (auto arc : graph->getArcs(i))
         {
             int j = arc->getD();
             if (j >= N)
                 continue;
 
-            dist[i][j] = arc->getLength();
-            next[i][j] = j;
+            dist[i][j] = arc->getLength(), dist[j][i] = arc->getLength();
+            next[i][j] = j, next[j][i] = i;
         }
     }
 
@@ -145,21 +173,28 @@ void ShortestPath::allPairsShortestPath()
 vector<int> ShortestPath::getPath(int s, int t)
 {
     if (s >= ij_path.size() || t >= ij_path[s].size())
+    {
         return vector<int>();
+    }
 
     if (!ij_path[s][t].empty())
+    {
         return ij_path[s][t];
+    }
 
-    // cout << "Path to " << s << " to " << t << endl;
+    if (graph->getArc(s, t) != nullptr)
+    {
+        ij_path[s][t] = vector<int>{s, t};
+        return ij_path[s][t];
+    }
+
     vector<int> path = {s};
     int v = s;
     while (v != t)
     {
         v = next[v][t];
         path.push_back(v);
-        // cout << "V: " << v << endl;
     }
-
     ij_path[s][t] = path;
     return path;
 }

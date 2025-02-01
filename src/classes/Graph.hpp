@@ -89,8 +89,6 @@ public:
 
   void setNodesPerBlock(vector<set<int>> nodes) { nodes_per_block = nodes; }
 
-  double getCasesPerBlock(int block) { return cases_per_block[block]; }
-
   vector<double> getCasesPerBlock() { return cases_per_block; }
 
   int getTimePerBlock(int block) { return time_per_block[block]; }

@@ -81,7 +81,7 @@ public:
 
     void setScenarios(vector<Scenario> scenarios) { this->scenarios = scenarios; }
 
-    Scenario getScenario(int i) { return this->scenarios[i]; }
+    Scenario *getScenario(int i) { return &this->scenarios[i]; }
 
     void setScenario(int i, Scenario scenario) { this->scenarios[i] = scenario; }
 
@@ -102,6 +102,8 @@ public:
     void setBlockConnection(BlockConnection *bc) { this->bc = bc; }
 
     BlockConnection *getBlockConnection() { return this->bc; }
+
+    bool isNodeInPositiveValidBlock(int node);
 };
 
 #endif

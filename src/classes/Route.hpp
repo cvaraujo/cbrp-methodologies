@@ -11,19 +11,18 @@
 class Route
 {
 private:
-    Graph *graph;
+    Input *input;
     map<int, int> route, used_node_attended_block;
     map<int, vector<int>> att_blocks_per_node;
     vector<int> preds, route_blocks;
     vector<bool> blocks_attended;
     int time_blocks = 0, time_route = 0;
-    pair<int, double> lowest_profitable_block = make_pair(-1, 0.0);
     vector<pair<int, int>> x;
 
 public:
-    Route(Graph *graph, vector<pair<int, int>> arcs, vector<int> blocks)
+    Route(Input *input, vector<pair<int, int>> arcs, vector<int> blocks)
     {
-        this->graph = graph;
+        this->input = input;
         this->x = arcs;
         this->PopulateRouteDataStructures(arcs);
         this->PopulateBlocksDataStructures(blocks);
@@ -42,16 +41,20 @@ public:
 
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
+        Graph *graph = this->input->getGraph();
         preds = vector<int>(graph->getN() + 1, -1);
 
         for (auto arc : arcs)
         {
             int i = arc.first, j = arc.second;
             this->route[i] = j, this->preds[j] = i;
-            Arc *g_arc = this->graph->getArc(i, j);
+            Arc *g_arc = graph->getArc(i, j);
 
             if (g_arc == nullptr)
+            {
+                cout << "i: " << i << ", j: " << j << endl;
                 throw std::runtime_error("[!!!] Invalid arc while populate route data structures!");
+            }
 
             this->time_route += g_arc->getLength();
         }
@@ -59,15 +62,16 @@ public:
 
     void PopulateBlocksDataStructures(vector<int> blocks)
     {
+        Graph *graph = this->input->getGraph();
         this->route_blocks = blocks;
         this->blocks_attended = vector<bool>(graph->getB(), false);
 
         for (auto b : blocks)
         {
             this->blocks_attended[b] = true;
-            time_blocks += this->graph->getTimePerBlock(b);
+            time_blocks += graph->getTimePerBlock(b);
 
-            set<int> nodes = this->graph->getNodesFromBlock(b);
+            set<int> nodes = graph->getNodesFromBlock(b);
             for (auto node : nodes)
             {
                 if (preds[node] != -1)
@@ -99,6 +103,7 @@ public:
     void RemoveBlockFromAttended(int b)
     {
         // Basic checks
+        Graph *graph = this->input->getGraph();
         if (!this->blocks_attended[b])
             throw std::runtime_error("[!!!] Block " + to_string(b) + " not attended to be swapped!");
 
@@ -112,10 +117,12 @@ public:
 
     void AddBlockToAttended(int b)
     {
+        // Basic checks
+        Graph *graph = this->input->getGraph();
         if (this->blocks_attended[b])
             throw std::runtime_error("[!!!] Block " + to_string(b) + " already attended!");
 
-        set<int> nodes_b = this->graph->getNodesFromBlock(b);
+        set<int> nodes_b = graph->getNodesFromBlock(b);
         for (auto node : nodes_b)
         {
             if (preds[node] != -1)
@@ -150,10 +157,11 @@ public:
 
     bool isSwapFeasible(int b1, int b2)
     {
+        Graph *graph = this->input->getGraph();
         if (!this->blocks_attended[b1] || this->blocks_attended[b2] || this->used_node_attended_block.find(b1) == this->used_node_attended_block.end())
             return false;
 
-        if (this->time_blocks - graph->getTimePerBlock(b1) + graph->getTimePerBlock(b2) > graph->getT())
+        if (this->time_blocks - graph->getTimePerBlock(b1) + graph->getTimePerBlock(b2) > this->input->getT())
             return false;
 
         return true;
@@ -166,12 +174,8 @@ public:
 
     bool isSwapTimeLowerThanT(int b1, int b2)
     {
-        return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= graph->getT();
-    };
-
-    pair<int, double> getLowestProfitableBlock()
-    {
-        return this->lowest_profitable_block;
+        Graph *graph = this->input->getGraph();
+        return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= input->getT();
     };
 };
 #endif

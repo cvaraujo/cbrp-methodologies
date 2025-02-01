@@ -43,7 +43,7 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     {
         if (set_of_used_nodes.find(i) == set_of_used_nodes.end())
         {
-            cout << "Remove node " << i << endl;
+            // cout << "Remove node " << i << endl;
             continue;
         }
 
@@ -80,7 +80,7 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
         {
             if (!used_arcs[i][arc->getD()])
             {
-                cout << "Remove arc " << i << " - " << arc->getD() << endl;
+                // cout << "Remove arc " << i << " - " << arc->getD() << endl;
                 continue;
             }
 
@@ -96,6 +96,11 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     this->graph->setArcs(new_arcs);
     this->graph->setNodesPerBlock(nodes_per_block);
     this->graph->setN(newN);
+
+    int M = 0;
+    for (int i = 0; i < newN; i++)
+        M += new_arcs[i].size();
+    this->graph->setM(M);
 }
 
 void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>> &used_arcs)
@@ -158,11 +163,11 @@ void Input::reduceGraphToPositiveCases()
         {
             for (int s = 0; s < S; s++)
             {
-                if (scenarios[s].getCasesPerBlock(b) > 0)
-                {
-                    has_cases = true;
-                    break;
-                }
+                if (scenarios[s].getCasesPerBlock(b) <= 0)
+                    continue;
+
+                has_cases = true;
+                break;
             }
         }
 
@@ -219,6 +224,8 @@ void Input::reduceGraphToPositiveCases()
 
 #ifndef Silence
     cout << "[*] Preprocessing Finished!" << endl;
+    cout << "[*] The Resulting Graph has " << graph->getN() << " nodes, " << graph->getM() << " arcs." << " and " << graph->getB() << " blocks" << endl;
+    getchar();
 #endif
 }
 
@@ -260,13 +267,21 @@ void Input::loadScenarios(string instance)
 #endif
 }
 
-bool isNodeInPositiveValidBlock(Graph *graph, int node)
+bool Input::isNodeInPositiveValidBlock(int node)
 {
     auto node_info = graph->getNode(node);
 
     for (int b : node_info.second)
+    {
         if (b != -1 && graph->getCasesPerBlock(b) > 0)
             return true;
+
+        for (int s = 0; s < this->S; s++)
+        {
+            if (scenarios[s].getCasesPerBlock(b) > 0)
+                return true;
+        }
+    }
 
     return false;
 }
@@ -278,18 +293,18 @@ void Input::walkAdaptMTZModel()
 #endif
 
     // trail adapt MTZ model
-    int i, length;
+    int i, length, M = graph->getM();
     vector<int> path;
 
     // Add new arcs
     for (int i = 0; i < graph->getN(); i++)
     {
-        if (!isNodeInPositiveValidBlock(graph, i))
+        if (!isNodeInPositiveValidBlock(i))
             continue;
 
         for (int j = 0; j < graph->getN(); j++)
         {
-            if (i == j || !isNodeInPositiveValidBlock(graph, j) || graph->getArc(i, j) != nullptr)
+            if (i == j || !isNodeInPositiveValidBlock(j) || graph->getArc(i, j) != nullptr)
                 continue;
 
             length = sp->ShortestPathST(i, j, path);
@@ -297,11 +312,14 @@ void Input::walkAdaptMTZModel()
             {
                 Arc *arc = new Arc(i, j, length, -1);
                 graph->addArc(i, arc);
+                M++;
             }
         }
     }
+    graph->setM(M);
 #ifndef Silence
     cout << "[*] Create Complete Graph" << endl;
+    cout << "[*] The Resulting Graph has " << graph->getN() << " nodes, " << graph->getM() << " arcs." << " and " << graph->getB() << " blocks" << endl;
 #endif
 }
 
@@ -322,11 +340,11 @@ void Input::filterMostDifferentScenarios(int new_s)
             if (scenarios_used.find(s) != scenarios_used.end())
                 continue;
 
-            Scenario scenario = this->scenarios[s];
+            Scenario *scenario = &this->scenarios[s];
 
             double diff = 0.0;
             for (int b = 0; b < graph->getB(); b++)
-                diff += scenario.getCasesPerBlock(b) - cases_in_scenarios[b];
+                diff += scenario->getCasesPerBlock(b) - cases_in_scenarios[b];
 
             if (diff > diff_factor)
             {

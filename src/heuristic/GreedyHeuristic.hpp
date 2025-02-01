@@ -22,7 +22,7 @@ class GreedyHeuristic
     {
         double profit = 0;
         for (int s = 0; s < this->input->getS(); s++)
-            profit += (input->getAlpha() * input->getScenario(s).getProbability() * input->getScenario(s).getCasesPerBlock(b));
+            profit += (input->getAlpha() * input->getScenario(s)->getProbability() * input->getScenario(s)->getCasesPerBlock(b));
         return make_pair((profit / this->input->getS()), profit);
     };
 
@@ -30,7 +30,7 @@ class GreedyHeuristic
     {
         double profit = 0;
         for (int s = 0; s < this->input->getS(); s++)
-            profit += (input->getAlpha() * input->getScenario(s).getProbability() * input->getScenario(s).getCasesPerBlock(b));
+            profit += (input->getAlpha() * input->getScenario(s)->getProbability() * input->getScenario(s)->getCasesPerBlock(b));
         return profit;
     };
 

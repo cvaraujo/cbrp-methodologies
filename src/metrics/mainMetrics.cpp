@@ -74,7 +74,7 @@ float WaitNSeeResults(Input *input, float alpha)
     input1->setScenario(0, scn);
 
     Solution sol = solveSM(input1);
-    of += probability * getRealOfFromSolution(1, input->getGraph()->getCasesPerBlock(), input->getScenario(s).getCases(), sol, alpha);
+    of += probability * getRealOfFromSolution(1, input->getGraph()->getCasesPerBlock(), input->getScenario(s)->getCases(), sol, alpha);
   }
 
   return of;
@@ -98,7 +98,7 @@ float ExpectationExpectedValueResults(Input *input, float alpha)
   {
     float avg_cases = 0.0;
     for (int s = 0; s < input->getS(); s++)
-      avg_cases += input->getScenario(s).getCasesPerBlock(b);
+      avg_cases += input->getScenario(s)->getCasesPerBlock(b);
     cases_per_block[b] = avg_cases / float(input->getS());
   }
 
@@ -147,7 +147,7 @@ float ExpectationExpectedValueResults(Input *input, float alpha)
     first_stage_sol.setY(oldY);
 
     // Get Real Objective value
-    of += probability * getRealOfFromSolution(1, g2->getCasesPerBlock(), input->getScenario(s).getCases(), first_stage_sol, alpha);
+    of += probability * getRealOfFromSolution(1, g2->getCasesPerBlock(), input->getScenario(s)->getCases(), first_stage_sol, alpha);
   }
 
   return of;
@@ -161,7 +161,7 @@ float StochasticModelResults(Input *input, float alpha, bool start_from_sol, Sol
   Solution sol = solveSM(input);
 
   for (int s = 0; s < S; s++)
-    of += probability * getRealOfFromSolution(s + 1, input->getGraph()->getCasesPerBlock(), input->getScenario(s).getCases(), sol, alpha);
+    of += probability * getRealOfFromSolution(s + 1, input->getGraph()->getCasesPerBlock(), input->getScenario(s)->getCases(), sol, alpha);
   return of;
 }
 
@@ -213,7 +213,7 @@ float DeterministicModelResults(Input *input, float alpha)
     s2.setY(oldY);
 
     // Get Real Objective value
-    of += probability * getRealOfFromSolution(1, g2->getCasesPerBlock(), input->getScenario(s).getCases(), s2, alpha);
+    of += probability * getRealOfFromSolution(1, g2->getCasesPerBlock(), input->getScenario(s)->getCases(), s2, alpha);
   }
 
   return of;
