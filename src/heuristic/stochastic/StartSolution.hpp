@@ -37,7 +37,7 @@ public:
         Utils::UpdateFirstStageCosts(input, cases_per_block);
 
         auto time_per_block = graph->getTimePerBlock();
-        double of = greedy_heuristic.SolveScenario(cases_per_block[0], time_per_block, 0.1, 10, T, y_0, x);
+        double of = greedy_heuristic.SolveScenario(cases_per_block[0], time_per_block, 0.01, 100, T, y_0, x);
         solution.AddScenarioSolution(0, x, y_0);
 
         // Solve second stage problems
@@ -46,8 +46,8 @@ public:
             // Update second stage costs
             y = vector<int>(), x = vector<int_pair>();
             Utils::UpdateSecondStageCosts(input, y_0, cases_per_block, s);
-            of += input->getScenario(s - 1)->getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s], time_per_block, 0.1, 10, T, y, x);
-            // cout << "OF from Scenario[" << s << "]: " << of << endl;
+            of += input->getScenario(s - 1)->getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s], time_per_block, 0.01, 100, T, y, x);
+            cout << "OF from Scenario[" << s << "]: " << of << endl;
         }
 
         // Update OF

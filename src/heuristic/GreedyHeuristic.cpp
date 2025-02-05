@@ -11,61 +11,101 @@ double GreedyHeuristic::SolveScenario(
 {
     // Start greedy heuristic
     Graph *graph = input->getGraph();
-    BlockConnection *bc = input->getBlockConnection();
-    int available_time = T, tries = 1;
-    double of = 0;
+    int available_time_to_attend = T;
+    double lb = 0.5, ub = 1.0, mid = 0.0, of = 0, temp_of;
 
-    // cout << "Available Time: " << available_time << ", Max Tries: " << max_tries << endl;
-    while (tries <= max_tries)
+    vector<int> temp_y;
+    vector<int_pair> temp_x;
+
+    // Optimal solution = (1.0 * T)
+    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, temp_x);
+
+    if (temp_of != -1)
     {
-        of = Knapsack::Run(y, cases, time, available_time);
+        cout << "[*] Optimal Solution: " << temp_of << endl;
+        x = temp_x, y = temp_y;
+        return temp_of;
+    }
 
-        if (y.empty())
-            break;
+    cout << "1.0 * T = " << temp_of << endl;
 
-        // cout << "Knapsack OF: " << of << " in iteration " << tries << endl;
-        // cout << "Selected Blocks" << endl;
-        // for (auto i : y)
-        //     cout << i << " ";
-        // cout << endl;
+    // LB solution = (0.5 * T)
+    available_time_to_attend = round(double(T) * lb);
+    temp_of = Knapsack::Run(y, cases, time, available_time_to_attend);
 
-        // Get attend time
-        int block_attended_time = 0;
-        for (auto b : y)
-            block_attended_time += graph->getTimePerBlock(b);
+    cout << "0.5 * T = " << temp_of << endl;
 
-        // cout << "Block Attended Time: " << block_attended_time << endl;
+    if (temp_of == -1)
+        ub = lb, lb = 0.0;
 
-        // Generate a hash to solution
-        sort(y.begin(), y.end());
-        string key = bc->GenerateStringFromIntVector(y);
+    mid = (lb + ub) / 2.0;
 
-        // cout << "Key: " << key << endl;
-        // Get route cost
-        if (!bc->keyExists(key))
-            bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
+    while ((ub - lb) > 0.001)
+    {
+        cout << "LB: " << lb << ", UB: " << ub << ", MID: " << mid << " => " << temp_of << endl;
 
-        // cout << "Block Connection Cost: " << bc->getBlocksAttendCost(key) << " + " << block_attended_time << endl;
+        available_time_to_attend = round(double(T) * mid);
+        temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, temp_x);
 
-        if (block_attended_time + bc->getBlocksAttendCost(key) <= T)
-        {
-            auto vertices = bc->getBlocksAttendPath(key);
-            for (int j = 0; j < vertices.size() - 1; j++)
-            {
-                // cout << "X: " << vertices[j] << " " << vertices[j + 1] << endl;
-                x.push_back({vertices[j], vertices[j + 1]});
-            }
-            break;
-        }
+        if (temp_of == -1)
+            ub = mid;
         else
         {
-            y = vector<int>();
-            x = vector<int_pair>();
-            available_time = T * (1.0 - float(tries++) * route_time_increase);
+            of = temp_of;
+            x = temp_x, y = temp_y;
+            lb = mid;
         }
+
+        mid = (lb + ub) / 2.0;
+        getchar();
     }
 
     return of;
+}
+
+double GreedyHeuristic::BinarySolve(
+    vector<double> cases,
+    vector<int> time,
+    int reserved_time,
+    int T,
+    vector<int> &y,
+    vector<int_pair> &x)
+{
+    // Start greedy heuristic
+    Graph *graph = input->getGraph();
+    BlockConnection *bc = input->getBlockConnection();
+    double lb = 0.0, ub = 0.5, mid = 0.0, of = -1;
+
+    y = vector<int>();
+    x = vector<int_pair>();
+
+    of = Knapsack::Run(y, cases, time, reserved_time);
+
+    if (y.empty())
+        return -1;
+
+    // Get attend time
+    int block_attended_time = 0;
+    for (auto b : y)
+        block_attended_time += graph->getTimePerBlock(b);
+
+    // Generate a hash to solution
+    sort(y.begin(), y.end());
+    string key = bc->GenerateStringFromIntVector(y);
+
+    // Get route cost
+    if (!bc->keyExists(key))
+        bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
+
+    if (block_attended_time + bc->getBlocksAttendCost(key) <= T)
+    {
+        auto vertices = bc->getBlocksAttendPath(key);
+        for (int j = 0; j < vertices.size() - 1; j++)
+            x.push_back({vertices[j], vertices[j + 1]});
+        return of;
+    }
+
+    return -1;
 }
 
 Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg)

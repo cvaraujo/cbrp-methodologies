@@ -51,6 +51,8 @@ public:
     double SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, int T, vector<int> &y, vector<int_pair> &x);
 
     Solution Run(double route_time_increase, int max_tries, bool use_avg);
+
+    double BinarySolve(vector<double> cases, vector<int> time, int reserved_time, int T, vector<int> &y, vector<int_pair> &x);
 };
 
 #endif

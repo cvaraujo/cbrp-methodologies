@@ -14,7 +14,8 @@ private:
     Input *input;
     map<int, int> route, used_node_attended_block;
     map<int, vector<int>> att_blocks_per_node;
-    vector<int> preds, route_blocks;
+    vector<int> preds;
+    set<int> route_blocks;
     vector<bool> blocks_attended;
     int time_blocks = 0, time_route = 0;
     vector<pair<int, int>> x;
@@ -43,6 +44,7 @@ public:
     {
         Graph *graph = this->input->getGraph();
         preds = vector<int>(graph->getN() + 1, -1);
+        route_blocks = set<int>();
 
         for (auto arc : arcs)
         {
@@ -57,13 +59,15 @@ public:
             }
 
             this->time_route += g_arc->getLength();
+            set<int> blocks_i = graph->getNode(i).second, blocks_j = graph->getNode(j).second;
+            route_blocks.insert(blocks_i.begin(), blocks_i.end());
+            route_blocks.insert(blocks_j.begin(), blocks_j.end());
         }
     };
 
     void PopulateBlocksDataStructures(vector<int> blocks)
     {
         Graph *graph = this->input->getGraph();
-        this->route_blocks = blocks;
         this->blocks_attended = vector<bool>(graph->getB(), false);
 
         for (auto b : blocks)
@@ -142,12 +146,7 @@ public:
 
     bool isBlockInRoute(int b)
     {
-        for (auto block : this->route_blocks)
-        {
-            if (block == b)
-                return true;
-        }
-        return false;
+        return this->route_blocks.find(b) != this->route_blocks.end();
     };
 
     bool isBlockAttended(int b)
@@ -167,7 +166,7 @@ public:
         return true;
     };
 
-    vector<int> getBlocks()
+    set<int> getBlocks()
     {
         return this->route_blocks;
     };
@@ -176,6 +175,11 @@ public:
     {
         Graph *graph = this->input->getGraph();
         return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= input->getT();
+    };
+
+    map<int, int> getRoute()
+    {
+        return this->route;
     };
 };
 #endif
