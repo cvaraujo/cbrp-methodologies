@@ -15,10 +15,54 @@ class LocalSearch
 public:
     static void RunMoreProfitable2OPT(Input *input, Solution *solution, string delta_type)
     {
-        vector<pair<int, int>> best_fs_swap = LocalSearch::ComputeBestSwapBlocksStartScenario(input, solution, delta_type);
-        if (best_fs_swap.size() > 0)
-            cout << "Best swap: " << best_fs_swap[0].first << " " << best_fs_swap[0].second << endl;
-        getchar();
+        bool is_stuck = false;
+        map<int, int_pair> best_fs_swap;
+        Graph *graph = input->getGraph();
+
+        while (!is_stuck)
+        {
+            double delta = LocalSearch::ComputeBestSwapBlocksStartScenario(input, solution, delta_type, best_fs_swap);
+            cout << "[*] Delta: " << delta << endl;
+            cout << "[*] Best swap: " << best_fs_swap.size() << endl;
+            if (best_fs_swap.size() > 0)
+            {
+                for (auto scenario_swap : best_fs_swap)
+                {
+                    int_pair swap = scenario_swap.second;
+                    int scenario = scenario_swap.first, b1 = swap.first, b2 = swap.second;
+                    cout << "[*] Best swap in scenario " << scenario << " = " << best_fs_swap[0].first << " " << best_fs_swap[0].second << endl;
+
+                    Route *r1 = solution->getRouteFromScenario(scenario);
+
+                    for (int b = 0; b < graph->getB(); b++)
+                        if (r1->isBlockAttended(b))
+                            cout << b << " ";
+                    cout << endl;
+                    cout << "------------------------------" << endl;
+
+                    solution->ScenarioBlockSwapWithoutOF(scenario, b1, b2);
+
+                    Route *r2 = solution->getRouteFromScenario(scenario);
+
+                    for (int b = 0; b < graph->getB(); b++)
+                        if (r2->isBlockAttended(b))
+                            cout << b << " ";
+                    cout << endl;
+
+                    cout << "[1] Start OF: " << solution->getOf() << endl;
+                    solution->setOf(solution->getOf() + delta);
+                    cout << "[2] Updated OF: " << solution->getOf() << endl;
+
+                    cout << "[!] The OF is matching? " << solution->ComputeCurrentSolutionOF() << endl;
+                    getchar();
+                }
+            }
+            else
+            {
+                cout << "[!] No more profitable swap found!" << endl;
+                is_stuck = true;
+            }
+        }
     };
 
     static double GetWeakDeltaSwapBlocksStartScenario(Input *input, Solution *solution, int b1, int b2)
@@ -164,18 +208,15 @@ public:
         return delta;
     };
 
-    static vector<pair<int, int>> ComputeBestSwapBlocksStartScenario(Input *input, Solution *solution, string delta_type)
+    static double ComputeBestSwapBlocksStartScenario(Input *input, Solution *solution, string delta_type, map<int, int_pair> &best_swap)
     {
-        vector<pair<int, int>> best_swap;
         Graph *graph = input->getGraph();
         Route *route = solution->getRouteFromScenario(0);
         double best = 0.0, delta = 0.0;
         set<int> set_blocks = route->getBlocks();
         vector<int> blocks = vector<int>(set_blocks.begin(), set_blocks.end());
+        best_swap = map<int, int_pair>();
         int i, j, b1, b2, best_b1 = -1, best_b2 = -1;
-
-        if (delta_type == "weak")
-            best_swap = vector<pair<int, int>>(1);
 
         // cout << "Route" << endl;
         // for (auto i : route->getRoute())
@@ -243,9 +284,10 @@ public:
         }
 
         best_swap[0] = make_pair(best_b1, best_b2);
+
         cout << "[*] Best swap: " << best_swap[0].first << " " << best_swap[0].second << " = " << best << endl;
         getchar();
-        return best_swap;
+        return best;
     }
 };
 #endif

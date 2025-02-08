@@ -102,6 +102,45 @@ public:
     this->x[s] = x, this->y[s] = y;
   };
 
+  void ScenarioBlockSwapWithoutOF(int s, int b1, int b2)
+  {
+    remove(this->y[s].begin(), this->y[s].end(), b1);
+    this->y[s].push_back(b2);
+    this->routes[s]->SwapBlocks(b1, b2);
+  };
+
+  double ComputeCurrentSolutionOF()
+  {
+    double of = 0;
+    Graph *graph = input->getGraph();
+    vector<double> cases_per_block = graph->getCasesPerBlock();
+    vector<bool> attended_first_stage = vector<bool>(graph->getB(), false);
+
+    for (auto b : this->y[0])
+    {
+      attended_first_stage[b] = true;
+      of += cases_per_block[b];
+      for (int s = 0; s < input->getS(); s++)
+      {
+        vector<double> scn_cases = input->getScenario(s)->getCases();
+        of += input->getAlpha() * input->getScenario(s)->getProbability() * scn_cases[b];
+      }
+    }
+
+    for (int s = 1; s <= input->getS(); s++)
+    {
+      Scenario *scn = input->getScenario(s - 1);
+      for (auto b : this->y[s])
+      {
+        if (attended_first_stage[b])
+          of += scn->getProbability() * (1 - input->getAlpha()) * scn->getCasesPerBlock(b);
+        of += scn->getProbability() * scn->getCasesPerBlock(b);
+      }
+    }
+
+    return of;
+  }
+
   int getS() { return input->getS(); }
 
   Graph *getGraph() { return input->getGraph(); }

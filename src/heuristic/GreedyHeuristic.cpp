@@ -57,7 +57,7 @@ double GreedyHeuristic::SolveScenario(
         }
 
         mid = (lb + ub) / 2.0;
-        getchar();
+        // getchar();
     }
 
     return of;
