@@ -30,9 +30,9 @@ public:
 
     static void UpdateSecondStageCosts(Input *input, vector<int> first_stage_solution, vector<vector<double>> &cases_per_block, int s)
     {
-        double alpha = input->getAlpha(), cost = 0;
+        double alpha = input->getAlpha();
         for (int b : first_stage_solution)
-            cases_per_block[s][b] = (1 - alpha) * cases_per_block[s][b];
+            cases_per_block[s][b] = (1.0 - alpha) * cases_per_block[s][b];
     };
 
     // static double ComputeOFFromSolution(Input *input, Solution *solution)

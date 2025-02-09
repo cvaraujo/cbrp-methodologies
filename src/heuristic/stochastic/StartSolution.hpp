@@ -19,7 +19,7 @@ public:
         Graph *graph = input->getGraph();
         int S = input->getS(), T = input->getT(), B = graph->getB();
         double alpha = input->getAlpha();
-        vector<int> y_0 = vector<int>(), y;
+        vector<int> y_0 = vector<int>(), y = vector<int>();
         vector<int_pair> x = vector<int_pair>();
         Solution solution = Solution(input);
 
@@ -47,7 +47,8 @@ public:
             y = vector<int>(), x = vector<int_pair>();
             Utils::UpdateSecondStageCosts(input, y_0, cases_per_block, s);
             of += input->getScenario(s - 1)->getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s], time_per_block, 0.01, 100, T, y, x);
-            cout << "OF from Scenario[" << s << "]: " << of << endl;
+            solution.AddScenarioSolution(s, x, y);
+            cout << "[!] OF from Scenario[" << s << "]: " << of << endl;
         }
 
         // Update OF

@@ -122,22 +122,27 @@ public:
       of += cases_per_block[b];
       for (int s = 0; s < input->getS(); s++)
       {
-        vector<double> scn_cases = input->getScenario(s)->getCases();
-        of += input->getAlpha() * input->getScenario(s)->getProbability() * scn_cases[b];
+        auto *scn = input->getScenario(s);
+        of += input->getAlpha() * input->getScenario(s)->getProbability() * scn->getCasesPerBlock(b);
       }
     }
 
-    for (int s = 1; s <= input->getS(); s++)
+    cout << "[!] First Stage OF: " << of << endl;
+    for (int s = 0; s < input->getS(); s++)
     {
-      Scenario *scn = input->getScenario(s - 1);
-      for (auto b : this->y[s])
+      Scenario *scn = input->getScenario(s);
+      for (auto b : this->y[s + 1])
       {
         if (attended_first_stage[b])
-          of += scn->getProbability() * (1 - input->getAlpha()) * scn->getCasesPerBlock(b);
-        of += scn->getProbability() * scn->getCasesPerBlock(b);
+          of += scn->getProbability() * (1.0 - input->getAlpha()) * scn->getCasesPerBlock(b);
+        else
+          of += scn->getProbability() * scn->getCasesPerBlock(b);
       }
-    }
 
+      // cout << "[!] OF from Scenario[" << s + 1 << "]: " << of << endl;
+    }
+    cout << "[!] Second Stage OF: " << of << endl;
+    getchar();
     return of;
   }
 
