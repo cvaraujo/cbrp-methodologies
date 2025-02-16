@@ -17,6 +17,7 @@ private:
   vector<vector<int>> preds, y;
   vector<vector<int_pair>> x;
   vector<Route *> routes;
+  vector<double> scenario_profit;
 
 public:
   Solution(double of, vector<vector<int>> y, vector<vector<int_pair>> x, Input *input)
@@ -81,7 +82,7 @@ public:
 #endif
   };
 
-  void AddScenarioSolution(int s, vector<int_pair> x, vector<int> y)
+  void AddScenarioSolution(int s, vector<int_pair> x, vector<int> y, double profit)
   {
     if (routes.empty())
     {
@@ -89,11 +90,13 @@ public:
       this->y = vector<vector<int>>(S + 1, vector<int>());
       this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
       this->routes = vector<Route *>(S + 1);
+      this->scenario_profit = vector<double>(S + 1, 0.0);
     }
 
     Graph *graph = this->input->getGraph();
     this->routes[s] = new Route(this->input, x, y);
     this->x[s] = x, this->y[s] = y;
+    this->scenario_profit[s] = profit;
   };
 
   void ReplaceScenarioSolution(int s, vector<int_pair> x, vector<int> y, Route *route)
@@ -104,7 +107,7 @@ public:
 
   void ScenarioBlockSwapWithoutOF(int s, int b1, int b2)
   {
-    remove(this->y[s].begin(), this->y[s].end(), b1);
+    this->y[s].erase(find(this->y[s].begin(), this->y[s].end(), b1));
     this->y[s].push_back(b2);
     this->routes[s]->SwapBlocks(b1, b2);
   };
@@ -120,6 +123,7 @@ public:
     {
       attended_first_stage[b] = true;
       of += cases_per_block[b];
+
       for (int s = 0; s < input->getS(); s++)
       {
         auto *scn = input->getScenario(s);
@@ -128,6 +132,7 @@ public:
     }
 
     cout << "[!] First Stage OF: " << of << endl;
+
     for (int s = 0; s < input->getS(); s++)
     {
       Scenario *scn = input->getScenario(s);
@@ -138,13 +143,17 @@ public:
         else
           of += scn->getProbability() * scn->getCasesPerBlock(b);
       }
-
-      // cout << "[!] OF from Scenario[" << s + 1 << "]: " << of << endl;
     }
     cout << "[!] Second Stage OF: " << of << endl;
     getchar();
     return of;
   }
+
+  double getScenarioProfit(int s) { return this->scenario_profit[s]; }
+
+  void setScenarioProfit(int s, double profit) { this->scenario_profit[s] = profit; }
+
+  void updateScenarioProfit(int s, double profit) { this->scenario_profit[s] += profit; }
 
   int getS() { return input->getS(); }
 

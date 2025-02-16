@@ -18,42 +18,35 @@ public:
         bool is_stuck = false;
         map<int, int_pair> best_fs_swap;
         Graph *graph = input->getGraph();
+        cout << "[*] Start OF is matching? " << solution->ComputeCurrentSolutionOF() << endl;
 
         while (!is_stuck)
         {
             double delta = LocalSearch::ComputeBestSwapBlocksStartScenario(input, solution, delta_type, best_fs_swap);
-            cout << "[*] Delta: " << delta << endl;
-            cout << "[*] Best swap: " << best_fs_swap.size() << endl;
+
             if (best_fs_swap.size() > 0)
             {
                 for (auto scenario_swap : best_fs_swap)
                 {
                     int_pair swap = scenario_swap.second;
                     int scenario = scenario_swap.first, b1 = swap.first, b2 = swap.second;
+
+                    if (b1 == -1 || b2 == -1)
+                    {
+                        is_stuck = true;
+                        break;
+                    }
+
                     cout << "[*] Best swap in scenario " << scenario << " = " << best_fs_swap[0].first << " " << best_fs_swap[0].second << endl;
 
                     Route *r1 = solution->getRouteFromScenario(scenario);
 
-                    for (int b = 0; b < graph->getB(); b++)
-                        if (r1->isBlockAttended(b))
-                            cout << b << " ";
-                    cout << endl;
-                    cout << "------------------------------" << endl;
-
                     solution->ScenarioBlockSwapWithoutOF(scenario, b1, b2);
 
-                    Route *r2 = solution->getRouteFromScenario(scenario);
-
-                    for (int b = 0; b < graph->getB(); b++)
-                        if (r2->isBlockAttended(b))
-                            cout << b << " ";
-                    cout << endl;
-
-                    cout << "[1] Start OF: " << solution->getOf() << endl;
                     solution->setOf(solution->getOf() + delta);
-                    cout << "[2] Updated OF: " << solution->getOf() << endl;
+                    cout << "[*] Updated OF: " << solution->getOf() << endl;
 
-                    cout << "[!] The OF is matching? " << solution->ComputeCurrentSolutionOF() << endl;
+                    cout << "[=] OF matching? " << solution->ComputeCurrentSolutionOF() << endl;
                     getchar();
                 }
             }
@@ -69,18 +62,57 @@ public:
     {
         Graph *graph = input->getGraph();
         double delta = 0.0, cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2);
-        double alpha = input->getAlpha(), prob;
+        double alpha = input->getAlpha(), prob, rest = 1.0 - alpha;
         int S = input->getS();
         // First Stage delta
         delta = cases_b2 - cases_b1;
 
+        // if (b1 == 11 && b2 == 37)
+        // {
+        //     cout << "B1 = " << b1 << ", B2 = " << b2 << endl;
+        //     cout << "[FS] Cases B1: " << cases_b1 << " Cases B2: " << cases_b2 << " Delta: " << delta << endl;
+        // }
+
+        // B1 turned off
+        // B2 turned on
         for (int s = 1; s <= S; s++)
         {
             Scenario *scenario = input->getScenario(s - 1);
+            Route *s_route = solution->getRouteFromScenario(s);
             prob = scenario->getProbability();
-            delta += prob * alpha * (scenario->getCasesPerBlock(b2) - scenario->getCasesPerBlock(b1));
-        }
+            double cases_b1 = scenario->getCasesPerBlock(b1), cases_b2 = scenario->getCasesPerBlock(b2);
+            // Update first stage change
+            delta += prob * alpha * (cases_b2 - cases_b1);
 
+            // if (b1 == 11 && b2 == 37)
+            // {
+            //     cout << s << "_B1 = " << cases_b1 << ", " << s << "_B2 = " << cases_b2 << endl;
+            //     cout << "[FSS] Delta: " << delta << endl;
+            // }
+
+            // Independent scenario profit
+            // if (s_route->isBlockAttended(b1) && s_route->isBlockAttended(b2))
+            // {
+            //     delta += alpha * prob * cases_b1;
+            //     delta -= alpha * prob * cases_b2;
+            // }
+            // else
+            // {
+            if (s_route->isBlockAttended(b1))
+                delta += alpha * prob * cases_b1;
+            // delta += (alpha * prob * cases_b1) - (rest * prob * cases_b1);
+            if (s_route->isBlockAttended(b2))
+                delta -= alpha * prob * cases_b2;
+            // delta += (rest * prob * cases_b2) - (alpha * prob * cases_b2);
+            // }
+            // if (b1 == 11 && b2 == 37)
+            // {
+            //     cout << "[SSS] Delta: " << delta << endl;
+            //     getchar();
+            // }
+        }
+        if (delta < 0.001)
+            return -1;
         return delta;
     };
 

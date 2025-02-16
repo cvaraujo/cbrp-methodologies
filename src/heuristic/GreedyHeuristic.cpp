@@ -22,18 +22,18 @@ double GreedyHeuristic::SolveScenario(
 
     if (temp_of != -1)
     {
-        cout << "[*] Optimal Solution: " << temp_of << endl;
+        // cout << "[*] Optimal Solution: " << temp_of << endl;
         x = temp_x, y = temp_y;
         return temp_of;
     }
 
-    cout << "1.0 * T = " << temp_of << endl;
+    // cout << "1.0 * T = " << temp_of << endl;
 
     // LB solution = (0.5 * T)
     available_time_to_attend = round(double(T) * lb);
     temp_of = Knapsack::Run(y, cases, time, available_time_to_attend);
 
-    cout << "0.5 * T = " << temp_of << endl;
+    // cout << "0.5 * T = " << temp_of << endl;
 
     if (temp_of == -1)
         ub = lb, lb = 0.0;
@@ -42,7 +42,7 @@ double GreedyHeuristic::SolveScenario(
 
     while ((ub - lb) > 0.001)
     {
-        cout << "LB: " << lb << ", UB: " << ub << ", MID: " << mid << " => " << temp_of << endl;
+        // cout << "LB: " << lb << ", UB: " << ub << ", MID: " << mid << " => " << temp_of << endl;
 
         available_time_to_attend = round(double(T) * mid);
         temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, temp_x);
