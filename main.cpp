@@ -1,6 +1,7 @@
 #include "src/classes/Graph.hpp"
 #include "src/classes/Input.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
+#include "src/heuristic/stochastic/LocalSearch.hpp"
 
 /*
 void test_local_search(const char *argv[])
@@ -71,10 +72,14 @@ void test_stochastic_start_solution(const char *argv[])
   string file_scenarios = argv[2];
   string result_file = argv[3];
 
-  Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 1200, 0.8);
+  Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 600, 0.8);
+  // input->setS(24);
   cout << "[*] Input loaded!" << endl;
   Solution sol = StartSolution::CreateStartSolution(input);
   cout << "[*] Creating Solution!" << endl;
+  LocalSearch::RunMoreProfitable2OPT(input, &sol, "moderate");
+  // WEAK:     195.396
+  // MODERATE:
   sol.WriteSolution(result_file);
   cout << "[*] Writed!" << endl;
 }
