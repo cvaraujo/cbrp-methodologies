@@ -39,8 +39,6 @@ public:
 
                     cout << "[*] Best swap in scenario " << scenario << " = " << swap.first << " " << swap.second << endl;
 
-                    Route *r1 = solution->getRouteFromScenario(scenario);
-
                     solution->ScenarioBlockSwapWithoutOF(scenario, b1, b2);
                 }
 
@@ -223,15 +221,14 @@ public:
 
                 if (lowest_in_block != -1)
                 {
-                    delta += alpha * prob * (cases_b1 - scenario->getCasesPerBlock(lowest_in_block));
+                    bool attended_fs = first_stage_route->isBlockAttended(lowest_in_block);
+                    delta += prob * (cases_b1 - GetUpdatedSecondStageCases(input, scenario, lowest_in_block, attended_fs));
                     second_stage_swaps.push_back(make_pair(s, make_pair(lowest_in_block, b1)));
                 }
             }
 
             if (s_route->isBlockAttended(b2))
             {
-                delta -= alpha * prob * cases_b2;
-
                 // cout << "[*] Trying +1 Swap with B2 " << b2 << endl;
 
                 highest_block = LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(input, scenario, first_stage_route, s_route, b1, b2, changed);
@@ -240,13 +237,14 @@ public:
 
                 if (highest_block != -1)
                 {
-                    delta -= (1.0 - alpha) * prob * cases_b2;
-                    delta += prob * GetUpdatedSecondStageCases(input, scenario, highest_block, first_stage_route->isBlockAttended(highest_block));
-                    // delta += prob * alpha * (scenario->getCasesPerBlock(highest_block) - scenario->getCasesPerBlock(b2));
+                    bool attended_fs = first_stage_route->isBlockAttended(highest_block);
+
+                    // delta -= prob * GetUpdatedSecondStageCases(input, scenario, b2, false);
+                    delta += prob * (GetUpdatedSecondStageCases(input, scenario, highest_block, attended_fs) - GetUpdatedSecondStageCases(input, scenario, b2, false));
                     second_stage_swaps.push_back(make_pair(s, make_pair(b2, highest_block)));
                 }
-                // else
-                //     delta -= alpha * prob * cases_b2;
+                else
+                    delta -= alpha * prob * cases_b2;
             }
         }
         // cout << "Moderate Delta: " << delta << endl;
