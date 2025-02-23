@@ -67,14 +67,6 @@ public:
         // First Stage delta
         delta = cases_b2 - cases_b1;
 
-        // if (b1 == 11 && b2 == 37)
-        // {
-        //     cout << "B1 = " << b1 << ", B2 = " << b2 << endl;
-        //     cout << "[FS] Cases B1: " << cases_b1 << " Cases B2: " << cases_b2 << " Delta: " << delta << endl;
-        // }
-
-        // B1 turned off
-        // B2 turned on
         for (int s = 1; s <= S; s++)
         {
             Scenario *scenario = input->getScenario(s - 1);
@@ -84,32 +76,10 @@ public:
             // Update first stage change
             delta += prob * alpha * (cases_b2 - cases_b1);
 
-            // if (b1 == 11 && b2 == 37)
-            // {
-            //     cout << s << "_B1 = " << cases_b1 << ", " << s << "_B2 = " << cases_b2 << endl;
-            //     cout << "[FSS] Delta: " << delta << endl;
-            // }
-
-            // Independent scenario profit
-            // if (s_route->isBlockAttended(b1) && s_route->isBlockAttended(b2))
-            // {
-            //     delta += alpha * prob * cases_b1;
-            //     delta -= alpha * prob * cases_b2;
-            // }
-            // else
-            // {
             if (s_route->isBlockAttended(b1))
                 delta += alpha * prob * cases_b1;
-            // delta += (alpha * prob * cases_b1) - (rest * prob * cases_b1);
             if (s_route->isBlockAttended(b2))
                 delta -= alpha * prob * cases_b2;
-            // delta += (rest * prob * cases_b2) - (alpha * prob * cases_b2);
-            // }
-            // if (b1 == 11 && b2 == 37)
-            // {
-            //     cout << "[SSS] Delta: " << delta << endl;
-            //     getchar();
-            // }
         }
         if (delta < 0.001)
             return -1;
@@ -201,23 +171,12 @@ public:
             Scenario *scenario = input->getScenario(s - 1);
             Route *s_route = solution->getRouteFromScenario(s);
             prob = scenario->getProbability();
-
-            /*
-                B1 was attendent,   then not    -> increase value in scenario S
-                B2 not attendent, then attended ->  reduce  value in scenario S
-
-                B1 é atendido em S:
-                    Nada a fazer
-                B2 não é atendido em S mas pertence a rota:
-                    Nada a fazer
-                B1 não é atendido em S mas pertence a rota:
-                    Verificar se é possível trocar por outro bloco que seja rentável
-                B2 é atendido em S:
-                    Verificar se é possível trocar por outro bloco que seja rentável
-
-            */
-
+            cases_b1 = scenario->getCasesPerBlock(b1), cases_b2 = scenario->getCasesPerBlock(b2);
             pair<int, double> pair_swap_s_stage;
+
+            // Complement First Stage change
+            delta += prob * alpha * (cases_b2 - cases_b1);
+
             if (!s_route->isBlockAttended(b1) && s_route->isBlockInRoute(b1))
             {
                 pair_swap_s_stage = LocalSearch::GetBestSecondStageOptionIfB1EnterFSSolution(input, scenario, first_stage_route, s_route, b1);
@@ -294,15 +253,13 @@ public:
                 delta = 0.0;
                 if (delta_type == "weak")
                 {
-                    // cout << "[!] Weak" << endl;
+                    cout << "[!] Weak" << endl;
                     delta = GetWeakDeltaSwapBlocksStartScenario(input, solution, b1, b2);
-                    // cout << "B1: " << b1 << " B2: " << b2 << " Delta: " << delta << endl;
-                    // getchar();
                 }
                 else if (delta_type == "moderate")
                 {
                     cout << "[!] Moderate" << endl;
-                    // delta = route->getDeltaSwapBlocksModerate(input, b1, b2);
+                    delta = GetModerateDeltaSwapBlocksStartScenario(input, solution, b1, b2);
                 }
                 else if (delta_type == "strong")
                 {

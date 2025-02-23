@@ -27,6 +27,8 @@ set(
     src/common/Knapsack.hpp
     src/exact/DeterministicModel.hpp
     src/exact/DeterministicModel.cpp
+    src/exact/DeterministicModelWalk.hpp
+    src/exact/DeterministicModelWalk.cpp
     src/exact/StochasticModel.hpp
     src/exact/StochasticModel.cpp
     src/heuristic/GreedyHeuristic.hpp
