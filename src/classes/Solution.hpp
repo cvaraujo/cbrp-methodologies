@@ -13,7 +13,7 @@ class Solution
 private:
   double of = 0.0, UB = INF, runtime = 0.0;
   int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
-  Input *input;
+  Input *input = nullptr;
   vector<vector<int>> preds, y;
   vector<vector<int_pair>> x;
   vector<Route *> routes;
@@ -72,6 +72,7 @@ public:
       output << "Scenario: " << s << endl;
       for (auto arc : this->x[s])
         output << "X: " << arc.first << " " << arc.second << endl;
+
       for (auto b : this->y[s])
         output << "Y: " << b << endl;
       output << "Route Time: " << this->time_used << endl;
@@ -155,7 +156,7 @@ public:
 
   void updateScenarioProfit(int s, double profit) { this->scenario_profit[s] += profit; }
 
-  int getS() { return input->getS(); }
+  int getS() { return (input != nullptr) ? input->getS() : 0; }
 
   Graph *getGraph() { return input->getGraph(); }
 

@@ -225,7 +225,7 @@ void Input::reduceGraphToPositiveCases()
 #ifndef Silence
     cout << "[*] Preprocessing Finished!" << endl;
     cout << "[*] The Resulting Graph has " << graph->getN() << " nodes, " << graph->getM() << " arcs." << " and " << graph->getB() << " blocks" << endl;
-    getchar();
+    // getchar();
 #endif
 }
 

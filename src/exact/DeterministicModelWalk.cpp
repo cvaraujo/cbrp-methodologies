@@ -105,8 +105,8 @@ protected:
           int num_in_arcs = s_arcs.size();
 
           // Arcs inside S
-          for (auto pair : s_arcs)
-            in_arcs += x[pair.first][pair.second];
+          // for (auto pair : s_arcs)
+          //   in_arcs += x[pair.first][pair.second];
 
           // Arcs in the cut S
           for (int j = 0; j < N; j++)
@@ -115,8 +115,23 @@ protected:
                 if (node_connected_component[arc->getD()] == i)
                   cut_arcs += x[j][arc->getD()];
 
-          addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
-          num_lazy_cuts++;
+          for (int org_1 : s_nodes)
+          {
+            for (int org_2 : s_nodes)
+            {
+              if (org_1 == org_2)
+                continue;
+
+              for (auto a_p : graph->getArcs(org_1))
+              {
+                for (auto a_pp : graph->getArcs(org_2))
+                {
+                  addLazy(cut_arcs >= x[org_1][a_p->getD()] + x[org_2][a_pp->getD()] - 1);
+                  num_lazy_cuts++;
+                }
+              }
+            }
+          }
         }
 
         if (is_feasible)
@@ -378,6 +393,8 @@ Solution DeterministicModelWalk::getSolution()
     for (auto *arc : graph->getArcs(i))
       if (this->x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
       {
+        cout << "Arc (" << i << ", " << arc->getD() << ") has flow " << this->x[i][arc->getD()].get(GRB_DoubleAttr_X) << endl;
+        getchar();
         x[0].push_back(make_pair(i, arc->getD()));
         time_used += arc->getLength();
       }
