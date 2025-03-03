@@ -130,6 +130,7 @@ protected:
             vector<int_pair> s_arcs = arcs_from_component[i];
             GRBLinExpr in_arcs, cut_arcs;
             int num_in_arcs = s_arcs.size();
+            int num_in_nodes = s_nodes.size();
 
             // Arcs inside S
             for (auto pair : s_arcs)
@@ -142,7 +143,7 @@ protected:
                   if (node_connected_component[arc->getD()] == i)
                     cut_arcs += x[j][arc->getD()];
 
-            addLazy(in_arcs <= num_in_arcs - 1 + cut_arcs);
+            addLazy(in_arcs <= num_in_nodes - 1 + cut_arcs);
             num_lazy_cuts++;
           }
         }
@@ -210,58 +211,38 @@ protected:
               continue;
 
             // Lemon MaxFlow instance
-            Preflow<G, LengthMap> preflow(flow_graph, capacity, set_nodes[n], set_nodes[i]);
+            Preflow<G, LengthMap> preflow(flow_graph, capacity, set_nodes[i], set_nodes[n]);
             preflow.runMinCut();
             mincut_value = preflow.flowValue();
 
             if (mincut_value >= 1.0)
               continue;
+            // cout << "MinCut: " << mincut_value << endl;
 
             // Create basic variables
-            GRBLinExpr cut_arcs, other_side_arcs;
-            double cut_value = 0, other_side_value = 0;
-            int num_arcs_in_other_side = 0;
+            GRBLinExpr cut_arcs;
+            double cut_value = 0;
 
-            // Get S and cut arcs (values)
-            for (j = 0; j <= n; j++)
+            // Get cut arcs
+            for (j = 0; j < n; j++)
             {
-              if (preflow.minCut(set_nodes[j]))
+              if (!preflow.minCut(set_nodes[j]))
+                continue;
+
+              for (auto arc : graph->getArcs(j))
               {
-                for (auto arc : graph->getArcs(j))
-                {
-                  if (!preflow.minCut(set_nodes[arc->getD()]))
-                  {
-                    cut_arcs += x[j][arc->getD()];
-                    cut_value += getNodeRel(x[j][arc->getD()]);
-                  }
-                }
-              }
-              else
-              {
-                for (auto arc : graph->getArcs(j))
-                {
-                  if (!preflow.minCut(set_nodes[arc->getD()]))
-                  {
-                    other_side_arcs += x[j][arc->getD()];
-                    other_side_value += getNodeRel(x[j][arc->getD()]);
-                    num_arcs_in_other_side++;
-                  }
-                }
+                int k = arc->getD();
+
+                if (preflow.minCut(set_nodes[k]))
+                  continue;
+
+                cut_arcs += x[j][k];
               }
             }
 
-            // Add cut
-            if (num_arcs_in_other_side <= 0 || other_side_value <= cut_value)
-              continue;
-
-            if (!input->isTrail())
+            if (cut_arcs.size() > 0)
             {
-              addCut(other_side_arcs <= num_arcs_in_other_side - 1 + cut_arcs);
-              num_frac_cuts++;
-            }
-            else
-            {
-              addCut(other_side_arcs <= num_arcs_in_other_side - 1);
+              addCut(cut_arcs >= cut_value);
               num_frac_cuts++;
             }
           }
@@ -379,54 +360,6 @@ void DeterministicModel::initModel(string model)
   cout << "[***] Constraints and objective function created!" << endl;
 #endif
 }
-
-/*
-void DeterministicModel::WarmStart()
-{
-  int i, j;
-
-  // Warm start
-  vector<pair<int, int>> x, y;
-  double of = WarmStart::compute_solution(graph, graph->getT(), x, y);
-
-  cout << "[***] Heuristic value = " << of << endl;
-
-  for (int i = 0; i <= graph->getN(); i++)
-  {
-    for (auto *arc : graph->arcs[i])
-    {
-      bool is_in = false;
-
-      for (auto pair : x)
-      {
-        int k = pair.first, j = pair.second;
-        if (k == i && j == arc->getD())
-        {
-          is_in = true;
-          break;
-        }
-      }
-      if (is_in)
-      {
-        this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 1.0);
-      }
-      else
-        this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 0.0);
-    }
-  }
-
-  model.update();
-
-  for (auto pair : y)
-  {
-    i = pair.first, j = pair.second;
-    this->y[i][j].set(GRB_DoubleAttr_Start, 1.0);
-  }
-
-  model.update();
-  cout << "Warm Start done!" << endl;
-}
-*/
 
 void DeterministicModel::objectiveFunction()
 {
@@ -695,7 +628,7 @@ Solution DeterministicModel::getSolution()
       }
   }
 
-  Solution solution = Solution(of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
+  Solution solution = Solution(this->input, of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
   return solution;
 }
 

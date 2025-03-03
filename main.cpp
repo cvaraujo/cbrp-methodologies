@@ -1,7 +1,9 @@
 #include "src/classes/Graph.hpp"
 #include "src/classes/Input.hpp"
-#include "src/heuristic/stochastic/StartSolution.hpp"
-#include "src/heuristic/stochastic/LocalSearch.hpp"
+#include "src/exact/DeterministicModel.hpp"
+#include "src/exact/DeterministicModelWalk.hpp"
+// #include "src/heuristic/stochastic/StartSolution.hpp"
+// #include "src/heuristic/stochastic/LocalSearch.hpp"
 
 /*
 void test_local_search(const char *argv[])
@@ -23,8 +25,9 @@ void test_local_search(const char *argv[])
   //   cout << i << " ";
   // cout << endl;
 }
+*/
 
-int test_mathematical_models(int argc, const char *argv[])
+int main(int argc, const char *argv[])
 {
   string file_graph = argv[1];
   string file_scenarios = argv[2];
@@ -45,12 +48,12 @@ int test_mathematical_models(int argc, const char *argv[])
     exit(EXIT_FAILURE);
   }
 
-  int T;
+  int T = 1200;
   bool frac_cut = false, preprocessing = false;
   int default_vel = 20, neblize_vel = 10;
   double alpha = 0.8;
   bool is_trail = (solution_type == "TRAIL") ? true : false;
-  bool walk_mtz = (model == "MTZ" && !is_trail) ? true : false;
+  bool walk_mtz = false; //(model == "MTZ" && !is_trail) ? true : false;
 
   convTime >> T;
   convFracCut >> frac_cut;
@@ -63,28 +66,4 @@ int test_mathematical_models(int argc, const char *argv[])
   sol.WriteSolution(result_file);
 
   return 0;
-}
-*/
-
-void test_stochastic_start_solution(const char *argv[])
-{
-  string file_graph = argv[1];
-  string file_scenarios = argv[2];
-  string result_file = argv[3];
-
-  Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 600, 0.8);
-  // input->setS(24);
-  cout << "[*] Input loaded!" << endl;
-  Solution sol = StartSolution::CreateStartSolution(input);
-  cout << "[*] Creating Solution!" << endl;
-  LocalSearch::RunMoreProfitable2OPT(input, &sol, "moderate");
-  // WEAK:     195.396
-  // MODERATE:
-  sol.WriteSolution(result_file);
-  cout << "[*] Writed!" << endl;
-}
-
-int main(int argc, const char *argv[])
-{
-  test_stochastic_start_solution(argv);
 }

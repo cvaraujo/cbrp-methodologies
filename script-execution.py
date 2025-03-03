@@ -2,7 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 
-folders = ["instances/cases-alto-santo"]
+folders = ["instances/cases-alto-santo", "instances/cases-limoeiro"]
 algorithms = ["EXP", "MTZ"]
 folders_outp = [
             "results/results-trail-mtz",
@@ -11,12 +11,6 @@ folders_outp = [
             "results/results-trail-exp-prep",
             "results/results-trail-exp-frac-cut",
             "results/results-trail-exp-frac-cut-prep",
-            "results/results-walk-mtz",
-            "results/results-walk-mtz-prep",
-            "results/results-walk-exp",
-            "results/results-walk-exp-prep",
-            "results/results-walk-exp-frac-cut",
-            "results/results-walk-exp-frac-cut-prep",
         ]
 commands = []
 
@@ -37,15 +31,6 @@ for f in folders:
 
             commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-trail-exp-frac-cut/" + inst + " EXP TRAIL 1200 0 1")
             commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-trail-exp-frac-cut-prep/" + inst + " EXP TRAIL 1200 1 1")
-
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-mtz/" + inst + " MTZ WALK 1200 0 0")
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-mtz-prep/" + inst + " MTZ WALK 1200 1 0")
-
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-exp/" + inst + " EXP WALK 1200 0 0")
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-exp-prep/" + inst + " EXP WALK 1200 1 0")
-
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-exp-frac-cut/" + inst + " EXP WALK 1200 0 1")
-            commands.append("./cbrp " + graph + " " + scenarios + " " + "results/results-walk-exp-frac-cut-prep/" + inst + " EXP WALK 1200 1 1")
             
 for c in commands:
     print(c)

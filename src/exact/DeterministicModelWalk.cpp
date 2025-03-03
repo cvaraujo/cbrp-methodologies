@@ -407,7 +407,7 @@ Solution DeterministicModelWalk::getSolution()
       }
   }
 
-  Solution solution = Solution(of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
+  Solution solution = Solution(this->input, of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
   return solution;
 }
 

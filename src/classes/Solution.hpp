@@ -40,8 +40,9 @@ public:
     this->x = vector<vector<int_pair>>();
   }
 
-  Solution(double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
+  Solution(Input *input, double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x)
   {
+    this->input = input;
     this->of = of;
     this->UB = UB;
     this->runtime = runtime;
@@ -59,12 +60,18 @@ public:
   {
     ofstream output;
     output.open(output_file);
+    Graph *graph = this->input->getGraph();
 
+    output << "N: " << graph->getN() << endl;
+    output << "M: " << graph->getM() << endl;
+    output << "B: " << graph->getB() << endl;
+    output << "S: " << this->input->getS() << endl;
+    output << "Alpha: " << this->input->getAlpha() << endl;
     output << "LB: " << this->of << endl;
     output << "UB: " << this->UB << endl;
-    output << "Gurobi Nodes: " << this->solver_nodes << endl;
-    output << "LAZY_CUTS: " << this->num_lazy_cuts << endl;
-    output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
+    output << "Gurobi_Nodes: " << this->solver_nodes << endl;
+    output << "Lazy_cuts: " << this->num_lazy_cuts << endl;
+    output << "Frac_cuts: " << this->num_frac_cuts << endl;
     output << "Runtime: " << this->runtime << endl;
 
     for (int s = 0; s <= getS(); s++)
@@ -75,7 +82,7 @@ public:
 
       for (auto b : this->y[s])
         output << "Y: " << b << endl;
-      output << "Route Time: " << this->time_used << endl;
+      output << "Route_Time: " << this->time_used << endl;
     }
     output.close();
 #ifndef Silence
