@@ -2,30 +2,10 @@
 #include "src/classes/Input.hpp"
 #include "src/exact/DeterministicModel.hpp"
 #include "src/exact/DeterministicModelWalk.hpp"
+#include "src/exact/StochasticModel.hpp"
+#include "src/exact/StochasticModelWalk.hpp"
 // #include "src/heuristic/stochastic/StartSolution.hpp"
 // #include "src/heuristic/stochastic/LocalSearch.hpp"
-
-/*
-void test_local_search(const char *argv[])
-{
-  // string file_graph = argv[1];
-  // string file_scenarios = argv[2];
-  // string result_file = argv[3];
-
-  // Input *input = new Input(file_graph, file_scenarios, false, true, false, 20, 10, 1200, 0.8);
-  // Solution *sol = new Solution();
-  // vector<int> start_route = vector<int>{10, 0, 3, 1, 2, 8, 7, 4, 5, 6, 10};
-  // sol->setRoute(start_route), sol->setRouteTime(36);
-
-  // LocalSearch ls = LocalSearch(input, sol);
-  // ls.Run2Opt(2, 6), ls.Run2Opt(3, 5), ls.Run2Opt(2, 5);
-
-  // cout << ls.getBestSolution()->getRouteTime() << endl;
-  // for (auto i : start_route)
-  //   cout << i << " ";
-  // cout << endl;
-}
-*/
 
 int main(int argc, const char *argv[])
 {
@@ -35,6 +15,9 @@ int main(int argc, const char *argv[])
   string model = argv[4];
   string solution_type = argv[5];
   stringstream convTime(argv[6]), convPreprocessing(argv[7]), convFracCut(argv[8]);
+
+  // Temp
+  string stochastic_model = argv[9];
 
   if (model != "MTZ" && model != "EXP")
   {
@@ -60,10 +43,21 @@ int main(int argc, const char *argv[])
   convPreprocessing >> preprocessing;
 
   Input *input = new Input(file_graph, file_scenarios, preprocessing, is_trail, walk_mtz, default_vel, neblize_vel, T, alpha);
-  DeterministicModel *dm = new DeterministicModel(input);
 
-  Solution sol = dm->Run(false, "3600", model, frac_cut);
-  sol.WriteSolution(result_file);
+  if (stochastic_model == "FALSE")
+  {
+    // DeterministicModel *dm = new DeterministicModel(input);
+    DeterministicModelWalk *dm = new DeterministicModelWalk(input);
+    Solution sol = dm->Run(false, "3600", model, frac_cut);
+    sol.WriteSolution(result_file);
+  }
+  else
+  {
+    StochasticModel *sm = new StochasticModel(input);
+    // StochasticModelWalk *sm = new StochasticModelWalk(input);
+    Solution sol = sm->Run(false, "3600", model, frac_cut);
+    sol.WriteSolution(result_file);
+  }
 
   return 0;
 }

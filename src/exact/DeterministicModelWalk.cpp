@@ -10,17 +10,25 @@ class cyclecallbackWalk : public GRBCallback
 public:
   double lastiter, lastnode;
   int numvars, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
+  bool frac_cut = false;
   vector<vector<GRBVar>> x;
   vector<GRBVar> y;
+  typedef ListDigraph G;
+  typedef G::Arc Arc;
+  typedef G::ArcIt ArcIt;
+  typedef G::Node Node;
+  typedef G::ArcMap<double> LengthMap;
+  typedef G::NodeMap<bool> BoolNodeMap;
   Input *input;
 
-  cyclecallbackWalk(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<GRBVar> yy)
+  cyclecallbackWalk(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<GRBVar> yy, bool frac_cut)
   {
     lastiter = lastnode = 0;
     numvars = xnumvars;
     x = xx;
     y = yy;
     input = xinput;
+    frac_cut = frac_cut;
   }
 
 protected:
@@ -101,12 +109,7 @@ protected:
         {
           vector<int> s_nodes = connected_component[i];
           vector<int_pair> s_arcs = arcs_from_component[i];
-          GRBLinExpr in_arcs, cut_arcs;
-          int num_in_arcs = s_arcs.size();
-
-          // Arcs inside S
-          // for (auto pair : s_arcs)
-          //   in_arcs += x[pair.first][pair.second];
+          GRBLinExpr cut_arcs;
 
           // Arcs in the cut S
           for (int j = 0; j < N; j++)
@@ -140,6 +143,102 @@ protected:
       catch (GRBException e)
       {
         cout << "[LAZZY] Error number: " << e.getErrorCode() << endl;
+        cout << e.getMessage() << endl;
+      }
+      catch (...)
+      {
+        cout << "Error during callback" << endl;
+      }
+    }
+    else if (where == GRB_CB_MIPNODE)
+    {
+      try
+      {
+        if (!frac_cut)
+          return;
+
+        int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
+
+        if (mipStatus == GRB_OPTIMAL)
+        {
+          Graph *graph = input->getGraph();
+          int i, j, u, v, n = graph->getN();
+
+          // Basic structures to use Lemon
+          G flow_graph;
+          LengthMap capacity(flow_graph);
+          vector<Node> set_nodes = vector<Node>(n + 1);
+          vector<bool> used_node = vector<bool>(n, false);
+          vector<Arc> set_arcs;
+
+          // Create the node set
+          for (i = 0; i <= n; i++)
+            set_nodes[i] = flow_graph.addNode();
+
+          // Create the edge set
+          for (i = 0; i <= n; i++)
+          {
+            for (auto *arc : graph->getArcs(i))
+            {
+              j = arc->getD();
+
+              if (getNodeRel(x[i][j]) > 0)
+              {
+                set_arcs.push_back(flow_graph.addArc(set_nodes[i], set_nodes[j]));
+                capacity[set_arcs[set_arcs.size() - 1]] = double(getNodeRel(x[i][j]));
+                used_node[i] = used_node[j] = true;
+              }
+            }
+          }
+
+          // Init necessary structures
+          double mincut_value;
+          for (i = 0; i < n; i++)
+          {
+            // If there is no arc using this node, ignore it
+            if (!used_node[i])
+              continue;
+
+            // Lemon MaxFlow instance
+            Preflow<G, LengthMap> preflow(flow_graph, capacity, set_nodes[i], set_nodes[n]);
+            preflow.runMinCut();
+            mincut_value = preflow.flowValue();
+
+            if (mincut_value >= 1.0)
+              continue;
+
+            // Create basic variables
+            GRBLinExpr cut_arcs;
+            double cut_value = 0;
+
+            // Get cut arcs
+            for (j = 0; j < n; j++)
+            {
+              if (!preflow.minCut(set_nodes[j]))
+                continue;
+
+              for (auto arc : graph->getArcs(j))
+              {
+                int k = arc->getD();
+
+                if (preflow.minCut(set_nodes[k]))
+                  continue;
+
+                cut_arcs += x[j][k];
+              }
+            }
+
+            if (cut_arcs.size() > 0)
+            {
+              addCut(cut_arcs >= cut_value);
+              num_frac_cuts++;
+            }
+          }
+        }
+      }
+      catch (GRBException e)
+      {
+        cout << "[FRAC] Error number: " << e.getErrorCode() << endl;
         cout << e.getMessage() << endl;
       }
       catch (...)
@@ -342,7 +441,7 @@ void DeterministicModelWalk::solveExponential(string time_limit, bool frac_cut)
     model.set("TimeLimit", time_limit);
     model.set(GRB_DoubleParam_Heuristics, 1.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
-    cyclecallbackWalk cb = cyclecallbackWalk(input, graph->getN(), x, y);
+    cyclecallbackWalk cb = cyclecallbackWalk(input, graph->getN(), x, y, frac_cut);
     model.setCallback(&cb);
     model.set("OutputFlag", "0");
     model.update();
@@ -393,8 +492,6 @@ Solution DeterministicModelWalk::getSolution()
     for (auto *arc : graph->getArcs(i))
       if (this->x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
       {
-        cout << "Arc (" << i << ", " << arc->getD() << ") has flow " << this->x[i][arc->getD()].get(GRB_DoubleAttr_X) << endl;
-        getchar();
         x[0].push_back(make_pair(i, arc->getD()));
         time_used += arc->getLength();
       }

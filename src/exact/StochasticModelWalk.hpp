@@ -2,8 +2,8 @@
 // Created by carlos on 06/07/21.
 //
 
-#ifndef DPARP_DETERMINISTIC_MODELWALK_H
-#define DPARP_DETERMINISTIC_MODELWALK_H
+#ifndef DPARP_STOCHASTIC_MODEL_WALK_H
+#define DPARP_STOCHASTIC_MODEL_WALK_H
 
 #include "../classes/Parameters.hpp"
 #include "../classes/Input.hpp"
@@ -12,17 +12,17 @@
 
 using namespace lemon;
 
-class DeterministicModelWalk
+class StochasticModelWalk
 {
   Input *input;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
-  vector<vector<GRBVar>> x;
-  vector<GRBVar> y;
+  vector<vector<vector<GRBVar>>> x;
+  vector<vector<GRBVar>> y, z;
   int num_lazy_cuts, num_frac_cuts;
 
 public:
-  DeterministicModelWalk(Input *input)
+  StochasticModelWalk(Input *input)
   {
     if (input != nullptr)
       this->input = input;
@@ -30,7 +30,7 @@ public:
       exit(EXIT_FAILURE);
   }
 
-  ~DeterministicModelWalk()
+  ~StochasticModelWalk()
   {
     x.clear(), y.clear();
     model.terminate();
@@ -43,6 +43,8 @@ public:
   void solveExponential(string time_limit, bool frac_cut);
 
   void objectiveFunction();
+
+  void zValue();
 
   void createVariables();
 

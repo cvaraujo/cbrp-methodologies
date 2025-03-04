@@ -31,6 +31,8 @@ set(
     src/exact/DeterministicModelWalk.cpp
     src/exact/StochasticModel.hpp
     src/exact/StochasticModel.cpp
+    src/exact/StochasticModelWalk.hpp
+    src/exact/StochasticModelWalk.cpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
     src/heuristic/LocalSearch.hpp

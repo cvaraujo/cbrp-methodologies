@@ -1,10 +1,10 @@
 //
-// Created by carlos on 06/07/21.
+// Created by carlos on 03/03/25.
 //
 
-#include "StochasticModel.hpp"
+#include "StochasticModelWalk.hpp"
 
-class stochasticCyclecallback : public GRBCallback
+class cyclecallbackStochasticWalk : public GRBCallback
 {
 
 public:
@@ -21,7 +21,7 @@ public:
   typedef G::NodeMap<bool> BoolNodeMap;
   Input *input;
 
-  stochasticCyclecallback(Input *xinput, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
+  cyclecallbackStochasticWalk(Input *xinput, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<GRBVar>> yy, bool frac_cut)
   {
     lastiter = lastnode = 0;
     numvars = xnumvars;
@@ -43,16 +43,16 @@ protected:
 
         for (int r = 0; r <= input->getS(); r++)
         {
-          int i, j, s, n = graph->getN();
-          vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
-          vector<bool> used_node = vector<bool>(n + 1);
+          int i, j, s, N = graph->getN();
+          vector<vector<int>> g = vector<vector<int>>(N + 2, vector<int>());
+          vector<bool> used_node = vector<bool>(N + 1);
 
           // Create graph G'
-          for (i = 0; i <= n; i++)
+          for (i = 0; i <= N; i++)
           {
             for (auto *arc : graph->getArcs(i))
             {
-              if (getSolution(x[i][arc->getD()][r]) > 0.1)
+              if (getSolution(x[i][arc->getD()][r]) > 0)
               {
                 g[i].push_back(arc->getD());
                 used_node[i] = used_node[arc->getD()] = true;
@@ -60,14 +60,14 @@ protected:
             }
           }
 
-          vector<bool> visited(n + 1, false);
-          vector<int> node_connected_component = vector<int>(n + 1, -1);
+          vector<bool> visited(N + 1, false);
+          vector<int> node_connected_component = vector<int>(N + 1, -1);
           vector<vector<int>> connected_component;
           vector<vector<int_pair>> arcs_from_component;
           int idx = 0;
 
           // DFS
-          for (i = n; i >= 0; i--)
+          for (i = N; i >= 0; i--)
           {
             if (!used_node[i] || visited[i])
               continue;
@@ -107,47 +107,35 @@ protected:
           // Need Cuts
           is_feasible = false;
 
-          if (input->isTrail())
+          for (i = 1; i < connected_component.size(); i++)
           {
-            for (i = 1; i < connected_component.size(); i++)
+            vector<int> s_nodes = connected_component[i];
+            vector<int_pair> s_arcs = arcs_from_component[i];
+            GRBLinExpr cut_arcs;
+
+            // Arcs in the cut S
+            for (int j = 0; j < N; j++)
+              if (node_connected_component[j] != i)
+                for (auto arc : graph->getArcs(j))
+                  if (node_connected_component[arc->getD()] == i)
+                    cut_arcs += x[j][arc->getD()][r];
+
+            for (int org_1 : s_nodes)
             {
-              vector<int> s_nodes = connected_component[i];
-              vector<int_pair> s_arcs = arcs_from_component[i];
-              GRBLinExpr in_arcs, cut_arcs;
-              int num_in_nodes = s_nodes.size();
+              for (int org_2 : s_nodes)
+              {
+                if (org_1 == org_2)
+                  continue;
 
-              // Arcs inside S
-              for (auto pair : s_arcs)
-                in_arcs += x[pair.first][pair.second][r];
-
-              addLazy(in_arcs <= num_in_nodes - 1);
-              num_lazy_cuts++;
-            }
-          }
-          else
-          {
-            // Need Cuts
-            for (i = 1; i < connected_component.size(); i++)
-            {
-              vector<int> s_nodes = connected_component[i];
-              vector<int_pair> s_arcs = arcs_from_component[i];
-              GRBLinExpr in_arcs, cut_arcs;
-              int num_in_arcs = s_arcs.size();
-              int num_in_nodes = s_nodes.size();
-
-              // Arcs inside S
-              for (auto pair : s_arcs)
-                in_arcs += x[pair.first][pair.second][r];
-
-              // Arcs in the cut S
-              for (int j = 0; j < n; j++)
-                if (node_connected_component[j] != i)
-                  for (auto arc : graph->getArcs(j))
-                    if (node_connected_component[arc->getD()] == i)
-                      cut_arcs += x[j][arc->getD()][r];
-
-              addLazy(in_arcs <= num_in_nodes - 1 + cut_arcs);
-              num_lazy_cuts++;
+                for (auto a_p : graph->getArcs(org_1))
+                {
+                  for (auto a_pp : graph->getArcs(org_2))
+                  {
+                    addLazy(cut_arcs >= x[org_1][a_p->getD()][r] + x[org_2][a_pp->getD()][r] - 1);
+                    num_lazy_cuts++;
+                  }
+                }
+              }
             }
           }
         }
@@ -164,7 +152,6 @@ protected:
         cout << "Error during callback" << endl;
       }
     }
-
     else if (where == GRB_CB_MIPNODE)
     {
       try
@@ -177,7 +164,6 @@ protected:
         if (mipStatus == GRB_OPTIMAL)
         {
           Graph *graph = input->getGraph();
-
           for (int r = 0; r <= input->getS(); r++)
           {
             int i, j, u, v, n = graph->getN();
@@ -268,43 +254,32 @@ protected:
   }
 };
 
-Solution StochasticModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts)
+Solution StochasticModelWalk::Run(bool use_warm_start, string time_limit, string model, bool use_cuts)
 {
   this->createVariables();
   this->initModel(model);
+  this->solveExponential(time_limit, use_cuts);
 
-  if (model == "MTZ")
-    this->solveCompact(time_limit);
-  else if (model == "EXP")
-    this->solveExponential(time_limit, use_cuts);
-  else
-  {
-    cout << "[!] Model not found!" << endl;
-    exit(EXIT_FAILURE);
-  }
   this->checkSolution();
 
-#ifndef Silence
-  cout << "[***] Model solved!" << endl;
-#endif
   return this->getSolution();
 }
 
-void StochasticModel::createVariables()
+void StochasticModelWalk::createVariables()
 {
-  auto graph = this->input->getGraph();
-  int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB(), s = input->getS();
+  Graph *graph = this->input->getGraph();
+  int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB(), S = input->getS();
+
   try
   {
     env.set("LogFile", "MS_mip.log");
     env.start();
 
-    x = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(n + 1, vector<GRBVar>(s + 1)));
-    t = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(n + 1, vector<GRBVar>(s + 1)));
-    y = vector<vector<GRBVar>>(b, vector<GRBVar>(s + 1));
-    z = vector<vector<GRBVar>>(b, vector<GRBVar>(s + 1));
+    x = vector<vector<vector<GRBVar>>>(n + 1, vector<vector<GRBVar>>(n + 1, vector<GRBVar>(S + 1)));
+    y = vector<vector<GRBVar>>(b, vector<GRBVar>(S + 1));
+    z = vector<vector<GRBVar>>(b, vector<GRBVar>(S + 1));
 
-    for (int r = 0; r <= s; r++)
+    for (int r = 0; r <= S; r++)
     {
       // X
       char name[40];
@@ -314,28 +289,15 @@ void StochasticModel::createVariables()
         {
           d = arc->getD();
           sprintf(name, "x_%d_%d_%d", o, d, r);
-          x[o][d][r] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
+          x[o][d][r] = model.addVar(0.0, GRB_INFINITY, 0, GRB_INTEGER, name);
         }
       }
-
-      // T
-      for (o = 0; o <= n; o++)
-      {
-        for (auto *arc : graph->getArcs(o))
-        {
-          d = arc->getD();
-          sprintf(name, "t_%d_%d_%d", o, d, r);
-          t[o][d][r] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
-        }
-      }
-
       // Y
       for (int bl = 0; bl < b; bl++)
       {
         sprintf(name, "y_%d_%d", bl, r);
         y[bl][r] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
-
       // Z
       for (int bl = 0; bl < b; bl++)
       {
@@ -343,10 +305,9 @@ void StochasticModel::createVariables()
         z[bl][r] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
       }
     }
-
     model.update();
 #ifndef Silence
-    cout << "Create variables" << endl;
+    cout << "[*] Create variables" << endl;
 #endif
   }
   catch (GRBException &ex)
@@ -357,18 +318,14 @@ void StochasticModel::createVariables()
   }
 }
 
-void StochasticModel::initModel(string model)
+void StochasticModelWalk::initModel(string model)
 {
 #ifndef Silence
   cout << "[***] Creating " << model << " model!" << endl;
 #endif
 
-  objectiveFunction();
-  zValue(), artificialNodes(), flowConservation();
-  timeConstraint(), attendingPath();
-
-  if (model == "MTZ")
-    compactTimeConstraint();
+  objectiveFunction(), artificialNodes(), zValue();
+  flowConservation(), attendingPath(), timeConstraint();
 
   this->model.update();
 
@@ -377,7 +334,7 @@ void StochasticModel::initModel(string model)
 #endif
 }
 
-void StochasticModel::objectiveFunction()
+void StochasticModelWalk::objectiveFunction()
 {
   auto graph = this->input->getGraph();
   GRBLinExpr objective;
@@ -409,7 +366,7 @@ void StochasticModel::objectiveFunction()
 #endif
 }
 
-void StochasticModel::zValue()
+void StochasticModelWalk::zValue()
 {
   auto graph = this->input->getGraph();
   for (int s = 1; s <= input->getS(); s++)
@@ -428,9 +385,8 @@ void StochasticModel::zValue()
 #endif
 }
 
-void StochasticModel::artificialNodes()
+void StochasticModelWalk::artificialNodes()
 {
-
   int n = input->getGraph()->getN();
   for (int s = 0; s <= input->getS(); s++)
   {
@@ -450,7 +406,7 @@ void StochasticModel::artificialNodes()
 #endif
 }
 
-void StochasticModel::flowConservation()
+void StochasticModelWalk::flowConservation()
 {
   auto graph = input->getGraph();
   int i, j, n = graph->getN();
@@ -487,7 +443,7 @@ void StochasticModel::flowConservation()
 #endif
 }
 
-void StochasticModel::attendingPath()
+void StochasticModelWalk::attendingPath()
 {
   auto graph = input->getGraph();
   int j, bl, n = graph->getN(), b = graph->getB();
@@ -510,7 +466,7 @@ void StochasticModel::attendingPath()
 #endif
 }
 
-void StochasticModel::timeConstraint()
+void StochasticModelWalk::timeConstraint()
 {
   auto graph = input->getGraph();
   int i, j, n = graph->getN();
@@ -539,62 +495,7 @@ void StochasticModel::timeConstraint()
 #endif
 }
 
-void StochasticModel::compactTimeConstraint()
-{
-  auto graph = input->getGraph();
-  int b, i, j, k, n = graph->getN();
-
-  for (int s = 0; s <= input->getS(); s++)
-  {
-    for (i = 0; i <= n; i++)
-    {
-      if (i < n)
-        model.addConstr(t[n][i][s] == 0);
-
-      for (auto *arc : graph->getArcs(i))
-      {
-        j = arc->getD();
-        if (j >= n)
-          continue;
-
-        for (auto *arcl : graph->getArcs(j))
-        {
-          k = arcl->getD();
-          model.addConstr(t[j][k][s] >= t[i][j][s] - (2 - x[i][j][s] - x[j][k][s]) * input->getT() + arc->getLength() * x[i][j][s], "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
-        }
-      }
-    }
-
-    for (i = 0; i < n; i++)
-      model.addConstr(t[i][n][s] <= x[i][n][s] * input->getT(), "max_time");
-  }
-#ifndef Silence
-  cout << "[***] Constraint: Time limit" << endl;
-#endif
-}
-
-void StochasticModel::solveCompact(string time_limit)
-{
-  try
-  {
-    model.set("TimeLimit", time_limit);
-    model.set("OutputFlag", "0");
-    model.update();
-#ifndef Silence
-    model.set("OutputFlag", "1");
-    model.update();
-#endif
-    // model.computeIIS();
-    model.write("model.lp");
-    model.optimize();
-  }
-  catch (GRBException &ex)
-  {
-    cout << ex.getMessage() << endl;
-  }
-}
-
-void StochasticModel::solveExponential(string time_limit, bool frac_cut)
+void StochasticModelWalk::solveExponential(string time_limit, bool frac_cut)
 {
   try
   {
@@ -602,7 +503,7 @@ void StochasticModel::solveExponential(string time_limit, bool frac_cut)
     model.set("TimeLimit", time_limit);
     model.set(GRB_DoubleParam_Heuristics, 1.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
-    stochasticCyclecallback cb = stochasticCyclecallback(input, graph->getN(), x, y, frac_cut);
+    cyclecallbackStochasticWalk cb = cyclecallbackStochasticWalk(input, graph->getN(), x, y, frac_cut);
     model.setCallback(&cb);
     model.set("OutputFlag", "0");
     model.update();
@@ -624,7 +525,7 @@ void StochasticModel::solveExponential(string time_limit, bool frac_cut)
   }
 }
 
-Solution StochasticModel::getSolution()
+Solution StochasticModelWalk::getSolution()
 {
   auto graph = input->getGraph();
   double of = 0.0;
@@ -673,7 +574,7 @@ Solution StochasticModel::getSolution()
   return solution;
 }
 
-bool StochasticModel::checkSolution()
+bool StochasticModelWalk::checkSolution()
 {
   auto graph = input->getGraph();
   int max_time = input->getT();

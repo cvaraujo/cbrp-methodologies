@@ -37,42 +37,9 @@ public:
     model.terminate();
   }
 
-  void setStartSolution(Solution solution)
-  {
-    // Route
-#ifndef Silence
-    cout << "[***] Setting start solution" << endl;
-#endif
-
-    Graph *graph = this->input->getGraph();
-    ShortestPath *sp = this->input->getShortestPath();
-
-    for (int s = 0; s <= input->getS(); s++)
-    {
-      // Arc
-      for (auto arc : solution.getXFromScenario(s))
-      {
-        {
-          cout << "S: " << s << " I: " << arc.first << " J: " << arc.second << endl;
-          this->x[arc.first][arc.second][s].set(GRB_DoubleAttr_Start, 1.0);
-          model.addConstr(x[arc.first][arc.second][s] == 1, "solution_x");
-        }
-      }
-
-      // Blocks
-      for (int b : solution.getYFromScenario(s))
-      {
-        cout << "S: " << s << " B: " << b << endl;
-        // this->y[b][s].set(GRB_DoubleAttr_Start, 1.0);
-        // model.addConstr(y[b][s] == 1, "solution_y");
-      }
-    }
-    model.update();
-  }
-
   Solution getSolution();
 
-  Solution Run(bool use_warm_start, string time_limit, string model, bool use_cuts, Solution solution);
+  Solution Run(bool use_warm_start, string time_limit, string model, bool use_cuts);
 
   void solveExponential(string time_limit, bool frac_cut);
 
