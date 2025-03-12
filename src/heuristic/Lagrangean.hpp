@@ -5,32 +5,35 @@
 #ifndef DPARP_LAGRANGEAN_H
 #define DPARP_LAGRANGEAN_H
 
-#include "Include.h"
-#include "Graph.h"
+#include "../classes/Input.hpp"
+#include "../common/Knapsack.hpp"
+#include "../common/BoostLibrary.hpp"
 #include "gurobi_c++.h"
 #include <vector>
 
-using namespace std;
-
 class Lagrangean
 {
-  Graph *graph;
-  double multTime, UB, LB;
-  vector<double> multConn;
-  int num_lazy_cuts, num_frac_cuts;
-  float default_vel, spraying_vel, insecticide_ml_min, max_time;
-  bool feasible;
+  Input *input;
+  double mult_time, UB, LB;
+  vector<double> mult_conn;
+  int num_lazy_cuts, num_frac_cuts, T;
+  bool is_feasible;
+  BoostLibrary *boost;
 
 public:
-  Lagrangean(Graph *graph);
+  Lagrangean(Input *input);
 
   int lagrangean_relax();
+
+  int bestAttendFromRoute(const set<pair<int, int>> &x, vector<int> &y);
 
   double solve_ppl(set<pair<int, int>> &x, vector<int> &y);
 
   double runSolverERCSPP(set<pair<int, int>> &x);
 
-  void getGradientConnection(vector<double> &lambda, set<pair<int, int>> x, vector<int> y);
+  double runSHPRC(set<pair<int, int>> &x);
+
+  void getGradientConnection(vector<double> &gradient_lambda, set<pair<int, int>> x, vector<int> y);
 
   void getGradientTime(double &sigma, set<pair<int, int>> x, vector<int> y);
 
@@ -39,8 +42,6 @@ public:
   bool isFeasible();
 
   int getOriginalObjValue(vector<int> y);
-
-  int bestAttendFromRoute(set<pair<int, int>> &x, vector<int> &y);
 };
 
 #endif // DPARP_MODEL_H

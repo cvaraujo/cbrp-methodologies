@@ -39,6 +39,9 @@ public:
     for (auto p : x)
     {
       i = p.first;
+      if (i >= N)
+        continue;
+
       for (auto b : this->nodes[i].second)
         if (b != -1)
           blocks.insert(b);

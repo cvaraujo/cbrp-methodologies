@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 project(cbrp)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIL_STD -std=c++17 -DSilence")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIL_STD -std=c++17")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(/opt/gurobi1101/linux64/include /opt/boost_1_85_0 /opt/lemon-1.3.1)
+include_directories(/opt/gurobi1201/linux64/include /opt/boost_1_87_0 /opt/lemon-1.3.1)
 
-link_directories(/opt/gurobi1101/linux64/lib /opt/boost_1_85_0 /opt/lemon-1.3.1/lemon)
+link_directories(/opt/gurobi1201/linux64/lib /opt/boost_1_87_0 /opt/lemon-1.3.1/lemon)
 
 set(
     sources 
@@ -25,6 +25,8 @@ set(
     src/common/BlockConnection.hpp
     src/common/BlockConnection.cpp
     src/common/Knapsack.hpp
+    src/common/BoostLibrary.hpp
+    src/common/BoostLibrary.cpp
     src/exact/DeterministicModel.hpp
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
@@ -35,11 +37,13 @@ set(
     src/exact/StochasticModelWalk.cpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
+    src/heuristic/Lagrangean.hpp
+    src/heuristic/Lagrangean.cpp
     src/heuristic/LocalSearch.hpp
     src/heuristic/LocalSearch.cpp
 )
 
 add_executable(cbrp ${sources})
 
-target_link_libraries(cbrp gurobi_c++ gurobi110 pthread m emon)
+target_link_libraries(cbrp gurobi_c++ gurobi120 pthread m emon)
 
