@@ -95,11 +95,6 @@ void BoostLibrary::update_arc_cost(int i, int j, double cost)
     {
         SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[ed];
         arc_prop.cost = cost;
-        // if (cost != 0)
-        // {
-        //     cout << "Updated cost from " << i << " to " << j << " to " << cost << endl;
-        //     getchar();
-        // }
     }
     else
     {
@@ -108,7 +103,7 @@ void BoostLibrary::update_arc_cost(int i, int j, double cost)
     }
 }
 
-pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
+pair<int, double> BoostLibrary::run_spprc(map<pair<int, int>, int> &x)
 {
     // Run the shortest path with resource constraints
     vector<vector<edge_descriptor>> opt_solution;
@@ -116,7 +111,7 @@ pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
 
     int N = this->input->getGraph()->getN();
     int s = N + 1, t = N;
-    cout << "[*] Running SPPRC..." << endl;
+    // cout << "[*] Running SPPRC..." << endl;
 
     r_c_shortest_paths(G,
                        get(&SPPRC_Graph_Vert_Prop::num, G),
@@ -147,8 +142,8 @@ pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
     {
         auto pareto = pareto_opt[best_solution_index];
 
-        cout << "\t[*] Route Cost: " << pareto.cost << endl;
-        cout << "\t[*] Route Time: " << pareto.time << endl;
+        // cout << "\t[*] Route Cost: " << pareto.cost << endl;
+        // cout << "\t[*] Route Time: " << pareto.time << endl;
         route_cost = pareto.cost;
         route_time = pareto.time;
 
@@ -159,18 +154,13 @@ pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
             for (int j = 0; j < opt_solution[best_solution_index].size(); j++)
             {
                 auto arc = opt_solution[best_solution_index][j];
-                SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[arc];
                 pair<int, int> arc_p = make_pair(source(arc, G), target(arc, G));
-                x.insert(arc_p);
-                // if (x.size() > last_size)
-                // {
-                //     last_size = x.size();
-                //     route_cost += arc_prop.cost;
-                //     route_time += arc_prop.time;
-                // }
+                if (x.find(arc_p) != x.end())
+                    x[arc_p]++;
+                else
+                    x[arc_p] = 1;
             }
         }
     }
-    getchar();
     return make_pair(route_time, route_cost);
 }

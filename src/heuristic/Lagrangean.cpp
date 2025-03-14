@@ -10,6 +10,7 @@ Lagrangean::Lagrangean(Input *input)
   {
     this->input = input;
     this->boost = new BoostLibrary(input);
+    this->greedyHeuristic = new GreedyHeuristic(input);
   }
   else
     exit(EXIT_FAILURE);
@@ -164,7 +165,7 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x)
   return make_pair(route_time, model.get(GRB_DoubleAttr_ObjVal));
 }
 
-pair<int, double> Lagrangean::runSHPRC(set<pair<int, int>> &x)
+pair<int, double> Lagrangean::runSHPRC(map<pair<int, int>, int> &x)
 {
   // Update arcs costs
   Graph *graph = input->getGraph();
@@ -172,25 +173,17 @@ pair<int, double> Lagrangean::runSHPRC(set<pair<int, int>> &x)
   double arc_cost;
 
   // Update arcs
-  // cout << "[*] Updating arcs" << endl;
   for (i = 0; i < graph->getN(); i++)
   {
     // Connectors multipliers
     double block_cost = 0.0;
     for (auto b : graph->getNode(i).second)
-    {
-      // cout << "[-->]" << b << " " << mult_conn[b] << endl;
       block_cost += mult_conn[b];
-    }
-    // getchar();
 
     for (auto arc : graph->getArcs(i))
     {
       j = arc->getD();
-
-      // Time Multipliers
       arc_cost = (mult_time * arc->getLength() - block_cost);
-
       this->boost->update_arc_cost(i, j, arc_cost);
     }
   }
@@ -198,7 +191,7 @@ pair<int, double> Lagrangean::runSHPRC(set<pair<int, int>> &x)
   return this->boost->run_spprc(x);
 }
 
-double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
+double Lagrangean::solve_ppl(map<pair<int, int>, int> &x, vector<int> &y)
 {
   Graph *graph = input->getGraph();
   int i, b, j, T = input->getT();
@@ -214,8 +207,8 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
     return numeric_limits<int>::max();
   }
 
-  cout << "[*] Route Cost: " << route_cost << endl;
-  cout << "[*] Route Time: " << route_time << endl;
+  // cout << "[*] Route Cost: " << route_cost << endl;
+  // cout << "[*] Route Time: " << route_time << endl;
   this->curr_route_time = route_time;
 
   // Update Blocks profit
@@ -243,19 +236,14 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
     y.push_back(*it);
   }
 
-  // cout << "[*] Knapsack Profit: " << knapsack_cost << endl;
-  // for (auto b : y)
-  //   cout << b << ", ";
-  // cout << endl;
-
-  cout << "[*] PPL OF: " << (of - route_cost + knapsack_cost) << endl
-       << "\t[-] OF: " << of << endl
-       << "\t[-] Route Cost: " << route_cost << endl
-       << "\t[-] Knapsack Cost: " << knapsack_cost << endl;
+  // cout << "[*] PPL OF: " << (of - route_cost + knapsack_cost) << endl
+  //      << "\t[-] OF: " << of << endl
+  //      << "\t[-] Route Cost: " << route_cost << endl
+  //      << "\t[-] Knapsack Cost: " << knapsack_cost << endl;
   return of - route_cost + knapsack_cost;
 }
 
-int Lagrangean::bestAttendFromRoute(const set<pair<int, int>> &x, vector<int> &y)
+int Lagrangean::bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<int> &y)
 {
   Graph *graph = input->getGraph();
   set<int> route_blocks = graph->getBlocksFromRoute(x);
@@ -267,14 +255,17 @@ int Lagrangean::bestAttendFromRoute(const set<pair<int, int>> &x, vector<int> &y
     return 0;
 
   // Get route time
-  for (auto p : x)
+  for (auto x_p : x)
   {
+    int_pair p = x_p.first;
+    int times_visited = x_p.second;
+
     i = p.first, j = p.second;
     if (i >= graph->getN() || j >= graph->getN())
       continue;
 
     auto arc = graph->getArc(i, j);
-    avail_time -= arc->getLength();
+    avail_time -= (arc->getLength() * times_visited);
   }
 
   // Get blocks to Knapsack
@@ -292,7 +283,15 @@ int Lagrangean::bestAttendFromRoute(const set<pair<int, int>> &x, vector<int> &y
     }
   }
 
-  int of = Knapsack::Run(y_aux, profit, times, avail_time);
+  int of = 0;
+  if (avail_time <= 0)
+  {
+    // Try to replace route with heuristic
+    vector<int_pair> x_aux;
+    of = greedyHeuristic->SolveScenario(profit, times, 0.0, 100, input->getT(), y_aux, x_aux);
+  }
+  else
+    of = Knapsack::Run(y_aux, profit, times, avail_time);
 
   for (int b : y_aux)
   {
@@ -301,7 +300,7 @@ int Lagrangean::bestAttendFromRoute(const set<pair<int, int>> &x, vector<int> &y
     y.push_back(*it);
   }
 
-  cout << "[*] Heuristic: " << of << ", With Time: " << avail_time << endl;
+  // cout << "[*] Heuristic: " << of << ", With Time: " << avail_time << endl;
   // for (auto b : y)
   //   cout << "B" << b << ", ";
   // cout << endl;
@@ -318,7 +317,7 @@ int Lagrangean::getOriginalObjValue(vector<int> y)
   return profit;
 }
 
-int Lagrangean::getGradientTime(set<pair<int, int>> x, vector<int> y)
+int Lagrangean::getGradientTime(map<int_pair, int> x, vector<int> y)
 {
   Graph *graph = input->getGraph();
   int N = graph->getN();
@@ -351,14 +350,17 @@ int Lagrangean::getGradientTime(set<pair<int, int>> x, vector<int> y)
   return gradient_time;
 }
 
-void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair<int, int>> x, vector<int> y)
+void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, map<int_pair, int> x, vector<int> y)
 {
   Graph *graph = input->getGraph();
   int i, j, b, B = graph->getB(), N = graph->getN();
   map<pair<int, int>, bool> arc_used;
 
   for (auto arc : x)
-    arc_used[arc] = true;
+  {
+    int_pair a = arc.first;
+    arc_used[a] = true;
+  }
 
   for (b = 0; b < B; b++)
   {
@@ -369,9 +371,14 @@ void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair
     set<int> nodes = graph->getNodesFromBlock(b);
 
     for (int i : nodes)
+    {
       for (auto arc : graph->getArcs(i))
-        if (arc_used[make_pair(i, arc->getD())])
-          gradient_lambda[b]++;
+      {
+        int_pair a = make_pair(i, arc->getD());
+        if (arc_used[a])
+          gradient_lambda[b] += x[a];
+      }
+    }
 
     if (gradient_lambda[b] < 0)
       is_feasible = false;
@@ -404,9 +411,9 @@ bool Lagrangean::isFeasible()
 int Lagrangean::lagrangean_relax()
 {
   Graph *graph = input->getGraph();
-  int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 1000, reduce = 10;
+  int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 5000, reduce = 100;
   double theta_time, norm_time, theta_conn, norm_conn, obj_ppl, original_obj, route_obj, heuristic_obj;
-  double lambda = 1.0;
+  double lambda = 1.5;
   this->T = input->getT();
   is_feasible = true;
 
@@ -420,26 +427,23 @@ int Lagrangean::lagrangean_relax()
   for (int b = 0; b < B; b++)
     UB += graph->getCasesPerBlock(b);
 
-  cout << "Initial UB: " << UB << endl;
+  // cout << "Initial UB: " << UB << endl;
 
   while (iter < max_iter)
   {
-    set<pair<int, int>> x;
+    map<int_pair, int> x;
     vector<int> y, y_aux;
 
-    cout << "[*] Solving PPL in iteration " << iter << "..." << endl;
+    cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
     obj_ppl = solve_ppl(x, y);
 
     // cout << "[*] Solving PPL in iteration " << iter << " finished!" << endl;
     if (obj_ppl < numeric_limits<int>::max())
     {
-      // cout << "[*] Gradients..." << endl;
       gradient_time = getGradientTime(x, y);
-      // cout << "[*] Gradient Time: " << gradient_time << endl;
-
       getGradientConnection(gradient_conn, x, y);
 
-      cout << "[*] Updating bounds..." << endl;
+      // cout << "[*] Updating bounds..." << endl;
       if (obj_ppl < UB)
       {
         UB = obj_ppl;
@@ -450,7 +454,7 @@ int Lagrangean::lagrangean_relax()
         progress++;
         if (progress == reduce)
         {
-          lambda *= 0.9;
+          lambda *= 0.98;
           progress = 0;
         }
       }
@@ -461,13 +465,16 @@ int Lagrangean::lagrangean_relax()
       // cout << "[*] Get Heuristic Objective..." << endl;
       heuristic_obj = bestAttendFromRoute(x, y_aux);
 
-      for (auto p : x)
-        cout << p.first << " -> " << p.second << ", ";
-      cout << endl;
+      // for (auto arc : x)
+      // {
+      //   int_pair p = arc.first;
+      //   int times_visited = arc.second;
+      //   cout << p.first << " -> " << p.second << " = " << times_visited << endl;
+      // }
 
-      for (auto b : y)
-        cout << b << ", ";
-      cout << endl;
+      // for (auto b : y)
+      //   cout << b << ", ";
+      // cout << endl;
 
       cout << "[*] Original Obj: " << original_obj << ", Heuristic: " << heuristic_obj << ", Relax Obj: " << obj_ppl << endl;
       bool feasible = isFeasible();
@@ -489,36 +496,25 @@ int Lagrangean::lagrangean_relax()
       norm_conn = getNorm(gradient_conn);
       norm_time = sqrt(pow(gradient_time, 2));
 
-      // cout << "[*] NormConn: " << norm_conn << ", NomTime: " << norm_time << endl;
-
-      // cout << "[*} Lambda: " << lambda << endl;
-      // cout << "OBJ: " << obj_ppl << ", LB: " << LB << ", |NormConn|: " << pow(norm_conn, 2) << ", |Normtime|: " << pow(norm_conn, 2) << endl;
       if (norm_time == 0)
         theta_time = 0;
       else
         theta_time = lambda * (float(obj_ppl - LB) / pow(norm_time, 2));
-
-      // cout << "[*] Theta Time: " << theta_time << endl;
 
       if (norm_conn == 0)
         theta_conn = 0;
       else
         theta_conn = lambda * (float(obj_ppl - LB) / pow(norm_conn, 2));
 
-      // cout << "[*] Theta Conn: " << theta_conn << endl;
-
       for (int b = 0; b < B; b++)
       {
 
         mult_conn[b] = max(0.0, mult_conn[b] - (gradient_conn[b] * theta_conn));
-        // cout << "mult_conn[" << b << "]: " << mult_conn[b] << ", gradient_conn[" << b << "]: " << gradient_conn[b] << " = " << mult_conn[b] << endl;
       }
 
       mult_time = max(0.0, mult_time - (gradient_time * theta_time));
-      // cout << "mult_time: " << mult_time << endl;
-
       cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
-      getchar();
+      // getchar();
     }
     else
       return LB;
