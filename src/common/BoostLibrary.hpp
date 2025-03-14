@@ -40,7 +40,7 @@ public:
 
     void update_arc_cost(int i, int j, double cost);
 
-    double run_spprc(set<pair<int, int>> &x);
+    pair<int, double> run_spprc(set<pair<int, int>> &x);
 
     ~BoostLibrary() = default;
 

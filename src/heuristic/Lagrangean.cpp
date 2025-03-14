@@ -135,7 +135,7 @@ double Lagrangean::runSolverERCSPP(set<pair<int, int>> &x)
   return model.get(GRB_DoubleAttr_ObjVal);
 }
 
-double Lagrangean::runSHPRC(set<pair<int, int>> &x)
+pair<int, double> Lagrangean::runSHPRC(set<pair<int, int>> &x)
 {
   // Update arcs costs
   Graph *graph = input->getGraph();
@@ -147,19 +147,19 @@ double Lagrangean::runSHPRC(set<pair<int, int>> &x)
   for (i = 0; i < graph->getN(); i++)
   {
     // Connectors multipliers
-    arc_cost = 0.0;
+    double block_cost = 0.0;
     for (auto b : graph->getNode(i).second)
-      arc_cost -= mult_conn[b];
+      block_cost += mult_conn[b];
 
     for (auto arc : graph->getArcs(i))
     {
       j = arc->getD();
 
-      if (j >= N)
-        continue;
+      // if (j >= N)
+      //   continue;
 
       // Time Multipliers
-      arc_cost += mult_time * (1.0 * arc->getLength());
+      arc_cost = (mult_time * (1.0 * arc->getLength()) - block_cost);
 
       this->boost->update_arc_cost(i, j, arc_cost);
     }
@@ -175,7 +175,8 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
   double arc_cost, of = mult_time * T;
 
   // double route_cost = graph->run_spprc(x);
-  double route_cost = runSHPRC(x);
+  pair<int, double> x_result = runSHPRC(x);
+  double route_time = x_result.first, route_cost = x_result.second;
 
   if (route_cost >= numeric_limits<int>::max())
   {
@@ -184,6 +185,8 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
   }
 
   cout << "[*] Route Cost: " << route_cost << endl;
+  cout << "[*] Route Time: " << route_time << endl;
+  this->curr_route_time = route_time;
 
   // Update Blocks profit
   vector<int> blocks, times, y_aux;
@@ -203,7 +206,6 @@ double Lagrangean::solve_ppl(set<pair<int, int>> &x, vector<int> &y)
 
   double knapsack_cost = Knapsack::Run(y_aux, profit, times, T);
 
-  // TODO: remove after
   for (auto b : y_aux)
   {
     auto it = blocks.begin();
@@ -286,34 +288,37 @@ int Lagrangean::getOriginalObjValue(vector<int> y)
   return profit;
 }
 
-void Lagrangean::getGradientTime(double &gradient_sigma, set<pair<int, int>> x, vector<int> y)
+int Lagrangean::getGradientTime(set<pair<int, int>> x, vector<int> y)
 {
   Graph *graph = input->getGraph();
   int N = graph->getN();
-  gradient_sigma = input->getT();
+  double gradient_time = -input->getT();
 
-  int i, j;
-  for (auto p : x)
-  {
-    i = p.first, j = p.second;
-    if (i >= N || j >= N)
-      continue;
+  // int i, j;
+  // for (auto p : x)
+  // {
+  //   i = p.first, j = p.second;
+  //   if (i > N)
+  //     i = N;
 
-    auto arc = graph->getArc(i, j);
-    if (arc == nullptr)
-    {
-      cout << "[Error!] Arc not found" << endl;
-      exit(EXIT_FAILURE);
-    }
+  //   auto arc = graph->getArc(i, j);
+  //   if (arc == nullptr)
+  //   {
+  //     cout << "[Error!] Arc not found" << endl;
+  //     exit(EXIT_FAILURE);
+  //   }
 
-    gradient_sigma -= arc->getLength();
-  }
+  //   gradient_sigma += arc->getLength();
+  // }
+  gradient_time += this->curr_route_time;
 
   for (int b : y)
-    gradient_sigma -= graph->getTimePerBlock(b);
+    gradient_time += graph->getTimePerBlock(b);
 
-  if (gradient_sigma < 0)
+  if (gradient_time > 0)
     is_feasible = false;
+
+  return gradient_time;
 }
 
 void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair<int, int>> x, vector<int> y)
@@ -321,22 +326,24 @@ void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, set<pair
   Graph *graph = input->getGraph();
   int i, j, b, B = graph->getB(), N = graph->getN();
   map<pair<int, int>, bool> arc_used;
-  gradient_lambda = vector<double>(B, 0);
 
   for (auto arc : x)
     arc_used[arc] = true;
 
-  for (int b : y)
+  for (b = 0; b < B; b++)
   {
+    gradient_lambda[b] = 0;
+    if (find(y.begin(), y.end(), b) != y.end())
+      gradient_lambda[b] = 1;
+
     set<int> nodes = graph->getNodesFromBlock(b);
-    gradient_lambda[b] = -1;
 
     for (int i : nodes)
       for (auto arc : graph->getArcs(i))
         if (arc_used[make_pair(i, arc->getD())])
-          gradient_lambda[b]++;
+          gradient_lambda[b]--;
 
-    if (gradient_lambda[b] < 0)
+    if (gradient_lambda[b] > 0)
       is_feasible = false;
   }
 }
@@ -369,7 +376,7 @@ int Lagrangean::lagrangean_relax()
   this->T = input->getT();
 
   vector<double> gradient_conn = vector<double>(B, 0);
-  double gradient_time = 0;
+  double gradient_time = 0.0;
 
   mult_conn = vector<double>(B, 0);
   mult_time = 0;
@@ -392,7 +399,7 @@ int Lagrangean::lagrangean_relax()
     if (obj_ppl < numeric_limits<int>::max())
     {
       cout << "[*] Gradients..." << endl;
-      getGradientTime(gradient_time, x, y);
+      gradient_time = getGradientTime(x, y);
       getGradientConnection(gradient_conn, x, y);
 
       cout << "[*] Updating bounds..." << endl;
@@ -425,17 +432,17 @@ int Lagrangean::lagrangean_relax()
         LB = heuristic_obj;
         if (feasible)
           LB = max(original_obj, heuristic_obj);
+      }
 
-        if ((UB - LB) < 1)
-        {
-          cout << "[!!!] Found optimal solution!" << endl
-               << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
-          return LB;
-        }
+      if ((UB - LB) < 1)
+      {
+        cout << "[!!!] Found optimal solution!" << endl
+             << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+        return LB;
       }
 
       norm_conn = getNorm(gradient_conn);
-      norm_time = sqrt(pow(gradient_time, 2));
+      norm_time = gradient_time;
 
       if (norm_time == 0)
         theta_time = 0;
@@ -448,9 +455,9 @@ int Lagrangean::lagrangean_relax()
         theta_conn = lambda * ((obj_ppl - LB) / pow(norm_conn, 2));
 
       for (int b = 0; b < B; b++)
-        mult_conn[b] = max(0.0, mult_conn[b] - (gradient_conn[b] * theta_conn));
+        mult_conn[b] = max(0.0, mult_conn[b] + (gradient_conn[b] * theta_conn));
 
-      mult_time = max(0.0, mult_time - (gradient_time * theta_time));
+      mult_time = max(0.0, mult_time + (gradient_time * theta_time));
 
       cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
       getchar();

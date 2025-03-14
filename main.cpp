@@ -53,6 +53,8 @@ int main(int argc, const char *argv[])
   //   cout << "[!] Solution type not found!" << endl;
   //   exit(EXIT_FAILURE);
   // }
+  // as-1: 39
+  // as-2: 240
 
   int T = 1200;
   bool frac_cut = false, preprocessing = false;

@@ -103,7 +103,7 @@ void BoostLibrary::update_arc_cost(int i, int j, double cost)
     }
 }
 
-double BoostLibrary::run_spprc(set<pair<int, int>> &x)
+pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
 {
     // Run the shortest path with resource constraints
     vector<edge_descriptor> opt_solution;
@@ -139,7 +139,6 @@ double BoostLibrary::run_spprc(set<pair<int, int>> &x)
             SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[arc];
             pair<int, int> arc_p = make_pair(source(arc, G), target(arc, G));
             x.insert(arc_p);
-
             if (x.size() > last_size)
             {
                 last_size = x.size();
@@ -147,6 +146,5 @@ double BoostLibrary::run_spprc(set<pair<int, int>> &x)
             }
         }
     }
-
-    return route_cost;
+    return make_pair(pareto_opt.time, pareto_opt.cost);
 }

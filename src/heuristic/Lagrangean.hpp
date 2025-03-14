@@ -18,6 +18,7 @@ class Lagrangean
   vector<double> mult_conn;
   int num_lazy_cuts, num_frac_cuts, T;
   bool is_feasible;
+  double curr_route_time = 0.0;
   BoostLibrary *boost;
 
 public:
@@ -31,11 +32,11 @@ public:
 
   double runSolverERCSPP(set<pair<int, int>> &x);
 
-  double runSHPRC(set<pair<int, int>> &x);
+  pair<int, double> runSHPRC(set<pair<int, int>> &x);
 
   void getGradientConnection(vector<double> &gradient_lambda, set<pair<int, int>> x, vector<int> y);
 
-  void getGradientTime(double &sigma, set<pair<int, int>> x, vector<int> y);
+  int getGradientTime(set<pair<int, int>> x, vector<int> y);
 
   double getNorm(vector<double> &gradient);
 
