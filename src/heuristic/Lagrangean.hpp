@@ -30,7 +30,7 @@ public:
 
   double solve_ppl(set<pair<int, int>> &x, vector<int> &y);
 
-  double runSolverERCSPP(set<pair<int, int>> &x);
+  pair<int, double> runSolverERCSPP(set<pair<int, int>> &x);
 
   pair<int, double> runSHPRC(set<pair<int, int>> &x);
 

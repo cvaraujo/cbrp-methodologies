@@ -40,7 +40,7 @@ public:
     inline bool operator()(const spp_res_cont &res_cont_1,
                            const spp_res_cont &res_cont_2) const
     {
-        return res_cont_1.cost <= res_cont_2.cost && res_cont_1.time <= res_cont_2.time;
+        return res_cont_1.cost <= res_cont_2.cost;
     }
 };
 // end data structures for shortest path problem with resource constraint
@@ -95,6 +95,11 @@ void BoostLibrary::update_arc_cost(int i, int j, double cost)
     {
         SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[ed];
         arc_prop.cost = cost;
+        // if (cost != 0)
+        // {
+        //     cout << "Updated cost from " << i << " to " << j << " to " << cost << endl;
+        //     getchar();
+        // }
     }
     else
     {
@@ -106,8 +111,8 @@ void BoostLibrary::update_arc_cost(int i, int j, double cost)
 pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
 {
     // Run the shortest path with resource constraints
-    vector<edge_descriptor> opt_solution;
-    spp_res_cont pareto_opt;
+    vector<vector<edge_descriptor>> opt_solution;
+    vector<spp_res_cont> pareto_opt;
 
     int N = this->input->getGraph()->getN();
     int s = N + 1, t = N;
@@ -125,26 +130,47 @@ pair<int, double> BoostLibrary::run_spprc(set<pair<int, int>> &x)
                        dominance_spptw());
 
     int route_cost = numeric_limits<int>::max();
-    double route_time = 0.0;
-    cout << "\t[*] Route Cost: " << pareto_opt.cost << endl;
-    cout << "\t[*] Route Time: " << pareto_opt.time << endl;
+    double route_time = 0.0, best_obj = numeric_limits<int>::max();
+    int best_solution_index = 0;
 
-    int last_size = 0;
-    if (!opt_solution.empty())
+    // Get the best solution index
+    for (int k = 0; k < pareto_opt.size(); k++)
     {
-        route_cost = 0.0;
-        for (int j = 0; j < int(opt_solution.size()); j++)
+        if (pareto_opt[k].cost < best_obj)
         {
-            auto arc = opt_solution[j];
-            SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[arc];
-            pair<int, int> arc_p = make_pair(source(arc, G), target(arc, G));
-            x.insert(arc_p);
-            if (x.size() > last_size)
+            best_obj = pareto_opt[k].cost;
+            best_solution_index = k;
+        }
+    }
+
+    if (pareto_opt.size() > 0)
+    {
+        auto pareto = pareto_opt[best_solution_index];
+
+        cout << "\t[*] Route Cost: " << pareto.cost << endl;
+        cout << "\t[*] Route Time: " << pareto.time << endl;
+        route_cost = pareto.cost;
+        route_time = pareto.time;
+
+        int last_size = 0;
+        if (!opt_solution.empty())
+        {
+            // route_cost = 0.0;
+            for (int j = 0; j < opt_solution[best_solution_index].size(); j++)
             {
-                last_size = x.size();
-                route_cost += arc_prop.cost;
+                auto arc = opt_solution[best_solution_index][j];
+                SPPRC_Graph_Arc_Prop &arc_prop = get(edge_bundle, G)[arc];
+                pair<int, int> arc_p = make_pair(source(arc, G), target(arc, G));
+                x.insert(arc_p);
+                // if (x.size() > last_size)
+                // {
+                //     last_size = x.size();
+                //     route_cost += arc_prop.cost;
+                //     route_time += arc_prop.time;
+                // }
             }
         }
     }
-    return make_pair(pareto_opt.time, pareto_opt.cost);
+    getchar();
+    return make_pair(route_time, route_cost);
 }
