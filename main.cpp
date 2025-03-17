@@ -38,7 +38,7 @@ int main(int argc, const char *argv[])
   string model = argv[4];
   string solution_type = argv[5];
   stringstream convTime(argv[6]), convPreprocessing(argv[7]), convFracCut(argv[8]);
-
+  stringstream convMaxIters(argv[9]), convReduc(argv[10]);
   // Temp
   // string stochastic_model = argv[9];
 
@@ -58,18 +58,20 @@ int main(int argc, const char *argv[])
 
   int T = 1200;
   bool frac_cut = false, preprocessing = false;
-  int default_vel = 20, neblize_vel = 10;
-  double alpha = 0.8;
+  int default_vel = 20, neblize_vel = 10, maxIters = 100;
+  double alpha = 0.8, lambda = 2.0, reduction = 0.99;
   bool is_trail = (solution_type == "TRAIL") ? true : false;
   bool walk_mtz = false; //(model == "MTZ" && !is_trail) ? true : false;
 
   convTime >> T;
   convFracCut >> frac_cut;
   convPreprocessing >> preprocessing;
+  convMaxIters >> maxIters;
+  convReduc >> reduction;
 
   Input *input = new Input(file_graph, file_scenarios, preprocessing, is_trail, walk_mtz, default_vel, neblize_vel, T, alpha);
   Lagrangean *lag = new Lagrangean(input);
-  lag->lagrangean_relax();
+  lag->lagrangean_relax(result_file, lambda, maxIters, reduction);
 
   // if (stochastic_model == "FALSE")
   // {

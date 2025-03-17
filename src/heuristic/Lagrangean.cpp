@@ -285,13 +285,9 @@ int Lagrangean::bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<in
 
   int of = 0;
   if (avail_time <= 0)
-  {
-    // Try to replace route with heuristic
-    vector<int_pair> x_aux;
-    of = greedyHeuristic->SolveScenario(profit, times, 0.0, 100, input->getT(), y_aux, x_aux);
-  }
-  else
-    of = Knapsack::Run(y_aux, profit, times, avail_time);
+    return of;
+
+  of = Knapsack::Run(y_aux, profit, times, avail_time);
 
   for (int b : y_aux)
   {
@@ -408,12 +404,12 @@ bool Lagrangean::isFeasible()
   return false;
 }
 
-int Lagrangean::lagrangean_relax()
+int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_iters, double reduction_factor)
 {
   Graph *graph = input->getGraph();
-  int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 5000, reduce = 100;
+  int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 10000;
   double theta_time, norm_time, theta_conn, norm_conn, obj_ppl, original_obj, route_obj, heuristic_obj;
-  double lambda = 1.5;
+  double backup_lambda = lambda;
   this->T = input->getT();
   is_feasible = true;
 
@@ -424,17 +420,21 @@ int Lagrangean::lagrangean_relax()
   mult_time = 0;
   UB = 0, LB = 0;
 
+  auto start = std::chrono::high_resolution_clock::now();
   for (int b = 0; b < B; b++)
     UB += graph->getCasesPerBlock(b);
 
-  // cout << "Initial UB: " << UB << endl;
+  this->initial_LB = LB;
+  this->initial_UB = UB;
+  auto end = chrono::high_resolution_clock::now();
+  auto elapsed = duration_cast<chrono::seconds>(end - start);
 
-  while (iter < max_iter)
+  while (iter < max_iter && elapsed.count() < 20)
   {
     map<int_pair, int> x;
     vector<int> y, y_aux;
 
-    cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
+    // cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
     obj_ppl = solve_ppl(x, y);
 
     // cout << "[*] Solving PPL in iteration " << iter << " finished!" << endl;
@@ -452,9 +452,9 @@ int Lagrangean::lagrangean_relax()
       else
       {
         progress++;
-        if (progress == reduce)
+        if (progress == improve_iters)
         {
-          lambda *= 0.98;
+          lambda *= reduction_factor;
           progress = 0;
         }
       }
@@ -476,7 +476,7 @@ int Lagrangean::lagrangean_relax()
       //   cout << b << ", ";
       // cout << endl;
 
-      cout << "[*] Original Obj: " << original_obj << ", Heuristic: " << heuristic_obj << ", Relax Obj: " << obj_ppl << endl;
+      // cout << "[*] Original Obj: " << original_obj << ", Heuristic: " << heuristic_obj << ", Relax Obj: " << obj_ppl << endl;
       bool feasible = isFeasible();
 
       if ((feasible && original_obj > LB) || heuristic_obj > LB)
@@ -488,9 +488,9 @@ int Lagrangean::lagrangean_relax()
 
       if ((UB - LB) < 1)
       {
-        cout << "[!!!] Found optimal solution!" << endl
-             << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
-        return LB;
+        // cout << "[!!!] Found optimal solution!" << endl
+        //      << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+        break;
       }
 
       norm_conn = getNorm(gradient_conn);
@@ -513,14 +513,21 @@ int Lagrangean::lagrangean_relax()
       }
 
       mult_time = max(0.0, mult_time - (gradient_time * theta_time));
-      cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+      // cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
       // getchar();
     }
     else
-      return LB;
+      break;
     iter++;
+    end = chrono::high_resolution_clock::now();
+    elapsed = duration_cast<chrono::seconds>(end - start);
   }
 
-  cout << "[!!!] (Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+  end = chrono::high_resolution_clock::now();
+  elapsed = duration_cast<chrono::seconds>(end - start);
+  this->runtime = elapsed.count();
+
+  this->WriteSolution(output_file, backup_lambda, max_iter, improve_iters, reduction_factor, iter);
+  // cout << "[!!!] (Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
   return LB;
 }

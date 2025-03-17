@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(/opt/gurobi1201/linux64/include /opt/boost_1_87_0 /opt/lemon-1.3.1)
+include_directories(/workspaces/gurobi1103/armlinux64/include /workspaces/boost_1_87_0 /workspaces/lemon-1.3.1)
 
-link_directories(/opt/gurobi1201/linux64/lib /opt/boost_1_87_0 /opt/lemon-1.3.1/lemon)
+link_directories(/workspaces/gurobi1103/armlinux64/lib /workspaces/boost_1_87_0 /workspaces/lemon-1.3.1/lemon)
 
 set(
     sources 
@@ -45,5 +45,5 @@ set(
 
 add_executable(cbrp ${sources})
 
-target_link_libraries(cbrp gurobi_c++ gurobi120 pthread m emon)
+target_link_libraries(cbrp gurobi_c++ gurobi110 pthread m emon)
 
