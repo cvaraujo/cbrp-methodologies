@@ -38,8 +38,8 @@ int main(int argc, const char *argv[])
   string model = argv[4];
   string solution_type = argv[5];
   stringstream convTime(argv[6]), convPreprocessing(argv[7]), convFracCut(argv[8]);
-  stringstream convMaxIters(argv[9]), convReduc(argv[10]);
-  // Temp
+  stringstream convLambda(argv[9]), convMaxIters(argv[10]), convReduc(argv[11]);
+
   // string stochastic_model = argv[9];
 
   // if (model != "MTZ" && model != "EXP")
@@ -53,8 +53,6 @@ int main(int argc, const char *argv[])
   //   cout << "[!] Solution type not found!" << endl;
   //   exit(EXIT_FAILURE);
   // }
-  // as-1: 39
-  // as-2: 240
 
   int T = 1200;
   bool frac_cut = false, preprocessing = false;
@@ -68,6 +66,7 @@ int main(int argc, const char *argv[])
   convPreprocessing >> preprocessing;
   convMaxIters >> maxIters;
   convReduc >> reduction;
+  convLambda >> lambda;
 
   Input *input = new Input(file_graph, file_scenarios, preprocessing, is_trail, walk_mtz, default_vel, neblize_vel, T, alpha);
   Lagrangean *lag = new Lagrangean(input);

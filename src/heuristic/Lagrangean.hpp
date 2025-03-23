@@ -28,17 +28,17 @@ public:
 
   int lagrangean_relax(string output_file, double lambda, int improve_iters, double reduction_factor);
 
-  int bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<int> &y);
+  int bestAttendFromRoute(map<int_pair, int> &x, vector<int> &y);
 
   double solve_ppl(map<pair<int, int>, int> &x, vector<int> &y);
 
   pair<int, double> runSolverERCSPP(set<pair<int, int>> &x);
 
-  pair<int, double> runSHPRC(map<pair<int, int>, int> &x);
+  pair<int, double> runSHPRC(map<int_pair, int> &x);
 
   void getGradientConnection(vector<double> &gradient_lambda, map<pair<int, int>, int> x, vector<int> y);
 
-  int getGradientTime(map<pair<int, int>, int> x, vector<int> y);
+  int getGradientTime(map<int_pair, int> x, vector<int> y);
 
   double getNorm(vector<double> &gradient);
 

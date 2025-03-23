@@ -3,6 +3,7 @@
 //
 
 #include "Lagrangean.hpp"
+#include <chrono>
 
 Lagrangean::Lagrangean(Input *input)
 {
@@ -243,13 +244,14 @@ double Lagrangean::solve_ppl(map<pair<int, int>, int> &x, vector<int> &y)
   return of - route_cost + knapsack_cost;
 }
 
-int Lagrangean::bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<int> &y)
+int Lagrangean::bestAttendFromRoute(map<int_pair, int> &x, vector<int> &y)
 {
   Graph *graph = input->getGraph();
   set<int> route_blocks = graph->getBlocksFromRoute(x);
   vector<int> time, y_aux;
   vector<double> cases;
   int i, j, avail_time = this->input->getT();
+  int T = avail_time;
 
   if (!route_blocks.size())
     return 0;
@@ -268,6 +270,10 @@ int Lagrangean::bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<in
     avail_time -= (arc->getLength() * times_visited);
   }
 
+  int of = 0;
+  if (avail_time <= 1)
+    return 0;
+
   // Get blocks to Knapsack
   vector<int> blocks, times;
   vector<double> profit;
@@ -283,12 +289,7 @@ int Lagrangean::bestAttendFromRoute(const map<pair<int, int>, int> &x, vector<in
     }
   }
 
-  int of = 0;
-  if (avail_time <= 0)
-    return of;
-
   of = Knapsack::Run(y_aux, profit, times, avail_time);
-
   for (int b : y_aux)
   {
     auto it = route_blocks.begin();
@@ -316,25 +317,23 @@ int Lagrangean::getOriginalObjValue(vector<int> y)
 int Lagrangean::getGradientTime(map<int_pair, int> x, vector<int> y)
 {
   Graph *graph = input->getGraph();
-  int N = graph->getN();
+  int N = graph->getN(), i, j;
   double gradient_time = input->getT();
 
-  // int i, j;
-  // for (auto p : x)
-  // {
-  //   i = p.first, j = p.second;
-  //   if (i > N)
-  //     i = N;
+  // Get route time
+  for (auto x_p : x)
+  {
+    int_pair p = x_p.first;
+    int times_visited = x_p.second;
 
-  //   auto arc = graph->getArc(i, j);
-  //   if (arc == nullptr)
-  //   {
-  //     cout << "[Error!] Arc not found" << endl;
-  //     exit(EXIT_FAILURE);
-  //   }
+    i = p.first, j = p.second;
+    if (i >= graph->getN() || j >= graph->getN())
+      continue;
 
-  //   gradient_sigma += arc->getLength();
-  // }
+    auto arc = graph->getArc(i, j);
+    gradient_time -= (arc->getLength() * times_visited);
+  }
+
   gradient_time -= this->curr_route_time;
 
   for (int b : y)
@@ -424,22 +423,50 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
   for (int b = 0; b < B; b++)
     UB += graph->getCasesPerBlock(b);
 
+  vector<int> y_heu;
+  vector<int_pair> x_heu;
+  LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), 0, 1, T, y_heu, x_heu);
+
   this->initial_LB = LB;
   this->initial_UB = UB;
+  obj_ppl = UB;
+
   auto end = chrono::high_resolution_clock::now();
   auto elapsed = duration_cast<chrono::seconds>(end - start);
 
-  while (iter < max_iter && elapsed.count() < 20)
+  while (iter < max_iter && elapsed.count() < 1800)
   {
     map<int_pair, int> x;
     vector<int> y, y_aux;
 
     // cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
-    obj_ppl = solve_ppl(x, y);
+    if (iter > 0)
+      obj_ppl = solve_ppl(x, y);
+    else
+    {
+      y = y_heu;
+      for (auto p : x_heu)
+      {
+        int i = p.first, j = p.second;
+        if (i == N)
+        {
+          i = N + 1;
+          x[make_pair(i, j)] = 1;
+        }
+        else
+        {
+          if (x.find(p) != x.end())
+            x[p]++;
+          else
+            x[p] = 1;
+        }
+      }
+    }
 
     // cout << "[*] Solving PPL in iteration " << iter << " finished!" << endl;
     if (obj_ppl < numeric_limits<int>::max())
     {
+
       gradient_time = getGradientTime(x, y);
       getGradientConnection(gradient_conn, x, y);
 
@@ -513,7 +540,7 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
       }
 
       mult_time = max(0.0, mult_time - (gradient_time * theta_time));
-      // cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+      // cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << ": Lambda: " << lambda << endl;
       // getchar();
     }
     else
