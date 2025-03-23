@@ -1,5 +1,6 @@
 
 #include "GreedyHeuristic.hpp"
+
 double GreedyHeuristic::SolveScenario(
     vector<double> cases,
     vector<int> time,

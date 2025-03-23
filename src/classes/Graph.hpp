@@ -39,6 +39,30 @@ public:
     for (auto p : x)
     {
       i = p.first;
+      if (i >= N)
+        continue;
+
+      for (auto b : this->nodes[i].second)
+        if (b != -1)
+          blocks.insert(b);
+    }
+
+    return blocks;
+  }
+
+  set<int> getBlocksFromRoute(map<int_pair, int> x)
+  {
+    int i;
+    set<int> blocks;
+
+    for (auto x_p : x)
+    {
+      int_pair p = x_p.first;
+
+      i = p.first;
+      if (i >= N)
+        continue;
+
       for (auto b : this->nodes[i].second)
         if (b != -1)
           blocks.insert(b);
