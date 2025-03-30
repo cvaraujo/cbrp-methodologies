@@ -24,7 +24,6 @@ private:
             cout << i << ", ";
         cout << endl;
 #endif
-        Route *route = new Route(input);
         string key = input->getBlockConnection()->GenerateStringFromIntVector(y);
         vector<int> path = input->getBlockConnectionRoute(key);
         int route_time = input->getBlockConnectionTime(key);
@@ -33,10 +32,7 @@ private:
         for (auto b : y)
             attend_time += input->getGraph()->getTimePerBlock(b);
 
-        route->setSequenceOfAttendingBlocks(y);
-        route->setRoute(path);
-        route->setTimeRoute(route_time);
-        route->setTimeBlocks(attend_time);
+        Route *route = new Route(input, y, path, attend_time, route_time, of);
         return route;
     }
 
@@ -79,15 +75,11 @@ public:
             Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
             double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
             Route *route = BuildRouteFromGreedyHeuristic(input, y, scenario_of);
-            solution.AddScenarioSolution(s, route, of);
-            of += scenario_of;
-            // cout << "[!] OF from Scenario[" << s << "]: " << of << endl;
+            solution.AddScenarioSolution(s, route, scenario_of);
         }
 
         // Update OF
         cout << "[!!!] Final Stochastic Start Solution OF: " << of << endl;
-        solution.setOf(of);
-
         return solution;
     };
 };

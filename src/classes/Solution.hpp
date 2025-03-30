@@ -121,6 +121,7 @@ public:
     this->routes[s] = route;
     this->y[s] = route->getSequenceOfAttendingBlocks();
     this->scenario_profit[s] = profit;
+    this->of += profit;
   };
 
   void ReplaceScenarioSolution(int s, vector<int_pair> x, vector<int> y, Route *route)

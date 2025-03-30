@@ -22,6 +22,7 @@ private:
     int time_blocks = 0, time_route = 0;
     vector<pair<int, int>> x; // Maybe not needed
     vector<int> sequence_of_attended_blocks;
+    double route_of = 0.0;
 
 public:
     Route(Input *input, vector<pair<int, int>> arcs, vector<int> blocks)
@@ -30,6 +31,27 @@ public:
         this->x = arcs;
         this->PopulateRouteDataStructures(arcs);
         this->PopulateBlocksDataStructures(blocks);
+    };
+
+    Route(Input *input, vector<int> y, vector<int> x, int attend_time, int route_time, double of)
+    {
+        this->input = input;
+        this->route = route;
+        this->sequence_of_attended_blocks = y;
+        this->route = x;
+        this->time_route = route_time;
+        this->time_blocks = attend_time;
+        this->route_of = of;
+
+        // this->PopulateRouteDataStructures(arcs);
+        // this->PopulateBlocksDataStructures(blocks);
+    };
+
+    Route(Input *input, vector<pair<int, int>> arcs)
+    {
+        this->input = input;
+        this->x = arcs;
+        this->PopulateRouteDataStructures(arcs);
     };
 
     // Destructor
@@ -57,6 +79,11 @@ public:
 
     vector<int> getSequenceOfAttendingBlocks() { return this->sequence_of_attended_blocks; };
 
+    // vector<int> preds;
+    // vector<bool> blocks_attended;
+    // vector<int> used_node_to_attend_block;
+    // set<int> route_blocks;
+    // map<int, vector<int>> blocks_attendeds_per_node;
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
         Graph *graph = this->input->getGraph();
