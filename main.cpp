@@ -1,12 +1,12 @@
 #include "src/classes/Input.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
+#include "src/heuristic/stochastic/LocalSearch.hpp"
 
 // #include "src/heuristic/Lagrangean.hpp"
 // #include "src/exact/DeterministicModel.hpp"
 // #include "src/exact/DeterministicModelWalk.hpp"
 // #include "src/exact/StochasticModel.hpp"
 // #include "src/exact/StochasticModelWalk.hpp"
-// #include "src/heuristic/stochastic/LocalSearch.hpp"
 
 int main(int argc, const char *argv[])
 {
@@ -22,6 +22,10 @@ int main(int argc, const char *argv[])
   double alpha = 0.8;
 
   Input *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
+  LocalSearch *local_search = new LocalSearch();
+
+  Solution sol = StartSolution::CreateStartSolution(input);
+  local_search->RunMoreProfitable2OPT(input, &sol, "weak");
 
   // Lagrangean *lag = new Lagrangean(input);
   // lag->lagrangean_relax(result_file, lambda, maxIters, reduction);

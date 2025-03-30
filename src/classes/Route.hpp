@@ -55,6 +55,8 @@ public:
 
     void setTimeBlocks(int time_blocks) { this->time_blocks = time_blocks; };
 
+    vector<int> getSequenceOfAttendingBlocks() { return this->sequence_of_attended_blocks; };
+
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
         Graph *graph = this->input->getGraph();

@@ -7,6 +7,10 @@ int BlockConnection::HeuristicBlockConnection(
     vector<int> blocks,
     string key)
 {
+#ifndef Silence
+    cout << "[*] HeuristicBlockConnection with key: " << key << endl;
+#endif
+
     map<int, int> dag_2_graph;
     int N = graph->getN();
     vector<set<int>> nodes_per_block = graph->getNodesPerBlock();
@@ -26,11 +30,16 @@ int BlockConnection::HeuristicBlockConnection(
     // Heuristic to define the sequence of attending blocks
     blocks = this->getBestOrderToAttendBlocks(blocks);
 
+#ifndef Silence
+    cout << "[*] Blocks to attend in order: ";
+    for (auto b : blocks)
+        cout << b << ", ";
+    cout << endl;
+#endif
+
     // Create the DAG
     int V;
     vector<vector<Arc>> dag = this->createLayeredDag(blocks, dag_2_graph, V);
-
-    // cout << "Create DAG" << endl;
 
     // SHP on DAG
     vector<int> pred;
@@ -42,7 +51,7 @@ int BlockConnection::HeuristicBlockConnection(
 
     while (v != pred[v])
     {
-        if (dag_2_graph[v] != last_inserted && last_inserted != -1)
+        if (dag_2_graph[v] != last_inserted)
         {
             path.push_back(dag_2_graph[v]);
             last_inserted = dag_2_graph[v];
@@ -53,11 +62,17 @@ int BlockConnection::HeuristicBlockConnection(
         if (v == -1)
             return INF;
     }
-
     path.push_back(dag_2_graph[V]);
 
     this->setBlocksAttendPath(key, path);
     this->setBlocksAttendCost(key, cost);
+
+#ifndef Silence
+    cout << "[*] Cost: " << cost << "\n\t[-]Vertices to connect the block: ";
+    for (auto i : path)
+        cout << i << ", ";
+    cout << endl;
+#endif
 
     return cost;
 }

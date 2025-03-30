@@ -68,17 +68,18 @@ public:
 
     double getScenarioProbability(int s) { return this->scenarios[s].getProbability(); }
 
-    vector<int> getBlockConnectionRoute(vector<int> att_blocks)
+    vector<int> getBlockConnectionRoute(string key)
     {
         if (this->bc == nullptr)
             this->bc = new BlockConnection(graph, sp);
-
-        string key = this->bc->GenerateStringFromIntVector(att_blocks);
-        if (this->bc->keyExists(key))
-            return this->bc->getBlocksAttendPath(key);
-
-        this->bc->HeuristicBlockConnection(graph, sp, att_blocks, key);
         return this->bc->getBlocksAttendPath(key);
+    };
+
+    int getBlockConnectionTime(string key)
+    {
+        if (this->bc == nullptr)
+            this->bc = new BlockConnection(graph, sp);
+        return this->bc->getBlocksAttendCost(key);
     };
 
     bool isArcRoute(int i, int j)

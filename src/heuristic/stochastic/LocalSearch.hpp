@@ -18,7 +18,11 @@ public:
         bool is_stuck = false;
         vector<pair<int, int_pair>> best_swaps;
         Graph *graph = input->getGraph();
-        cout << "[*] Start OF is matching? " << solution->ComputeCurrentSolutionOF() << endl;
+
+#ifndef Silence
+        cout << "[*] Run More Profitable 2OPT!" << endl;
+        cout << "[*] Start OF is matching? " << solution->getOf() << " == " << solution->ComputeCurrentSolutionOF() << endl;
+#endif
 
         while (!is_stuck)
         {

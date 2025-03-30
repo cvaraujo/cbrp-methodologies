@@ -119,6 +119,7 @@ public:
     }
 
     this->routes[s] = route;
+    this->y[s] = route->getSequenceOfAttendingBlocks();
     this->scenario_profit[s] = profit;
   };
 
@@ -154,7 +155,7 @@ public:
       }
     }
 
-    cout << "[!] First Stage OF: " << of << endl;
+    // cout << "[!] First Stage OF: " << of << endl;
 
     for (int s = 0; s < input->getS(); s++)
     {
