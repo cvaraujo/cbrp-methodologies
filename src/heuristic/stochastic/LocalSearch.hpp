@@ -26,7 +26,7 @@ public:
 
         while (!is_stuck)
         {
-            double delta = LocalSearch::ComputeBestSwapBlocksStartScenario(input, solution, delta_type, best_swaps);
+            double delta = LocalSearch::ComputeBestInRouteSwapBlocksStartScenario(input, solution, delta_type, best_swaps);
 
             if (best_swaps.size() > 0)
             {
@@ -184,10 +184,11 @@ public:
     static double GetModerateDeltaSwapBlocksStartScenario(Input *input, Solution *solution, int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps)
     {
         Graph *graph = input->getGraph();
+        Route *first_stage_route = solution->getRouteFromScenario(0);
+
         double cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2), alpha = input->getAlpha(), prob;
         int S = input->getS(), lowest_in_block = -1, highest_block = -1;
         double delta = cases_b2 - cases_b1;
-        Route *first_stage_route = solution->getRouteFromScenario(0);
         second_stage_swaps = vector<pair<int, int_pair>>();
 
         for (int s = 1; s <= S; s++)
@@ -235,46 +236,45 @@ public:
         return delta;
     };
 
-    static double ComputeBestSwapBlocksStartScenario(Input *input, Solution *solution, string delta_type, vector<pair<int, int_pair>> &best_swaps)
+    static double ComputeBestInRouteSwapBlocksStartScenario(Input *input, Solution *solution, string delta_type, vector<pair<int, int_pair>> &best_swaps)
     {
         Graph *graph = input->getGraph();
         Route *route = solution->getRouteFromScenario(0);
         double best = 0.0, delta = 0.0;
+
         set<int> set_blocks = route->getBlocks();
         vector<int> blocks = vector<int>(set_blocks.begin(), set_blocks.end());
+
         best_swaps = vector<pair<int, int_pair>>();
         vector<pair<int, int_pair>> curr_swaps;
+
         int i, j, b1, b2, best_b1 = -1, best_b2 = -1;
 
         for (i = 0; i < blocks.size(); i++)
         {
             b1 = blocks[i];
 
-            // If the block is not attended, continue
+            // If b1 is not attended, continue
             if (!route->isBlockAttended(b1))
                 continue;
-
-            // cout << "Check to swap: " << b1 << endl;
 
             for (j = 0; j < blocks.size(); j++)
             {
                 b2 = blocks[j];
-                // cout << "With: " << b2 << ", Attended: " << route->isBlockAttended(b2) << " or Feasible: " << route->isSwapFeasible(b1, b2) << endl;
 
-                // If the block is attended, continue
+                // If b2 is attended, continue
                 if (i == j || route->isBlockAttended(b2) || !route->isSwapFeasible(b1, b2))
                     continue;
 
-                // getchar();
                 delta = 0.0;
                 if (delta_type == "weak")
                 {
-                    cout << "[!] Weak" << endl;
+                    // cout << "[!] Weak" << endl;
                     delta = GetWeakDeltaSwapBlocksStartScenario(input, solution, b1, b2);
                 }
                 else if (delta_type == "moderate")
                 {
-                    cout << "[!] Moderate" << endl;
+                    // cout << "[!] Moderate" << endl;
                     delta = GetModerateDeltaSwapBlocksStartScenario(input, solution, b1, b2, curr_swaps);
                 }
 
@@ -290,7 +290,7 @@ public:
         best_swaps.push_back(make_pair(0, make_pair(best_b1, best_b2)));
 
         cout << "[*] Best swap: = " << best << endl;
-        // getchar();
+        getchar();
         return best;
     }
 };

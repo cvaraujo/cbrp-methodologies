@@ -195,10 +195,14 @@ public:
             throw std::runtime_error("[!!!] Block " + to_string(b) + " not attended to be swapped!");
 
         // Remove references of b
-        // int node_b = this->used_node_attended_block[b];
-        // used_node_attended_block.erase(b);
-        // blocks_attended[b] = false;
-        // att_blocks_per_node[node_b].erase(find(att_blocks_per_node[node_b].begin(), att_blocks_per_node[node_b].end(), b));
+        this->blocks_attended[b] = false;
+        auto it = find(sequence_of_attended_blocks.begin(), sequence_of_attended_blocks.end(), b);
+        if (it != sequence_of_attended_blocks.end())
+            sequence_of_attended_blocks.erase(it);
+
+        int node_b = this->used_node_to_attend_block[b];
+        this->used_node_to_attend_block[b] = -1;
+        this->blocks_attendeds_per_node[node_b].erase(find(blocks_attendeds_per_node[node_b].begin(), blocks_attendeds_per_node[node_b].end(), b));
         this->time_blocks -= graph->getTimePerBlock(b);
     };
 
@@ -214,16 +218,17 @@ public:
         {
             if (preds[node] != -1)
             {
-                // if (att_blocks_per_node.find(node) == att_blocks_per_node.end())
-                //     att_blocks_per_node[node] = vector<int>();
+                if (blocks_attendeds_per_node.find(node) == blocks_attendeds_per_node.end())
+                    blocks_attendeds_per_node[node] = vector<int>();
 
-                // this->att_blocks_per_node[node].push_back(b);
-                // this->used_node_attended_block[b] = node;
+                this->blocks_attendeds_per_node[node].push_back(b);
+                this->used_node_to_attend_block[b] = node;
                 break;
             }
         }
 
-        blocks_attended[b] = true;
+        this->blocks_attended[b] = true;
+        this->sequence_of_attended_blocks.push_back(b);
         this->time_blocks += graph->getTimePerBlock(b);
     };
 
@@ -249,10 +254,7 @@ public:
         return true;
     };
 
-    set<int> getBlocks()
-    {
-        return this->route_blocks;
-    };
+    set<int> getBlocks() { return this->route_blocks; };
 
     bool isSwapTimeLowerThanT(int b1, int b2)
     {

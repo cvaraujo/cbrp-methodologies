@@ -14,53 +14,53 @@ class StartSolution
 {
 
 public:
-    static Solution CreateStartSolution(Input *input)
-    {
-#ifndef Silence
-        cout << "[*] Creating Start Solution..." << endl;
-#endif
-        Graph *graph = input->getGraph();
-        int S = input->getS(), T = input->getT(), B = graph->getB();
-        double alpha = input->getAlpha();
-
-        vector<int> y_0 = vector<int>(), y = vector<int>();
-        Solution solution = Solution(input);
-
-        // Solving the first stage problem
-        GreedyHeuristic greedy_heuristic = GreedyHeuristic(input);
-
-        vector<double> cases_per_block = vector<double>(B, 0);
-        vector<int> time_per_block = graph->getTimePerBlock();
-
-        for (int b = 0; b < B; b++)
-            cases_per_block[b] = input->getFirstStageProfit(b);
-
-        // Solve first stage
-        double of = greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y_0);
-        Route *route = new Route(input, y_0);
-        solution.AddScenarioSolution(0, route, of);
-
-#ifndef Silence
-        cout << "[**] First Stage OF = " << of << endl;
-#endif
-
-        for (int s = 1; s <= S; s++)
+        static Solution CreateStartSolution(Input *input)
         {
-            y = vector<int>();
-            Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
+#ifndef Silence
+                cout << "[*] Creating Start Solution..." << endl;
+#endif
+                Graph *graph = input->getGraph();
+                int S = input->getS(), T = input->getT(), B = graph->getB();
+                double alpha = input->getAlpha();
 
-            // Solve scenario s
-            double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
-            Route *route = new Route(input, y);
-            solution.AddScenarioSolution(s, route, scenario_of);
-        }
+                vector<int> y_0 = vector<int>(), y = vector<int>();
+                Solution solution = Solution(input);
+
+                // Solving the first stage problem
+                GreedyHeuristic greedy_heuristic = GreedyHeuristic(input);
+
+                vector<double> cases_per_block = vector<double>(B, 0);
+                vector<int> time_per_block = graph->getTimePerBlock();
+
+                for (int b = 0; b < B; b++)
+                        cases_per_block[b] = input->getFirstStageProfit(b);
+
+                // Solve first stage
+                double of = greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y_0);
+                Route *route = new Route(input, y_0);
+                solution.AddScenarioSolution(0, route, of);
 
 #ifndef Silence
-        cout << "[**] Stochastic Start Solution OF: " << solution.getOf() << endl;
+                cout << "[**] First Stage OF = " << of << endl;
 #endif
 
-        return solution;
-    };
+                for (int s = 1; s <= S; s++)
+                {
+                        y = vector<int>();
+                        Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
+
+                        // Solve scenario s
+                        double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
+                        Route *route = new Route(input, y);
+                        solution.AddScenarioSolution(s, route, scenario_of);
+                }
+
+#ifndef Silence
+                cout << "[**] Stochastic Start Solution OF: " << solution.getOf() << endl;
+#endif
+
+                return solution;
+        };
 };
 
 #endif
