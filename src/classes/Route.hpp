@@ -6,19 +6,22 @@
 #define DPARP_STOCHASTIC_ROUTE_H
 
 #include "Parameters.hpp"
+#include "Input.hpp"
 #include "Graph.hpp"
 
 class Route
 {
+
 private:
     Input *input;
-    map<int, int> route, used_node_attended_block;
-    map<int, vector<int>> att_blocks_per_node;
-    vector<int> preds;
-    set<int> route_blocks;
+    vector<int> route, preds;
     vector<bool> blocks_attended;
+    vector<int> used_node_to_attend_block;
+    set<int> route_blocks;
+    map<int, vector<int>> blocks_attendeds_per_node;
     int time_blocks = 0, time_route = 0;
-    vector<pair<int, int>> x;
+    vector<pair<int, int>> x; // Maybe not needed
+    vector<int> sequence_of_attended_blocks;
 
 public:
     Route(Input *input, vector<pair<int, int>> arcs, vector<int> blocks)
@@ -29,16 +32,28 @@ public:
         this->PopulateBlocksDataStructures(blocks);
     };
 
+    // Destructor
     ~Route()
     {
         route.clear();
-        used_node_attended_block.clear();
-        att_blocks_per_node.clear();
         preds.clear();
-        route_blocks.clear();
         blocks_attended.clear();
+        used_node_to_attend_block.clear();
+        route_blocks.clear();
+        blocks_attendeds_per_node.clear();
         x.clear();
+        sequence_of_attended_blocks.clear();
     };
+
+    Route(Input *input) { this->input = input; };
+
+    void setSequenceOfAttendingBlocks(vector<int> sequence_of_attended_blocks) { this->sequence_of_attended_blocks = sequence_of_attended_blocks; };
+
+    void setRoute(vector<int> route) { this->route = route; };
+
+    void setTimeRoute(int time_route) { this->time_route = time_route; };
+
+    void setTimeBlocks(int time_blocks) { this->time_blocks = time_blocks; };
 
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
@@ -80,11 +95,11 @@ public:
             {
                 if (preds[node] != -1)
                 {
-                    if (this->att_blocks_per_node.find(node) == this->att_blocks_per_node.end())
-                        this->att_blocks_per_node[node] = vector<int>();
+                    // if (this->att_blocks_per_node.find(node) == this->att_blocks_per_node.end())
+                    //     this->att_blocks_per_node[node] = vector<int>();
 
-                    this->att_blocks_per_node[node].push_back(b);
-                    this->used_node_attended_block[b] = node;
+                    // this->att_blocks_per_node[node].push_back(b);
+                    // this->used_node_attended_block[b] = node;
                     break;
                 }
             }
@@ -112,10 +127,10 @@ public:
             throw std::runtime_error("[!!!] Block " + to_string(b) + " not attended to be swapped!");
 
         // Remove references of b
-        int node_b = this->used_node_attended_block[b];
-        used_node_attended_block.erase(b);
-        blocks_attended[b] = false;
-        att_blocks_per_node[node_b].erase(find(att_blocks_per_node[node_b].begin(), att_blocks_per_node[node_b].end(), b));
+        // int node_b = this->used_node_attended_block[b];
+        // used_node_attended_block.erase(b);
+        // blocks_attended[b] = false;
+        // att_blocks_per_node[node_b].erase(find(att_blocks_per_node[node_b].begin(), att_blocks_per_node[node_b].end(), b));
         this->time_blocks -= graph->getTimePerBlock(b);
     };
 
@@ -131,11 +146,11 @@ public:
         {
             if (preds[node] != -1)
             {
-                if (att_blocks_per_node.find(node) == att_blocks_per_node.end())
-                    att_blocks_per_node[node] = vector<int>();
+                // if (att_blocks_per_node.find(node) == att_blocks_per_node.end())
+                //     att_blocks_per_node[node] = vector<int>();
 
-                this->att_blocks_per_node[node].push_back(b);
-                this->used_node_attended_block[b] = node;
+                // this->att_blocks_per_node[node].push_back(b);
+                // this->used_node_attended_block[b] = node;
                 break;
             }
         }
@@ -157,8 +172,8 @@ public:
     bool isSwapFeasible(int b1, int b2)
     {
         Graph *graph = this->input->getGraph();
-        if (!this->blocks_attended[b1] || this->blocks_attended[b2] || this->used_node_attended_block.find(b1) == this->used_node_attended_block.end())
-            return false;
+        // if (!this->blocks_attended[b1] || this->blocks_attended[b2] || this->used_node_attended_block.find(b1) == this->used_node_attended_block.end())
+        //     return false;
 
         if (this->time_blocks - graph->getTimePerBlock(b1) + graph->getTimePerBlock(b2) > this->input->getT())
             return false;
@@ -175,11 +190,6 @@ public:
     {
         Graph *graph = this->input->getGraph();
         return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= input->getT();
-    };
-
-    map<int, int> getRoute()
-    {
-        return this->route;
     };
 };
 #endif

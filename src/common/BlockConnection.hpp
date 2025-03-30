@@ -10,8 +10,6 @@
 #include "../classes/Graph.hpp"
 #include "../classes/Arc.hpp"
 
-using namespace std;
-
 class BlockConnection
 {
 
@@ -67,7 +65,9 @@ public:
     static string GenerateStringFromIntVector(vector<int> blocks)
     {
         stringstream result;
-        copy(blocks.begin(), blocks.end(), ostream_iterator<int>(result, ""));
+        vector<int> keys(blocks);
+        sort(keys.begin(), keys.end());
+        copy(keys.begin(), keys.end(), ostream_iterator<int>(result, ""));
 
         return result.str();
     };

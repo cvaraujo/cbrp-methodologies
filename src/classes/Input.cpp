@@ -18,11 +18,41 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     this->bc = new BlockConnection(graph, sp);
     this->bc->computeBlock2BlockCost();
 
+    int N = graph->getN();
+    this->arcs_in_path = vector<vector<vector<Arc *>>>(N, vector<vector<Arc *>>(N, vector<Arc *>()));
+    this->arc_length = vector<vector<int>>(N, vector<int>(N, -1));
+
     if (preprocessing)
         this->reduceGraphToPositiveCases();
 
     if (walk_mtz_model)
         this->walkAdaptMTZModel();
+
+#ifndef Silence
+    cout << "[***] Input constructed Successfully!" << endl;
+#endif
+}
+
+Input::Input(string file_graph, string scenarios_graph, int default_vel, int nebulize_vel, int T, double alpha)
+{
+    this->graph = new Graph(file_graph, default_vel, nebulize_vel);
+
+    if (scenarios_graph != "")
+        this->loadScenarios(scenarios_graph);
+
+    this->T = T;
+    this->preprocessing = preprocessing;
+    this->default_vel = default_vel;
+    this->neblize_vel = nebulize_vel;
+    this->alpha = alpha;
+    this->sp = new ShortestPath(graph);
+    this->bc = new BlockConnection(graph, sp);
+    this->bc->computeBlock2BlockCost();
+    this->updateFirstStageCases();
+
+    int N = graph->getN();
+    this->arcs_in_path = vector<vector<vector<Arc *>>>(N, vector<vector<Arc *>>(N, vector<Arc *>()));
+    this->arc_length = vector<vector<int>>(N, vector<int>(N, -1));
 
 #ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;
@@ -150,7 +180,6 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>
 
 void Input::reduceGraphToPositiveCases()
 {
-    // Re-map blocks
     map<int, int> positive_block_to_block;
     vector<double> cases_per_block;
     vector<int> time_per_block;

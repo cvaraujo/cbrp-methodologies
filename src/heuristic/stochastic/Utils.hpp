@@ -28,6 +28,25 @@ public:
         }
     };
 
+    static void GetFirstStageCosts(Input *input, vector<double> &costs)
+    {
+        Graph *graph = input->getGraph();
+        int B = graph->getB();
+
+        for (int b = 0; b < B; b++)
+            costs[b] = input->getFirstStageProfit(b);
+    }
+
+    static void GetSecondStageCosts(Input *input, int s, vector<int> first_stage_solution, vector<double> &costs)
+    {
+        Graph *graph = input->getGraph();
+        double alpha = input->getAlpha();
+        costs = input->getCasesFromScenario(s);
+
+        for (auto b : first_stage_solution)
+            costs[b] *= (1.0 - alpha);
+    }
+
     static void UpdateSecondStageCosts(Input *input, vector<int> first_stage_solution, vector<vector<double>> &cases_per_block, int s)
     {
         double alpha = input->getAlpha();

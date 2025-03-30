@@ -17,11 +17,16 @@ private:
     ShortestPath *sp = nullptr;
     BlockConnection *bc = nullptr;
     vector<Scenario> scenarios;
+    vector<double> first_stage_profit;
+    vector<vector<vector<Arc *>>> arcs_in_path;
+    vector<vector<int>> arc_length;
 
 public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp) : graph(graph), scenarios(scenarios), sp(sp) {}
 
     Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha);
+
+    Input(string file_graph, string scenarios_graph, int default_vel, int nebulize_vel, int T, double alpha);
 
     Input(Input *input)
     {
@@ -39,6 +44,78 @@ public:
     };
 
     ~Input() {}
+
+    void updateFirstStageCases()
+    {
+        int B = graph->getB();
+        this->first_stage_profit = vector<double>(B);
+
+        for (int b = 0; b < B; b++)
+        {
+            this->first_stage_profit[b] = graph->getCasesPerBlock(b);
+            for (int s = 0; s < S; s++)
+                this->first_stage_profit[b] += alpha * scenarios[s].getProbability() * scenarios[s].getCasesPerBlock(b);
+        }
+    };
+
+    double getFirstStageProfit(int b) { return this->first_stage_profit[b]; }
+
+    double getCasesFromScenarioBlock(int s, int b) { return this->scenarios[s].getCasesPerBlock(b); }
+
+    vector<double> getCasesFromScenario(int s) { return this->scenarios[s].getCases(); }
+
+    double getSecondStageProfit(int s, int b) { return alpha * scenarios[s].getProbability() * scenarios[s].getCasesPerBlock(b); }
+
+    double getScenarioProbability(int s) { return this->scenarios[s].getProbability(); }
+
+    vector<int> getBlockConnectionRoute(vector<int> att_blocks)
+    {
+        if (this->bc == nullptr)
+            this->bc = new BlockConnection(graph, sp);
+
+        string key = this->bc->GenerateStringFromIntVector(att_blocks);
+        if (this->bc->keyExists(key))
+            return this->bc->getBlocksAttendPath(key);
+
+        this->bc->HeuristicBlockConnection(graph, sp, att_blocks, key);
+        return this->bc->getBlocksAttendPath(key);
+    };
+
+    bool isArcRoute(int i, int j)
+    {
+        if (this->arcs_in_path[i][j].size() <= 0)
+            this->getArcTime(i, j);
+
+        return this->arcs_in_path[i][j].size() > 1;
+    }
+
+    int getArcTime(int i, int j)
+    {
+        int N = graph->getN();
+        if (i >= N || j >= N)
+            return 0;
+
+        if (this->arc_length[i][j] != -1)
+            return this->arc_length[i][j];
+
+        Arc *arc = graph->getArc(i, j);
+        int length = 0;
+        if (arc == nullptr)
+        {
+            vector<int> path;
+            length = this->sp->ShortestPathST(i, j, path);
+
+            // Validate path
+            for (int k = 0; k < path.size() - 1; k++)
+                this->arcs_in_path[i][j].push_back(graph->getArc(path[k], path[k + 1]));
+        }
+        else
+            length = arc->getLength();
+
+        this->arc_length[i][j] = length;
+
+        return this->arc_length[i][j];
+    }
 
     void updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs);
 

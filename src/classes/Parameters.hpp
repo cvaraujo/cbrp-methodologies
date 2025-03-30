@@ -5,6 +5,8 @@
 #ifndef DPARP_INCLUDE_H
 #define DPARP_INCLUDE_H
 
+using namespace std;
+
 #include <iostream>
 #include <vector>
 #include "string"
@@ -29,8 +31,6 @@
 
 #include <lemon/list_graph.h>
 #include <lemon/preflow.h>
-
-using namespace std;
 
 const int INF = INT_MAX;
 

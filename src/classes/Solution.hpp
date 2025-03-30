@@ -14,7 +14,7 @@ private:
   double of = 0.0, UB = INF, runtime = 0.0;
   int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
   Input *input = nullptr;
-  vector<vector<int>> preds, y;
+  vector<vector<int>> y;
   vector<vector<int_pair>> x;
   vector<Route *> routes;
   vector<double> scenario_profit;
@@ -104,6 +104,21 @@ public:
     Graph *graph = this->input->getGraph();
     this->routes[s] = new Route(this->input, x, y);
     this->x[s] = x, this->y[s] = y;
+    this->scenario_profit[s] = profit;
+  };
+
+  void AddScenarioSolution(int s, Route *route, double profit)
+  {
+    if (routes.empty())
+    {
+      int S = this->input->getS();
+      this->y = vector<vector<int>>(S + 1, vector<int>());
+      this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
+      this->routes = vector<Route *>(S + 1);
+      this->scenario_profit = vector<double>(S + 1, 0.0);
+    }
+
+    this->routes[s] = route;
     this->scenario_profit[s] = profit;
   };
 

@@ -425,7 +425,8 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
 
   vector<int> y_heu;
   vector<int_pair> x_heu;
-  LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), 0, 1, T, y_heu, x_heu);
+  // TODO: back here later
+  LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), T, y_heu);
 
   this->initial_LB = LB;
   this->initial_UB = UB;
