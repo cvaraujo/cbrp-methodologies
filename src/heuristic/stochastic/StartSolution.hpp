@@ -13,34 +13,11 @@
 class StartSolution
 {
 
-private:
-    static Route *BuildRouteFromGreedyHeuristic(Input *input, vector<int> y, double of)
-    {
-#ifndef Silence
-        cout << "[*] BuildRouteGromGH" << endl;
-        cout << "\t[*] OF: " << of << endl;
-        cout << "\t[*] Y: ";
-        for (auto i : y)
-            cout << i << ", ";
-        cout << endl;
-#endif
-        string key = input->getBlockConnection()->GenerateStringFromIntVector(y);
-        vector<int> path = input->getBlockConnectionRoute(key);
-        int route_time = input->getBlockConnectionTime(key);
-
-        int attend_time = 0;
-        for (auto b : y)
-            attend_time += input->getGraph()->getTimePerBlock(b);
-
-        Route *route = new Route(input, y, path, attend_time, route_time, of);
-        return route;
-    }
-
 public:
     static Solution CreateStartSolution(Input *input)
     {
 #ifndef Silence
-        cout << "[*] Create Start Solution!" << endl;
+        cout << "[*] Creating Start Solution..." << endl;
 #endif
         Graph *graph = input->getGraph();
         int S = input->getS(), T = input->getT(), B = graph->getB();
@@ -58,28 +35,30 @@ public:
         for (int b = 0; b < B; b++)
             cases_per_block[b] = input->getFirstStageProfit(b);
 
+        // Solve first stage
         double of = greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y_0);
+        Route *route = new Route(input, y_0);
+        solution.AddScenarioSolution(0, route, of);
 
 #ifndef Silence
         cout << "[**] First Stage OF = " << of << endl;
 #endif
 
-        Route *route = BuildRouteFromGreedyHeuristic(input, y_0, of);
-        solution.AddScenarioSolution(0, route, of);
-
-        // Solve second stage problems
         for (int s = 1; s <= S; s++)
         {
-            // Update second stage costs
             y = vector<int>();
             Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
+
+            // Solve scenario s
             double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
-            Route *route = BuildRouteFromGreedyHeuristic(input, y, scenario_of);
+            Route *route = new Route(input, y);
             solution.AddScenarioSolution(s, route, scenario_of);
         }
 
-        // Update OF
-        cout << "[!!!] Final Stochastic Start Solution OF: " << of << endl;
+#ifndef Silence
+        cout << "[**] Stochastic Start Solution OF: " << solution.getOf() << endl;
+#endif
+
         return solution;
     };
 };

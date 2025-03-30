@@ -31,6 +31,11 @@ public:
   Solution(Input *input)
   {
     this->input = input;
+    int S = this->input->getS();
+    this->y = vector<vector<int>>(S + 1, vector<int>());
+    this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
+    this->routes = vector<Route *>(S + 1);
+    this->scenario_profit = vector<double>(S + 1, 0.0);
   };
 
   Solution()
@@ -109,15 +114,6 @@ public:
 
   void AddScenarioSolution(int s, Route *route, double profit)
   {
-    if (routes.empty())
-    {
-      int S = this->input->getS();
-      this->y = vector<vector<int>>(S + 1, vector<int>());
-      this->x = vector<vector<int_pair>>(S + 1, vector<int_pair>());
-      this->routes = vector<Route *>(S + 1);
-      this->scenario_profit = vector<double>(S + 1, 0.0);
-    }
-
     this->routes[s] = route;
     this->y[s] = route->getSequenceOfAttendingBlocks();
     this->scenario_profit[s] = profit;

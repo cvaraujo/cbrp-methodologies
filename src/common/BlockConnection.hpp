@@ -17,7 +17,7 @@ private:
     Graph *graph;
     ShortestPath *sp;
     map<string, double> blocks_attend_cost;
-    map<string, vector<int>> blocks_attend_path;
+    map<string, vector<int>> blocks_attend_path, best_order_attend_blocks;
     vector<vector<int>> block_2_block_cost;
 
 public:
@@ -32,8 +32,6 @@ public:
     ~BlockConnection() {};
 
     int HeuristicBlockConnection(Graph *graph, ShortestPath *sp, vector<int> blocks, string key);
-
-    int SimplePathBlockConnection(vector<int> blocks, vector<int> &pred);
 
     set<int> computeBlock2BlockCost()
     {
@@ -67,7 +65,7 @@ public:
         stringstream result;
         vector<int> keys(blocks);
         sort(keys.begin(), keys.end());
-        copy(keys.begin(), keys.end(), ostream_iterator<int>(result, ""));
+        copy(keys.begin(), keys.end(), ostream_iterator<int>(result, "_"));
 
         return result.str();
     };
@@ -87,6 +85,10 @@ public:
     void setBlock2BlockCost(vector<vector<int>> block_2_block_cost) { this->block_2_block_cost = block_2_block_cost; }
 
     vector<vector<int>> getBlock2BlockCost() { return this->block_2_block_cost; }
+
+    void setBestOrderToAttendBlocks(string key, vector<int> order) { this->best_order_attend_blocks[key] = order; }
+
+    vector<int> getBestOrderToAttendBlocks(string key) { return this->best_order_attend_blocks[key]; }
 
     int getBlock2BlockCost(int i, int j) { return this->block_2_block_cost[i][j]; }
 

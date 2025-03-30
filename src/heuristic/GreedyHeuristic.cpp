@@ -28,10 +28,6 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, in
 
     while ((ub - lb) > 0.001)
     {
-#ifndef Silence
-        cout << "\t[-] LB: " << lb << ", UB: " << ub << ", MID: " << mid << " => " << temp_of << endl;
-#endif
-
         available_time_to_attend = round(double(T) * mid);
         temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
 
@@ -75,7 +71,6 @@ double GreedyHeuristic::BinarySolve(vector<double> cases, vector<int> time, int 
 
     if (block_attended_time + connection_cost <= T)
         return of;
-
     return -1;
 }
 

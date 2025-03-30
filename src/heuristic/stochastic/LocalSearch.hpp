@@ -41,20 +41,25 @@ public:
                         break;
                     }
 
-                    cout << "[*] Best swap in scenario " << scenario << " = " << swap.first << " " << swap.second << endl;
+#ifndef Silence
+                    cout << "[**] Best swap in scenario " << scenario << " = " << swap.first << " " << swap.second << endl;
+#endif
 
                     solution->ScenarioBlockSwapWithoutOF(scenario, b1, b2);
                 }
 
                 solution->setOf(solution->getOf() + delta);
-                cout << "[*] Updated OF: " << solution->getOf() << endl;
 
+#ifndef Silence
+                cout << "[*] Updated OF: " << solution->getOf() << endl;
                 cout << "[=] OF matching? " << solution->ComputeCurrentSolutionOF() << endl;
-                // getchar();
+#endif
             }
             else
             {
+#ifndef Silence
                 cout << "[!] No more profitable swap found!" << endl;
+#endif
                 is_stuck = true;
             }
         }
@@ -66,6 +71,7 @@ public:
         double delta = 0.0, cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2);
         double alpha = input->getAlpha(), prob, rest = 1.0 - alpha;
         int S = input->getS();
+
         // First Stage delta
         delta = cases_b2 - cases_b1;
 
@@ -97,17 +103,7 @@ public:
 
     double GetUpdatedFirstStageCases(Input *input, int block)
     {
-        Graph *graph = input->getGraph();
-        int S = input->getS();
-        double delta = graph->getCasesPerBlock(block), alpha = input->getAlpha();
-
-        for (int s = 0; s < S; s++)
-        {
-            Scenario *scenario = input->getScenario(s);
-            delta += scenario->getProbability() * alpha * scenario->getCasesPerBlock(block);
-        }
-
-        return delta;
+        return input->getFirstStageProfit(block);
     }
 
     /*
@@ -204,16 +200,14 @@ public:
             // Update first stage change
             delta += prob * alpha * (cases_b2 - cases_b1);
 
-            // cout << "[*] FS Delta: " << delta << endl;
             int changed = -1;
+
             // B1 leaving the First Stage Solution
             if (s_route->isBlockAttended(b1))
                 delta += alpha * prob * cases_b1;
             else if (s_route->isBlockInRoute(b1) && cases_b1 > 0)
             {
-                // cout << "[*] Trying +1 Swap with B1 " << b1 << endl;
                 lowest_in_block = LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(input, scenario, first_stage_route, s_route, b1, b2);
-                // cout << "[*] Get a swap with " << lowest_in_block << endl;
 
                 if (lowest_in_block != -1)
                 {
@@ -225,17 +219,12 @@ public:
 
             if (s_route->isBlockAttended(b2))
             {
-                // cout << "[*] Trying +1 Swap with B2 " << b2 << endl;
-
                 highest_block = LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(input, scenario, first_stage_route, s_route, b1, b2, changed);
-
-                // cout << "[*] Get a swap with " << highest_block << endl;
 
                 if (highest_block != -1)
                 {
                     bool attended_fs = first_stage_route->isBlockAttended(highest_block);
 
-                    // delta -= prob * GetUpdatedSecondStageCases(input, scenario, b2, false);
                     delta += prob * (GetUpdatedSecondStageCases(input, scenario, highest_block, attended_fs) - GetUpdatedSecondStageCases(input, scenario, b2, false));
                     second_stage_swaps.push_back(make_pair(s, make_pair(b2, highest_block)));
                 }
@@ -243,8 +232,6 @@ public:
                     delta -= alpha * prob * cases_b2;
             }
         }
-        // cout << "Moderate Delta: " << delta << endl;
-        // getchar();
         return delta;
     };
 
@@ -262,6 +249,7 @@ public:
         for (i = 0; i < blocks.size(); i++)
         {
             b1 = blocks[i];
+
             // If the block is not attended, continue
             if (!route->isBlockAttended(b1))
                 continue;
@@ -286,13 +274,8 @@ public:
                 }
                 else if (delta_type == "moderate")
                 {
-                    // cout << "[!] Moderate" << endl;
+                    cout << "[!] Moderate" << endl;
                     delta = GetModerateDeltaSwapBlocksStartScenario(input, solution, b1, b2, curr_swaps);
-                }
-                else if (delta_type == "strong")
-                {
-                    cout << "[!] Strong" << endl;
-                    // delta = route->getDeltaSwapBlocksStrong(input, b1, b2);
                 }
 
                 if (delta > best)

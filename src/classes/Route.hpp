@@ -22,7 +22,6 @@ private:
     int time_blocks = 0, time_route = 0;
     vector<pair<int, int>> x; // Maybe not needed
     vector<int> sequence_of_attended_blocks;
-    double route_of = 0.0;
 
 public:
     Route(Input *input, vector<pair<int, int>> arcs, vector<int> blocks)
@@ -33,18 +32,11 @@ public:
         this->PopulateBlocksDataStructures(blocks);
     };
 
-    Route(Input *input, vector<int> y, vector<int> x, int attend_time, int route_time, double of)
+    Route(Input *input, vector<int> y)
     {
         this->input = input;
-        this->route = route;
         this->sequence_of_attended_blocks = y;
-        this->route = x;
-        this->time_route = route_time;
-        this->time_blocks = attend_time;
-        this->route_of = of;
-
-        // this->PopulateRouteDataStructures(arcs);
-        // this->PopulateBlocksDataStructures(blocks);
+        this->PopulateDataStructures();
     };
 
     Route(Input *input, vector<pair<int, int>> arcs)
@@ -79,11 +71,58 @@ public:
 
     vector<int> getSequenceOfAttendingBlocks() { return this->sequence_of_attended_blocks; };
 
-    // vector<int> preds;
-    // vector<bool> blocks_attended;
-    // vector<int> used_node_to_attend_block;
-    // set<int> route_blocks;
-    // map<int, vector<int>> blocks_attendeds_per_node;
+    void PopulateDataStructures()
+    {
+        Graph *graph = input->getGraph();
+        BlockConnection *bc = input->getBlockConnection();
+
+        string key = bc->GenerateStringFromIntVector(this->sequence_of_attended_blocks);
+        this->route = input->getBlockConnectionRoute(key);
+        this->time_route = input->getBlockConnectionTime(key);
+        this->sequence_of_attended_blocks = input->getBestOrderToAttendBlocks(key);
+
+        int B = graph->getB();
+        preds = vector<int>(graph->getN() + 1, -1);
+        route_blocks = set<int>();
+
+        // Attended blocks
+        blocks_attended = vector<bool>(B, false);
+        this->time_blocks = 0;
+        for (int b : this->sequence_of_attended_blocks)
+        {
+            time_blocks += graph->getTimePerBlock(b);
+            blocks_attended[b] = true;
+        }
+
+        // Route starts and ends at node N
+        used_node_to_attend_block = vector<int>(B, -1);
+        blocks_attendeds_per_node = map<int, vector<int>>();
+        set<int> node_blocks;
+        int i, origin, destination;
+
+        for (i = 1; i < this->route.size(); i++)
+        {
+            origin = route[i - 1], destination = route[i];
+            node_blocks = graph->getNode(destination).second;
+
+            // get preds
+            this->preds[destination] = origin;
+            // All blocks of the route
+            this->route_blocks.insert(node_blocks.begin(), node_blocks.end());
+
+            for (int b : node_blocks)
+            {
+                if (blocks_attended[b] && used_node_to_attend_block[b] == -1)
+                {
+                    if (blocks_attendeds_per_node.find(destination) == blocks_attendeds_per_node.end())
+                        blocks_attendeds_per_node[destination] = vector<int>();
+                    blocks_attendeds_per_node[destination].push_back(b);
+                    used_node_to_attend_block[b] = destination;
+                }
+            }
+        }
+    };
+
     void PopulateRouteDataStructures(vector<pair<int, int>> arcs)
     {
         Graph *graph = this->input->getGraph();
