@@ -16,6 +16,7 @@ using namespace std;
 #include <fstream>
 #include <deque>
 #include <limits>
+#include <random>
 
 #include <boost/config.hpp>
 

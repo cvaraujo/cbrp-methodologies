@@ -54,6 +54,12 @@ public:
             cases_per_block[s][b] = (1.0 - alpha) * cases_per_block[s][b];
     };
 
+    static void FastShuffle(vector<int> &vec)
+    {
+        static mt19937 g(random_device{}()); // Gerador estático para evitar re-seed
+        shuffle(vec.begin(), vec.end(), g);
+    }
+
     // static double ComputeOFFromSolution(Input *input, Solution *solution)
     // {
     //     double of = 0;
