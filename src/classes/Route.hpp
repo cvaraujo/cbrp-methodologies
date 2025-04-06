@@ -206,6 +206,38 @@ public:
         this->time_blocks -= graph->getTimePerBlock(b);
     };
 
+    double RemoveBlockFromRoute(int b)
+    {
+        if (!this->blocks_attended[b] && !this->isBlockInRoute(b))
+            throw std::runtime_error("[!] Block " + to_string(b) + " not in route to be removed!");
+
+        Graph *graph = this->input->getGraph();
+        BlockConnection *bc = this->input->getBlockConnection();
+
+        int i, block;
+        for (i = 0; i < this->sequence_of_attended_blocks.size(); i++)
+        {
+            block = this->sequence_of_attended_blocks[i];
+            if (block != b)
+                continue;
+
+            int node = this->used_node_to_attend_block[block];
+            vector<int> blocks_attended = this->blocks_attendeds_per_node[node];
+
+            // Still have blocks attended in this node
+            if (blocks_attended.size() - 1 > 0)
+            {
+                if (this->blocks_attended[b])
+                    this->RemoveBlockFromAttended(b);
+                return 0.0;
+            }
+            else
+            {
+                // No more blocks attended in this node
+            }
+        }
+    }
+
     void AddBlockToAttended(int b)
     {
         // Basic checks

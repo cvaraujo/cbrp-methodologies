@@ -59,7 +59,63 @@ public:
     this->x = x;
   }
 
-  ~Solution() { y.clear(), x.clear(); }
+  ~Solution()
+  {
+    scenario_profit.clear();
+    y.clear(), x.clear();
+    for (Route *r : this->routes)
+      delete r;
+    routes.clear();
+  }
+
+  // Construtor de cópia (deep copy)
+  Solution(const Solution &other)
+  {
+    if (this != &other)
+    {
+      this->of = other.of;
+      this->UB = other.UB;
+      this->runtime = other.runtime;
+      this->time_used = other.time_used;
+      this->num_lazy_cuts = other.num_lazy_cuts;
+      this->num_frac_cuts = other.num_frac_cuts;
+      this->solver_nodes = other.solver_nodes;
+      this->y = other.y;
+      this->x = other.x;
+      this->scenario_profit = other.scenario_profit;
+
+      for (Route *r : other.routes)
+        routes.push_back(new Route(*r)); // Copia profunda
+    }
+  }
+
+  // Operador de atribuição (deep copy)
+  Solution &operator=(const Solution &other)
+  {
+    if (this != &other)
+    {
+      // Libera as rotas existentes
+      for (Route *r : routes)
+        delete r;
+      routes.clear();
+
+      this->of = other.of;
+      this->UB = other.UB;
+      this->runtime = other.runtime;
+      this->time_used = other.time_used;
+      this->num_lazy_cuts = other.num_lazy_cuts;
+      this->num_frac_cuts = other.num_frac_cuts;
+      this->solver_nodes = other.solver_nodes;
+      this->y = other.y;
+      this->x = other.x;
+      this->scenario_profit = other.scenario_profit;
+
+      // Copia profunda das rotas
+      for (Route *r : other.routes)
+        routes.push_back(new Route(*r));
+    }
+    return *this;
+  }
 
   void WriteSolution(string output_file)
   {

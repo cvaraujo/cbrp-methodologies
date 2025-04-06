@@ -15,6 +15,7 @@ set(
     main.cpp
     src/classes/Arc.hpp
     src/classes/Parameters.hpp
+    src/classes/Route.hpp
     src/classes/Graph.hpp
     src/classes/Graph.cpp
     src/classes/Input.hpp
