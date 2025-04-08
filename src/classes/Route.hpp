@@ -206,6 +206,55 @@ public:
         this->time_blocks -= graph->getTimePerBlock(b);
     };
 
+    bool CanAlocateRemainingBlocksIntoOtherNodes(Graph *graph, int removed_b, int node)
+    {
+        vector<int> blocks = this->blocks_attendeds_per_node[node];
+        for (auto b : blocks)
+        {
+            if (b == removed_b)
+                continue;
+
+            set<int> nodes_b = graph->getNodesFromBlock(b);
+            bool can_alocate = false;
+
+            for (auto node_b : nodes_b)
+            {
+                if (node_b == node)
+                    continue;
+
+                if (this->preds[node_b] != -1)
+                {
+                    can_alocate = true;
+                    break;
+                }
+            }
+
+            if (!can_alocate)
+                return false;
+        }
+        return true;
+    };
+
+    void RemoveNodeFromRoute(int node)
+    {
+        preds[node] = -1;
+        auto &it = find(route.begin(), route.end(), node);
+
+        if (it != route.end())
+        {
+            *it = route.end();
+            route.pop_back();
+        }
+
+        for (auto block : this->blocks_attendeds_per_node[node])
+        {
+            this->blocks_attended[block] = false;
+            this->used_node_to_attend_block[block] = -1;
+            this->route_blocks.erase(block);
+        }
+        this->blocks_attendeds_per_node.erase(node);
+    };
+
     double RemoveBlockFromRoute(int b)
     {
         if (!this->blocks_attended[b] && !this->isBlockInRoute(b))
@@ -227,6 +276,14 @@ public:
             // Still have blocks attended in this node
             if (blocks_attended.size() - 1 > 0)
             {
+                if (this->CanAlocateRemainingBlocksIntoOtherNodes(graph, block, node))
+                {
+                    RemoveNodeFromRoute(node);
+                }
+
+                // if (this->CanAlocateRemainingBlocksIntoOtherNodes(graph, block, node))
+                // {
+                // }
                 if (this->blocks_attended[b])
                     this->RemoveBlockFromAttended(b);
                 return 0.0;
