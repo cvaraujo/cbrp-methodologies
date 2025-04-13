@@ -32,6 +32,8 @@ int main(int argc, const char *argv[])
   Solution sol = StartSolution::CreateStartSolution(input);
   LocalSearch *local_search = new LocalSearch(input, &sol);
 
+  // local_search->RemoveBlockFromRoute(0, false);
+
   // vector<pair<int, int_pair>> best_swaps;
   // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
 

@@ -110,6 +110,8 @@ public:
         return this->arc_length[i][j];
     }
 
+    int getBlockTime(int b) { return graph->getTimePerBlock(b); }
+
     void updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs);
 
     void reduceGraphToPositiveCases();

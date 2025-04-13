@@ -8,20 +8,20 @@
 #include "Parameters.hpp"
 #include "Input.hpp"
 #include "Graph.hpp"
+#include "../heuristic/stochastic/Utils.hpp"
+#include <unordered_map>
 
 class Route
 {
 
 private:
     Input *input;
-    vector<int> route, preds;
-    vector<bool> blocks_attended;
-    vector<int> used_node_to_attend_block;
-    set<int> route_blocks;
-    map<int, vector<int>> blocks_attendeds_per_node;
     int time_blocks = 0, time_route = 0;
+    vector<int> route, preds, used_node_to_attend_block, sequence_of_attended_blocks;
+    vector<bool> blocks_attended;
+    set<int> route_blocks;
+    std::unordered_map<int, vector<int>> blocks_attendeds_per_node;
     vector<pair<int, int>> x; // Maybe not needed
-    vector<int> sequence_of_attended_blocks;
 
 public:
     Route(Input *input, vector<pair<int, int>> arcs, vector<int> blocks)
@@ -96,7 +96,7 @@ public:
 
         // Route starts and ends at node N
         used_node_to_attend_block = vector<int>(B, -1);
-        blocks_attendeds_per_node = map<int, vector<int>>();
+        this->blocks_attendeds_per_node = std::unordered_map<int, vector<int>>();
         set<int> node_blocks;
         int i, origin, destination;
 
@@ -112,12 +112,12 @@ public:
 
             for (int b : node_blocks)
             {
-                if (blocks_attended[b] && used_node_to_attend_block[b] == -1)
+                if (blocks_attended[b] && this->used_node_to_attend_block[b] == -1)
                 {
-                    if (blocks_attendeds_per_node.find(destination) == blocks_attendeds_per_node.end())
-                        blocks_attendeds_per_node[destination] = vector<int>();
-                    blocks_attendeds_per_node[destination].push_back(b);
-                    used_node_to_attend_block[b] = destination;
+                    if (this->blocks_attendeds_per_node.find(destination) == this->blocks_attendeds_per_node.end())
+                        this->blocks_attendeds_per_node[destination] = vector<int>();
+                    this->blocks_attendeds_per_node[destination].push_back(b);
+                    this->used_node_to_attend_block[b] = destination;
                 }
             }
         }
@@ -192,7 +192,7 @@ public:
         // Basic checks
         Graph *graph = this->input->getGraph();
         if (!this->blocks_attended[b])
-            throw std::runtime_error("[!!!] Block " + to_string(b) + " not attended to be swapped!");
+            return;
 
         // Remove references of b
         this->blocks_attended[b] = false;
@@ -202,13 +202,16 @@ public:
 
         int node_b = this->used_node_to_attend_block[b];
         this->used_node_to_attend_block[b] = -1;
-        this->blocks_attendeds_per_node[node_b].erase(find(blocks_attendeds_per_node[node_b].begin(), blocks_attendeds_per_node[node_b].end(), b));
+        vector<int> &attended_blocks = this->blocks_attendeds_per_node[node_b];
+        Utils::IntVectorRemove(attended_blocks, find(attended_blocks.begin(), attended_blocks.end(), b));
+        this->blocks_attendeds_per_node[node_b] = attended_blocks;
         this->time_blocks -= graph->getTimePerBlock(b);
     };
 
-    bool CanAlocateRemainingBlocksIntoOtherNodes(Graph *graph, int removed_b, int node)
+    bool CanAlocateRemainingBlocksIntoOtherNodes(Graph *graph, int removed_b, int node, std::unordered_map<int, int> &new_node_to_block)
     {
         vector<int> blocks = this->blocks_attendeds_per_node[node];
+
         for (auto b : blocks)
         {
             if (b == removed_b)
@@ -225,6 +228,7 @@ public:
                 if (this->preds[node_b] != -1)
                 {
                     can_alocate = true;
+                    new_node_to_block[node_b] = b;
                     break;
                 }
             }
@@ -237,25 +241,131 @@ public:
 
     void RemoveNodeFromRoute(int node)
     {
-        preds[node] = -1;
-        auto &it = find(route.begin(), route.end(), node);
-
-        if (it != route.end())
+        int i, curr_node, prev_node, next_node;
+        for (i = 0; i < route.size(); i++)
         {
-            *it = route.end();
-            route.pop_back();
+            curr_node = route[i];
+            if (curr_node == node)
+            {
+                prev_node = route[i - 1], next_node = route[i + 1];
+                this->time_route -= this->input->getArcTime(prev_node, curr_node) + this->input->getArcTime(curr_node, next_node);
+                this->time_route += this->input->getArcTime(prev_node, next_node);
+                route.erase(route.begin() + i);
+                break;
+            }
         }
 
+        Graph *graph = this->input->getGraph();
+        preds[node] = -1;
         for (auto block : this->blocks_attendeds_per_node[node])
         {
             this->blocks_attended[block] = false;
             this->used_node_to_attend_block[block] = -1;
-            this->route_blocks.erase(block);
+            this->time_blocks -= input->getBlockTime(block);
         }
         this->blocks_attendeds_per_node.erase(node);
+
+        // Reset Route_blocks
+        route_blocks.clear();
+        for (int route_node : route)
+        {
+            set<int> blocks = graph->getNode(route_node).second;
+            route_blocks.insert(blocks.begin(), blocks.end());
+        }
     };
 
-    double RemoveBlockFromRoute(int b)
+    void ChangeNodeAttendingBlock(int block, int old_node, int new_node)
+    {
+        this->used_node_to_attend_block[block] = new_node;
+
+        if (this->blocks_attendeds_per_node.find(new_node) == this->blocks_attendeds_per_node.end())
+            this->blocks_attendeds_per_node[new_node] = vector<int>();
+        this->blocks_attendeds_per_node[new_node].push_back(block);
+
+        vector<int> &attended_blocks = this->blocks_attendeds_per_node[old_node];
+        Utils::IntVectorRemove(attended_blocks, find(attended_blocks.begin(), attended_blocks.end(), block));
+        this->blocks_attendeds_per_node[old_node] = attended_blocks;
+    };
+
+    bool RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node)
+    {
+        std::unordered_map<int, int> new_node_to_block = GetAttendedRealocatedBlocks(graph, node);
+
+        for (auto &[new_node, realoc_block] : new_node_to_block)
+        {
+            if (realoc_block == block)
+                continue;
+            this->ChangeNodeAttendingBlock(block, realoc_block, new_node);
+        }
+
+        this->RemoveBlockFromAttended(block);
+
+        if (this->blocks_attendeds_per_node[node].size() > 0)
+            return false;
+
+        this->RemoveNodeFromRoute(node);
+        return true;
+    }
+
+    std::unordered_map<int, int> GetAttendedRealocatedBlocks(Graph *graph, int node)
+    {
+        std::unordered_map<int, int> new_node_to_block = std::unordered_map<int, int>();
+        vector<int> blocks = this->blocks_attendeds_per_node[node];
+
+        for (auto b : blocks)
+        {
+            for (auto node_b : graph->getNodesFromBlock(b))
+            {
+                if (node_b == node)
+                    continue;
+
+                if (this->preds[node_b] != -1)
+                {
+                    new_node_to_block[node_b] = b;
+                    break;
+                }
+            }
+        }
+        return new_node_to_block;
+    }
+
+    int EvaluateTimeChangeByRemovingNodeAndBlocks(int node_idx)
+    {
+        int curr_time = this->time_route + this->time_blocks;
+        int new_time = curr_time;
+        int i, curr_node, prev_node, next_node;
+
+        curr_node = route[node_idx], prev_node = route[i - 1], next_node = route[i + 1];
+        new_time += input->getArcTime(prev_node, next_node) - (input->getArcTime(prev_node, curr_node) + input->getArcTime(curr_node, next_node));
+
+        for (auto block : blocks_attendeds_per_node[curr_node])
+            new_time -= input->getBlockTime(block);
+
+        return new_time - curr_time;
+    }
+
+    int EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(int node_idx)
+    {
+        Graph *graph = this->input->getGraph();
+        int curr_time = this->time_route + this->time_blocks;
+        int new_time = curr_time;
+        int i, curr_node, prev_node, next_node;
+
+        curr_node = route[node_idx], prev_node = route[i - 1], next_node = route[i + 1];
+        new_time += input->getArcTime(prev_node, next_node) - (input->getArcTime(prev_node, curr_node) + input->getArcTime(curr_node, next_node));
+
+        std::unordered_map<int, int> new_node_to_block = this->GetAttendedRealocatedBlocks(graph, curr_node);
+
+        for (auto b : this->blocks_attendeds_per_node[curr_node])
+        {
+            if (new_node_to_block.find(b) != new_node_to_block.end())
+                continue;
+            new_time -= graph->getTimePerBlock(b);
+        }
+        return new_time - curr_time;
+    }
+
+    void RemoveBlockFromRoute(int b, bool realocate_blocks)
     {
         if (!this->blocks_attended[b] && !this->isBlockInRoute(b))
             throw std::runtime_error("[!] Block " + to_string(b) + " not in route to be removed!");
@@ -275,23 +385,9 @@ public:
 
             // Still have blocks attended in this node
             if (blocks_attended.size() - 1 > 0)
-            {
-                if (this->CanAlocateRemainingBlocksIntoOtherNodes(graph, block, node))
-                {
-                    RemoveNodeFromRoute(node);
-                }
-
-                // if (this->CanAlocateRemainingBlocksIntoOtherNodes(graph, block, node))
-                // {
-                // }
-                if (this->blocks_attended[b])
-                    this->RemoveBlockFromAttended(b);
-                return 0.0;
-            }
+                this->RemoveBlockAndNodeIfPossible(graph, block, node);
             else
-            {
-                // No more blocks attended in this node
-            }
+                this->RemoveNodeFromRoute(node);
         }
     }
 
@@ -307,8 +403,8 @@ public:
         {
             if (preds[node] != -1)
             {
-                if (blocks_attendeds_per_node.find(node) == blocks_attendeds_per_node.end())
-                    blocks_attendeds_per_node[node] = vector<int>();
+                if (this->blocks_attendeds_per_node.find(node) == this->blocks_attendeds_per_node.end())
+                    this->blocks_attendeds_per_node[node] = vector<int>();
 
                 this->blocks_attendeds_per_node[node].push_back(b);
                 this->used_node_to_attend_block[b] = node;

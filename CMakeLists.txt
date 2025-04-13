@@ -20,7 +20,6 @@ set(
     src/classes/Graph.cpp
     src/classes/Input.hpp
     src/classes/Input.cpp
-    src/classes/Route.hpp
     src/classes/Solution.hpp
     src/common/ShortestPath.hpp
     src/common/ShortestPath.cpp

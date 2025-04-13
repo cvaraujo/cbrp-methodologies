@@ -60,6 +60,15 @@ public:
         shuffle(vec.begin(), vec.end(), g);
     }
 
+    static void IntVectorRemove(vector<int> &vec, vector<int>::iterator it)
+    {
+        if (it != vec.end())
+        {
+            iter_swap(it, vec.end() - 1);
+            vec.pop_back();
+        }
+    }
+
     // static double ComputeOFFromSolution(Input *input, Solution *solution)
     // {
     //     double of = 0;
