@@ -51,7 +51,7 @@ public:
 
     double ComputeInRouteRandomSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps);
 
-    Route *RemoveBlockFromRoute(int route_ix, int block);
+    void RemoveBlockFromRoute(int route_idx, int block);
 
     void InsertOutRouteBlock(int route_idx, int block);
 };

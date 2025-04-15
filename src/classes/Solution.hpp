@@ -186,14 +186,14 @@ public:
   {
     this->y[s].erase(find(this->y[s].begin(), this->y[s].end(), b1));
     this->y[s].push_back(b2);
-    this->routes[s]->SwapBlocks(b1, b2);
+    this->routes[s]->SwapInRouteBlocks(b1, b2);
   };
 
   void ScenarioBlockSwap(int s, int b1, int b2, double delta)
   {
     this->y[s].erase(find(this->y[s].begin(), this->y[s].end(), b1));
     this->y[s].push_back(b2);
-    this->routes[s]->SwapBlocks(b1, b2);
+    this->routes[s]->SwapInRouteBlocks(b1, b2);
     this->of += delta;
   };
 

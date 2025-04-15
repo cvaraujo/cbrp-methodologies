@@ -28,7 +28,7 @@ public:
   {
     for (int i = 0; i <= N; i++)
       for (auto *arc : arcs[i])
-        cout << "[" << i << ", " << arc->getD() << "] - " << arc->getBlock() << endl;
+        cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << endl;
   }
 
   set<int> getBlocksFromRoute(set<pair<int, int>> x)

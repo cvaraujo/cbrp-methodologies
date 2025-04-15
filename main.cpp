@@ -30,7 +30,44 @@ int main(int argc, const char *argv[])
   Input *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
 
   Solution sol = StartSolution::CreateStartSolution(input);
-  LocalSearch *local_search = new LocalSearch(input, &sol);
+
+  LocalSearch *ls = new LocalSearch(input, &sol);
+  Route *r = sol.getRouteFromScenario(0);
+  cout << "=================\nRoute: ";
+  for (auto node : r->getRoute())
+    cout << node << ", ";
+  cout << endl;
+
+  cout << "---------------------\nAtt. Blocks: ";
+  for (auto block : r->getSequenceOfAttendingBlocks())
+    cout << block << ", ";
+  cout << endl;
+
+  cout << "---------------------\nRoute Blocks: ";
+  for (auto block : r->getRouteBlocks())
+    cout << block << ", ";
+  cout << endl;
+  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
+  cout << "=================" << endl;
+
+  ls->RemoveBlockFromRoute(0, 5);
+
+  cout << "=================\nRoute: ";
+  for (auto node : r->getRoute())
+    cout << node << ", ";
+  cout << endl;
+
+  cout << "---------------------\nAtt. Blocks: ";
+  for (auto block : r->getSequenceOfAttendingBlocks())
+    cout << block << ", ";
+  cout << endl;
+
+  cout << "---------------------\nRoute Blocks: ";
+  for (auto block : r->getRouteBlocks())
+    cout << block << ", ";
+  cout << endl;
+  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
+  cout << "=================" << endl;
 
   // local_search->RemoveBlockFromRoute(0, false);
 
