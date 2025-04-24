@@ -8,8 +8,30 @@
 // #include "src/exact/StochasticModel.hpp"
 // #include "src/exact/StochasticModelWalk.hpp"
 
+void print_result(Route *r)
+{
+  cout << "=================\nRoute: ";
+  for (auto node : r->getRoute())
+    cout << node << ", ";
+  cout << endl;
+
+  cout << "---------------------\nAtt. Blocks: ";
+  for (auto block : r->getSequenceOfAttendingBlocks())
+    cout << block << ", ";
+  cout << endl;
+
+  cout << "---------------------\nRoute Blocks: ";
+  for (auto block : r->getRouteBlocks())
+    cout << block << ", ";
+  cout << endl;
+  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
+  cout << "=================" << endl;
+}
+
 int main(int argc, const char *argv[])
 {
+  random_device rd; // seed
+
   string file_graph = argv[1];
   string file_scenarios = argv[2];
   string result_file = argv[3];
@@ -33,43 +55,7 @@ int main(int argc, const char *argv[])
 
   LocalSearch *ls = new LocalSearch(input, &sol);
   Route *r = sol.getRouteFromScenario(0);
-  cout << "=================\nRoute: ";
-  for (auto node : r->getRoute())
-    cout << node << ", ";
-  cout << endl;
-
-  cout << "---------------------\nAtt. Blocks: ";
-  for (auto block : r->getSequenceOfAttendingBlocks())
-    cout << block << ", ";
-  cout << endl;
-
-  cout << "---------------------\nRoute Blocks: ";
-  for (auto block : r->getRouteBlocks())
-    cout << block << ", ";
-  cout << endl;
-  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
-  cout << "=================" << endl;
-
-  ls->RemoveBlockFromRoute(0, 5);
-
-  cout << "=================\nRoute: ";
-  for (auto node : r->getRoute())
-    cout << node << ", ";
-  cout << endl;
-
-  cout << "---------------------\nAtt. Blocks: ";
-  for (auto block : r->getSequenceOfAttendingBlocks())
-    cout << block << ", ";
-  cout << endl;
-
-  cout << "---------------------\nRoute Blocks: ";
-  for (auto block : r->getRouteBlocks())
-    cout << block << ", ";
-  cout << endl;
-  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
-  cout << "=================" << endl;
-
-  // local_search->RemoveBlockFromRoute(0, false);
+  print_result(r);
 
   // vector<pair<int, int_pair>> best_swaps;
   // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);

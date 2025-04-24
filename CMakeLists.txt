@@ -16,6 +16,7 @@ set(
     src/classes/Arc.hpp
     src/classes/Parameters.hpp
     src/classes/Route.hpp
+    src/classes/Route.cpp
     src/classes/Graph.hpp
     src/classes/Graph.cpp
     src/classes/Input.hpp
@@ -42,6 +43,10 @@ set(
     src/heuristic/Lagrangean.cpp
     src/heuristic/LocalSearch.hpp
     src/heuristic/LocalSearch.cpp
+    src/heuristic/stochastic/Utils.hpp
+    src/heuristic/stochastic/LocalSearch.hpp
+    src/heuristic/stochastic/LocalSearch.cpp
+    src/heuristic/stochastic/StartSolution.hpp
 )
 
 add_executable(cbrp ${sources})

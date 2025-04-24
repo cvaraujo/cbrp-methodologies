@@ -27,7 +27,7 @@ private:
 
     void ChangeNodeAttendingBlock(int block, int old_node, int new_node);
 
-    bool RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node);
+    void RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node);
 
     std::unordered_map<int, int> GetAttendedRealocatedBlocks(Graph *graph, int node);
 
@@ -60,6 +60,8 @@ public:
         x.clear();
         sequence_of_attended_blocks.clear();
     };
+
+    void GeneralSwapBlocks(int b1, int b2);
 
     Route(Input *input) { this->input = input; };
 
@@ -97,11 +99,30 @@ public:
 
     int EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(int node_idx);
 
-    void RemoveBlockFromRoute(int b, bool realocate_blocks);
+    void RemoveBlockFromRoute(int b);
+
+    void AddBlockToRoute(int b, bool in_best_order);
+
+    int_pair EvaluateBlockInsertion(int previous_block, int next_block, int new_block);
+
+    void FindBestPositionToInsertBlock(int new_block, bool try_attend);
 
     void AddBlockToAttended(int b);
 
-    bool IsBlockInRoute(int b) { return this->route_blocks.find(b) != this->route_blocks.end(); };
+    bool IsBlockInRoute(int b)
+    {
+        if (this->blocks_attended[b] || this->route_blocks.find(b) != this->route_blocks.end())
+            return true;
+        return false;
+    };
+
+    bool IsBlockInsertionFactible(int block, int route_time_increase)
+    {
+        int total_time = this->time_route + route_time_increase + this->input->getBlockTime(block);
+        if (total_time > this->input->getT())
+            return false;
+        return true;
+    };
 
     bool IsBlockAttended(int b) { return this->blocks_attended[b]; };
 

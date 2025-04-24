@@ -197,6 +197,18 @@ public:
     this->of += delta;
   };
 
+  void ApplySwaps(vector<pair<int, int_pair>> &swaps, double delta)
+  {
+    for (auto swap : swaps)
+    {
+      int s = swap.first;
+      int_pair blocks = swap.second;
+      int b1 = blocks.first, b2 = blocks.second;
+      this->routes[s]->SwapInRouteBlocks(b1, b2);
+    }
+    this->of += delta;
+  }
+
   double ComputeCurrentSolutionOF()
   {
     double of = 0;

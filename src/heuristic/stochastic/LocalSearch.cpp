@@ -291,11 +291,18 @@ double LocalSearch::ComputeInRouteRandomSwapBlocksStartScenario(string delta_typ
     return delta;
 }
 
-void LocalSearch::RemoveBlockFromRoute(int route_idx, int block)
+Route *LocalSearch::RemoveBlockFromRoute(int route_idx, int block)
 {
     Route *route = solution->getRouteFromScenario(route_idx);
-
-    route->RemoveBlockFromRoute(block, false);
+    try
+    {
+        route->RemoveBlockFromRoute(block);
+    }
+    catch (std::runtime_error &e)
+    {
+        return route;
+    }
+    return route;
 }
 
 void LocalSearch::InsertOutRouteBlock(int route_idx, int block)

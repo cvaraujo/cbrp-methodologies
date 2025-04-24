@@ -128,13 +128,37 @@ void Route::SwapInRouteBlocks(int b1, int b2)
     this->AddBlockToAttended(b2);
 }
 
+void Route::GeneralSwapBlocks(int b1, int b2)
+{
+    bool b1_in_route = this->IsBlockInRoute(b1), b2_in_route = this->IsBlockInRoute(b2);
+    bool b1_attended = this->IsBlockAttended(b1), b2_attended = this->IsBlockAttended(b2);
+
+    if ((b1_attended && b2_attended) || (!b1_in_route && !b2_in_route))
+    {
+        cout << "[!] Both blocks are in same situation, the swap is not feasible!" << endl
+             << "(" << b1_attended << ", " << b2_attended << ")" << endl;
+        return;
+    }
+
+    // Swap in route
+    if ((b1_attended && b2_in_route) || (b1_in_route && b2_attended))
+    {
+        int to_remove = b1_attended ? b1 : b2;
+        int to_insert = b2_attended ? b1 : b2;
+        this->SwapInRouteBlocks(to_remove, to_insert);
+    }
+    else if (b1_in_route && !b2_in_route)
+    {
+    }
+}
+
 void Route::RemoveBlockFromAttended(int b)
 {
     // Basic checks
-    Graph *graph = this->input->getGraph();
     if (!this->blocks_attended[b])
         return;
 
+    Graph *graph = this->input->getGraph();
     // Remove references of b
     this->blocks_attended[b] = false;
     auto it = find(sequence_of_attended_blocks.begin(), sequence_of_attended_blocks.end(), b);
@@ -228,24 +252,25 @@ void Route::ChangeNodeAttendingBlock(int block, int old_node, int new_node)
     this->blocks_attendeds_per_node[old_node] = attended_blocks;
 };
 
-bool Route::RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node)
+void Route::RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node)
 {
     std::unordered_map<int, int> new_node_to_block = GetAttendedRealocatedBlocks(graph, node);
+    int num_blocks_to_realocate = this->blocks_attendeds_per_node[node].size() - 1;
 
-    for (auto &[new_node, realoc_block] : new_node_to_block)
+    if (new_node_to_block.size() >= num_blocks_to_realocate)
     {
-        if (realoc_block == block)
-            continue;
-        this->ChangeNodeAttendingBlock(block, realoc_block, new_node);
+        for (auto &[new_node, realoc_block] : new_node_to_block)
+        {
+            if (realoc_block == block)
+                continue;
+
+            this->ChangeNodeAttendingBlock(block, realoc_block, new_node);
+        }
     }
 
     this->RemoveBlockFromAttended(block);
-
-    if (this->blocks_attendeds_per_node[node].size() > 0)
-        return false;
-
-    this->RemoveNodeFromRoute(node);
-    return true;
+    if (this->blocks_attendeds_per_node[node].size() <= 0)
+        this->RemoveNodeFromRoute(node);
 }
 
 std::unordered_map<int, int> Route::GetAttendedRealocatedBlocks(Graph *graph, int node)
@@ -288,8 +313,7 @@ int Route::EvaluateTimeChangeByRemovingNodeAndBlocks(int node_idx)
 int Route::EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(int node_idx)
 {
     Graph *graph = this->input->getGraph();
-    int curr_time = this->time_route + this->time_blocks;
-    int new_time = curr_time;
+    int curr_time = this->time_route + this->time_blocks, new_time = curr_time;
     int i, curr_node, prev_node, next_node;
 
     curr_node = route[node_idx], prev_node = route[i - 1], next_node = route[i + 1];
@@ -306,9 +330,9 @@ int Route::EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(int node_idx)
     return new_time - curr_time;
 }
 
-void Route::RemoveBlockFromRoute(int b, bool realocate_blocks)
+void Route::RemoveBlockFromRoute(int b)
 {
-    if (!this->blocks_attended[b] && !this->IsBlockInRoute(b))
+    if (!this->IsBlockInRoute(b))
         throw std::runtime_error("[!] Block " + to_string(b) + " not in route to be removed!");
 
     Graph *graph = this->input->getGraph();
@@ -323,16 +347,77 @@ void Route::RemoveBlockFromRoute(int b, bool realocate_blocks)
 
         int node = this->used_node_to_attend_block[block];
         vector<int> blocks_attended = this->blocks_attendeds_per_node[node];
-
-        // Still have blocks attended in this node
-        if (blocks_attended.size() - 1 > 0)
-            this->RemoveBlockAndNodeIfPossible(graph, block, node);
-        else
-        {
-            this->RemoveBlockFromAttended(block);
-            this->RemoveNodeFromRoute(node);
-        }
+        this->RemoveBlockAndNodeIfPossible(graph, block, node);
+        break;
     }
+}
+
+int_pair Route::EvaluateBlockInsertion(int previous_node, int next_node, int new_block)
+{
+    Graph *graph = this->input->getGraph();
+    set<int> nodes_from_block = graph->getNodesFromBlock(new_block);
+
+    int insert_time, best_time = INT_MAX, best_node = -1;
+    int arc_removed_time = (previous_node != -1 && next_node != -1) ? input->getArcTime(previous_node, next_node) : 0;
+
+    for (auto node : nodes_from_block)
+    {
+        insert_time = (arc_removed_time != 0) ? -arc_removed_time : 0;
+
+        insert_time += previous_node != -1 ? input->getArcTime(previous_node, node) : 0;
+        insert_time += next_node != -1 ? input->getArcTime(node, next_node) : 0;
+
+        if (insert_time < best_time)
+            best_time = insert_time, best_node = node;
+    }
+    return make_pair(best_node, best_time);
+}
+
+void Route::FindBestPositionToInsertBlock(int new_block, bool try_attend)
+{
+    Graph *graph = this->input->getGraph();
+    int best_time_insert = INF, best_time_insert_att_block = INF;
+    int best_node_insert = -1, best_node_insert_att_block = -1;
+
+    // First position block
+    int_pair insert_pair = this->EvaluateBlockInsertion(-1, this->route[0], new_block);
+    int best_time_insert = insert_pair.first, best_node_insert = insert_pair.second;
+
+    if (try_attend && this->IsBlockInsertionFactible(new_block, best_time_insert))
+    {
+        best_time_insert_att_block = best_time_insert;
+    }
+
+    for (int i = 0; i < this->sequence_of_attended_blocks.size() - 1; i++)
+    {
+        int previous_block = this->sequence_of_attended_blocks[i];
+        int next_block = this->sequence_of_attended_blocks[i + 1];
+    }
+
+    int best_time = INT_MAX, best_position = -1;
+    for (int i = 0; i < this->route.size(); i++)
+    {
+        int node = this->route[i];
+        if (this->preds[node] == -1)
+            continue;
+
+        int time_change = this->EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(i);
+        if (time_change < best_time)
+            best_time = time_change, best_position = i;
+    }
+}
+
+void Route::AddBlockToRoute(int b, bool in_best_order)
+{
+    if (this->IsBlockInRoute(b))
+        throw std::runtime_error("[!!!] Block " + to_string(b) + " already in route!");
+
+    if (in_best_order)
+        this->sequence_of_attended_blocks.push_back(b);
+    else
+        this->sequence_of_attended_blocks.insert(this->sequence_of_attended_blocks.begin(), b);
+
+    this->AddBlockToAttended(b);
 }
 
 void Route::AddBlockToAttended(int b)
