@@ -373,38 +373,27 @@ int_pair Route::EvaluateBlockInsertion(int previous_node, int next_node, int new
     return make_pair(best_node, best_time);
 }
 
-void Route::FindBestPositionToInsertBlock(int new_block, bool try_attend)
+int_pair Route::FindBestPositionToInsertBlock(int new_block)
 {
     Graph *graph = this->input->getGraph();
-    int best_time_insert = INF, best_time_insert_att_block = INF;
-    int best_node_insert = -1, best_node_insert_att_block = -1;
+    int best_time_insert = INF, best_node_insert = -1, best_position = -1;
 
-    // First position block
-    int_pair insert_pair = this->EvaluateBlockInsertion(-1, this->route[0], new_block);
-    int best_time_insert = insert_pair.first, best_node_insert = insert_pair.second;
-
-    if (try_attend && this->IsBlockInsertionFactible(new_block, best_time_insert))
+    int_pair insert_pair;
+    for (int i = 0; i < this->route.size() - 1; i++)
     {
-        best_time_insert_att_block = best_time_insert;
+        int prev_node = this->route[i], next_node = this->route[i + 1];
+        insert_pair = this->EvaluateBlockInsertion(prev_node, next_node, new_block);
+        int time_insert = insert_pair.first, node_insert = insert_pair.second;
+
+        if (time_insert < best_time_insert)
+        {
+            best_time_insert = time_insert;
+            best_node_insert = node_insert;
+            best_position = i + 1;
+        }
     }
 
-    for (int i = 0; i < this->sequence_of_attended_blocks.size() - 1; i++)
-    {
-        int previous_block = this->sequence_of_attended_blocks[i];
-        int next_block = this->sequence_of_attended_blocks[i + 1];
-    }
-
-    int best_time = INT_MAX, best_position = -1;
-    for (int i = 0; i < this->route.size(); i++)
-    {
-        int node = this->route[i];
-        if (this->preds[node] == -1)
-            continue;
-
-        int time_change = this->EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(i);
-        if (time_change < best_time)
-            best_time = time_change, best_position = i;
-    }
+    return make_pair(best_node_insert, best_position);
 }
 
 void Route::AddBlockToRoute(int b, bool in_best_order)
@@ -412,12 +401,20 @@ void Route::AddBlockToRoute(int b, bool in_best_order)
     if (this->IsBlockInRoute(b))
         throw std::runtime_error("[!!!] Block " + to_string(b) + " already in route!");
 
-    if (in_best_order)
-        this->sequence_of_attended_blocks.push_back(b);
-    else
-        this->sequence_of_attended_blocks.insert(this->sequence_of_attended_blocks.begin(), b);
+    int_pair pos_insert_block = this->FindBestPositionToInsertBlock(b);
+    int used_node = pos_insert_block.first, position = pos_insert_block.second;
 
-    this->AddBlockToAttended(b);
+    if (used_node == -1)
+        return;
+
+    int previous_node = this->route[position - 1], next_node = this->route[position];
+    int change_route_time = this->input->getArcTime(previous_node, used_node) +
+                            this->input->getArcTime(used_node, next_node) -
+                            this->input->getArcTime(previous_node, next_node);
+
+    this->route.insert(this->route.begin() + position, used_node);
+    this->preds[used_node] = previous_node, this->preds[next_node] = used_node;
+    this->time_route += change_route_time;
 }
 
 void Route::AddBlockToAttended(int b)

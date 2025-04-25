@@ -105,7 +105,7 @@ public:
 
     int_pair EvaluateBlockInsertion(int previous_block, int next_block, int new_block);
 
-    void FindBestPositionToInsertBlock(int new_block, bool try_attend);
+    int_pair FindBestPositionToInsertBlock(int new_block);
 
     void AddBlockToAttended(int b);
 
@@ -122,6 +122,17 @@ public:
         if (total_time > this->input->getT())
             return false;
         return true;
+    };
+
+    void InsertNodeInRoute(int node, int position, int change_route_time)
+    {
+        int previous_node = this->route[position - 1], next_node = this->route[position];
+        this->route.insert(this->route.begin() + position, node);
+        this->preds[node] = previous_node, this->preds[next_node] = node;
+        this->time_route += change_route_time;
+
+        // set<int> node_blocks = this-
+        // this->route_blocks.insert();
     };
 
     bool IsBlockAttended(int b) { return this->blocks_attended[b]; };
