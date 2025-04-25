@@ -16,6 +16,8 @@ class LocalSearch
 private:
     Input *input;
     Solution *solution;
+    string delta_type = "moderate";
+    bool use_first_improve = false;
 
 public:
     LocalSearch(Input *input, Solution *solution)
@@ -47,6 +49,8 @@ public:
 
     double ComputeInRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve);
 
+    double ComputeOutRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve);
+
     int_pair GetRandomB1NB2(Route *route, vector<int> &blocks);
 
     double ComputeInRouteRandomSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps);
@@ -54,6 +58,8 @@ public:
     Route *RemoveBlockFromRoute(int route_idx, int block);
 
     void InsertOutRouteBlock(int route_idx, int block);
+
+    double RunDefaultPerturbation(vector<pair<int, int_pair>> &swaps);
 };
 
 #endif

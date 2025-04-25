@@ -4,6 +4,14 @@
 
 #include "LocalSearch.hpp"
 
+double LocalSearch::RunDefaultPerturbation(vector<pair<int, int_pair>> &swaps)
+{
+    // Best In Route Swaps
+    double delta = ComputeInRouteSwapBlocksStartScenario(this->delta_type, swaps, this->use_first_improve);
+    if (swaps.size() > 0)
+        return delta;
+}
+
 void LocalSearch::RunInRouteSwapImprove(string delta_type, bool is_first_improve)
 {
     bool is_stuck = false;
@@ -191,7 +199,6 @@ double LocalSearch::GetModerateDeltaSwapBlocksStartScenario(int b1, int b2, vect
 
 double LocalSearch::ComputeInRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve)
 {
-    Graph *graph = input->getGraph();
     Route *route = solution->getRouteFromScenario(0);
     double best = 0.0, delta = 0.0;
 
@@ -221,15 +228,9 @@ double LocalSearch::ComputeInRouteSwapBlocksStartScenario(string delta_type, vec
 
             delta = 0.0;
             if (delta_type == "weak")
-            {
-                // cout << "[!] Weak" << endl;
                 delta = GetWeakDeltaSwapBlocksStartScenario(b1, b2);
-            }
             else if (delta_type == "moderate")
-            {
-                // cout << "[!] Moderate" << endl;
                 delta = GetModerateDeltaSwapBlocksStartScenario(b1, b2, curr_swaps);
-            }
 
             if (delta > best)
             {
@@ -244,6 +245,61 @@ double LocalSearch::ComputeInRouteSwapBlocksStartScenario(string delta_type, vec
             }
         }
     }
+
+    if (best_b1 == -1 || best_b2 == -1)
+        return 0.0;
+
+    best_swaps.push_back(make_pair(0, make_pair(best_b1, best_b2)));
+    return best;
+}
+
+double LocalSearch::ComputeOutRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve)
+{
+    Graph *graph = input->getGraph();
+    Route *route = solution->getRouteFromScenario(0);
+    set<int> set_blocks = route->getBlocks();
+    vector<int> route_blocks = vector<int>(set_blocks.begin(), set_blocks.end());
+    best_swaps = vector<pair<int, int_pair>>();
+    vector<pair<int, int_pair>> curr_swaps;
+    int i, j, b1, b2, best_b1 = -1, best_b2 = -1;
+    double best = 0.0, delta = 0.0;
+
+    for (j = 0; j < route_blocks.size(); j++)
+    {
+        b1 = route_blocks[j];
+
+        // If b1 is not attended, continue
+        if (!route->IsBlockAttended(b1))
+            continue;
+
+        for (b2 = 0; b2 < graph->getB(); b2++)
+        {
+            // If b2 is attended, continue
+            if (b1 == b2 || route->IsBlockInRoute(b2) || !route->IsSwapFeasible(b1, b2))
+                continue;
+
+            delta = 0.0;
+            if (delta_type == "weak")
+                delta = GetWeakDeltaSwapBlocksStartScenario(b1, b2);
+            else if (delta_type == "moderate")
+                delta = GetModerateDeltaSwapBlocksStartScenario(b1, b2, curr_swaps);
+
+            if (delta > best)
+            {
+                best = delta, best_b1 = b1, best_b2 = b2;
+                if (delta_type != "weak")
+                    best_swaps = curr_swaps;
+                if (is_first_improve)
+                {
+                    best_swaps.push_back(make_pair(0, make_pair(best_b1, best_b2)));
+                    return delta;
+                }
+            }
+        }
+    }
+
+    if (best_b1 == -1 || best_b2 == -1)
+        return 0.0;
 
     best_swaps.push_back(make_pair(0, make_pair(best_b1, best_b2)));
     return best;

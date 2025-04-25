@@ -124,20 +124,33 @@ public:
         return true;
     };
 
-    void InsertNodeInRoute(int node, int position, int change_route_time)
+    void InsertNodeInRoute(int node, int position)
     {
         int previous_node = this->route[position - 1], next_node = this->route[position];
+        int change_route_time = this->input->getArcTime(previous_node, node) +
+                                this->input->getArcTime(node, next_node) -
+                                this->input->getArcTime(previous_node, next_node);
+
         this->route.insert(this->route.begin() + position, node);
         this->preds[node] = previous_node, this->preds[next_node] = node;
         this->time_route += change_route_time;
 
-        // set<int> node_blocks = this-
-        // this->route_blocks.insert();
+        set<int> node_blocks = this->input->getGraph()->getNode(node).second;
+        this->route_blocks.insert(node_blocks.begin(), node_blocks.end());
+    };
+
+    bool IsTimeChangeFeasible(int time_change)
+    {
+        if (this->time_route + this->time_blocks + time_change > this->input->getT())
+            return false;
+        return true;
     };
 
     bool IsBlockAttended(int b) { return this->blocks_attended[b]; };
 
     bool IsSwapFeasible(int b1, int b2);
+
+    bool IsOutSwapFeasible(int b1, int b2);
 
     set<int> getBlocks() { return this->route_blocks; };
 

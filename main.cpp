@@ -56,7 +56,19 @@ int main(int argc, const char *argv[])
   LocalSearch *ls = new LocalSearch(input, &sol);
   Route *r = sol.getRouteFromScenario(0);
   print_result(r);
+  getchar();
+  // r->RemoveBlockFromRoute(5);
+  r->RemoveBlockFromRoute(2);
+  r->RemoveBlockFromRoute(1);
 
+  print_result(r);
+  getchar();
+
+  r->AddBlockToRoute(5, false);
+  r->RemoveBlockFromAttended(4);
+  r->AddBlockToAttended(3);
+  print_result(r);
+  getchar();
   // vector<pair<int, int_pair>> best_swaps;
   // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
 

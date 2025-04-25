@@ -362,12 +362,10 @@ int_pair Route::EvaluateBlockInsertion(int previous_node, int next_node, int new
 
     for (auto node : nodes_from_block)
     {
-        insert_time = (arc_removed_time != 0) ? -arc_removed_time : 0;
+        insert_time = (-1) * arc_removed_time;
+        insert_time += input->getArcTime(previous_node, node) + input->getArcTime(node, next_node);
 
-        insert_time += previous_node != -1 ? input->getArcTime(previous_node, node) : 0;
-        insert_time += next_node != -1 ? input->getArcTime(node, next_node) : 0;
-
-        if (insert_time < best_time)
+        if (this->IsTimeChangeFeasible(insert_time) && (insert_time < best_time))
             best_time = insert_time, best_node = node;
     }
     return make_pair(best_node, best_time);
@@ -385,12 +383,11 @@ int_pair Route::FindBestPositionToInsertBlock(int new_block)
         insert_pair = this->EvaluateBlockInsertion(prev_node, next_node, new_block);
         int time_insert = insert_pair.first, node_insert = insert_pair.second;
 
+        if (node_insert == -1)
+            continue;
+
         if (time_insert < best_time_insert)
-        {
-            best_time_insert = time_insert;
-            best_node_insert = node_insert;
-            best_position = i + 1;
-        }
+            best_time_insert = time_insert, best_node_insert = node_insert, best_position = i + 1;
     }
 
     return make_pair(best_node_insert, best_position);
@@ -401,20 +398,24 @@ void Route::AddBlockToRoute(int b, bool in_best_order)
     if (this->IsBlockInRoute(b))
         throw std::runtime_error("[!!!] Block " + to_string(b) + " already in route!");
 
-    int_pair pos_insert_block = this->FindBestPositionToInsertBlock(b);
-    int used_node = pos_insert_block.first, position = pos_insert_block.second;
+    int used_node = -1, position = -1;
+    if (in_best_order)
+    {
+        int_pair pos_insert_block = this->FindBestPositionToInsertBlock(b);
+        used_node = pos_insert_block.first, position = pos_insert_block.second;
+    }
+    else
+    {
+        int previous_node = this->route[this->route.size() - 2], next_node = this->route[this->route.size() - 1];
+        int_pair insert_on_end = this->EvaluateBlockInsertion(previous_node, next_node, b);
+        used_node = insert_on_end.first, position = this->route.size() - 1;
+    }
 
     if (used_node == -1)
         return;
 
-    int previous_node = this->route[position - 1], next_node = this->route[position];
-    int change_route_time = this->input->getArcTime(previous_node, used_node) +
-                            this->input->getArcTime(used_node, next_node) -
-                            this->input->getArcTime(previous_node, next_node);
-
-    this->route.insert(this->route.begin() + position, used_node);
-    this->preds[used_node] = previous_node, this->preds[next_node] = used_node;
-    this->time_route += change_route_time;
+    this->InsertNodeInRoute(used_node, position);
+    this->AddBlockToAttended(b);
 }
 
 void Route::AddBlockToAttended(int b)
@@ -423,6 +424,10 @@ void Route::AddBlockToAttended(int b)
     Graph *graph = this->input->getGraph();
     if (this->blocks_attended[b])
         throw std::runtime_error("[!!!] Block " + to_string(b) + " already attended!");
+
+    int time_block = graph->getTimePerBlock(b);
+    if (this->time_route + this->time_blocks + time_block > this->input->getT())
+        return;
 
     set<int> nodes_b = graph->getNodesFromBlock(b);
     for (auto node : nodes_b)
@@ -440,7 +445,7 @@ void Route::AddBlockToAttended(int b)
 
     this->blocks_attended[b] = true;
     this->sequence_of_attended_blocks.push_back(b);
-    this->time_blocks += graph->getTimePerBlock(b);
+    this->time_blocks += time_block;
 };
 
 bool Route::IsSwapFeasible(int b1, int b2)
@@ -452,6 +457,25 @@ bool Route::IsSwapFeasible(int b1, int b2)
 
     return true;
 };
+
+bool Route::IsOutSwapFeasible(int b1, int b2)
+{
+    Graph *graph = this->input->getGraph();
+    int time_change = graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1);
+
+    // Only attend the block is already infeasible
+    if (this->time_route + this->time_blocks + time_change > input->getT())
+        return false;
+
+    // Check most simple case first (insert at the end)
+    int previous_node = this->route[this->route.size() - 2];
+    int next_node = this->route[this->route.size() - 1];
+
+    // TODO: check if the block removed allows to remove some node
+    // Now try to attach the new node to the route
+
+    return (this->time_route + this->time_blocks + time_change) <= input->getT();
+}
 
 bool Route::IsSwapTimeLowerThanT(int b1, int b2)
 {
