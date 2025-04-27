@@ -146,6 +146,56 @@ public:
         return true;
     };
 
+    int EvaluateNodeRemoval(int node)
+    {
+        for (int i = 0; i < this->route.size(); i++)
+        {
+            if (this->route[i] == node)
+            {
+                int prev_node = this->route[i - 1], next_node = this->route[i + 1];
+                return this->input->getArcTime(prev_node, next_node) - (this->input->getArcTime(prev_node, node) + this->input->getArcTime(node, next_node));
+            }
+        }
+    };
+
+    int EvaluateTimeGainByRemovingBlock(int block)
+    {
+        Graph *graph = this->input->getGraph();
+        int node = this->used_node_to_attend_block[block];
+        int time_gain = graph->getTimePerBlock(block);
+        unordered_map<int, int> new_node_to_block;
+
+        if (CanAlocateRemainingBlocksIntoOtherNodes(graph, block, node, new_node_to_block))
+            time_gain += EvaluateNodeRemoval(node);
+
+        return time_gain;
+    };
+
+    int GetMinTimeToInsertBlock(int block)
+    {
+        Graph *graph = this->input->getGraph();
+        int min_time = INT_MAX;
+
+        for (int i = 0; i < this->route.size() - 1; i++)
+        {
+            int prev_node = this->route[i], next_node = this->route[i + 1];
+            int_pair insertion = this->EvaluateBlockInsertion(prev_node, next_node, block);
+
+            int time_insert = insertion.second;
+        }
+        return min_time;
+    };
+
+    int EvaluateTimeIncreaseByAddingBlock(int block)
+    {
+        Graph *graph = this->input->getGraph();
+        int time_increase = graph->getTimePerBlock(block);
+
+        return time_increase;
+    };
+
+    int GetBlockInsertionTime(int previous_node, int next_node, int new_block);
+
     bool IsBlockAttended(int b) { return this->blocks_attended[b]; };
 
     bool IsSwapFeasible(int b1, int b2);

@@ -371,6 +371,25 @@ int_pair Route::EvaluateBlockInsertion(int previous_node, int next_node, int new
     return make_pair(best_node, best_time);
 }
 
+int Route::GetBlockInsertionTime(int previous_node, int next_node, int new_block)
+{
+    Graph *graph = this->input->getGraph();
+    set<int> nodes_from_block = graph->getNodesFromBlock(new_block);
+
+    int insert_time, best_time = INT_MAX, best_node = -1;
+    int arc_removed_time = (previous_node != -1 && next_node != -1) ? input->getArcTime(previous_node, next_node) : 0;
+
+    for (auto node : nodes_from_block)
+    {
+        insert_time = (-1) * arc_removed_time;
+        insert_time += input->getArcTime(previous_node, node) + input->getArcTime(node, next_node);
+
+        if (insert_time < best_time)
+            best_time = insert_time, best_node = node;
+    }
+    return best_time;
+}
+
 int_pair Route::FindBestPositionToInsertBlock(int new_block)
 {
     Graph *graph = this->input->getGraph();
@@ -461,20 +480,28 @@ bool Route::IsSwapFeasible(int b1, int b2)
 bool Route::IsOutSwapFeasible(int b1, int b2)
 {
     Graph *graph = this->input->getGraph();
-    int time_change = graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1);
+    int time_change = graph->getTimePerBlock(b2) - this->EvaluateTimeGainByRemovingBlock(b1);
 
     // Only attend the block is already infeasible
     if (this->time_route + this->time_blocks + time_change > input->getT())
         return false;
 
-    // Check most simple case first (insert at the end)
-    int previous_node = this->route[this->route.size() - 2];
-    int next_node = this->route[this->route.size() - 1];
+    set<int> nodes_from_block = graph->getNodesFromBlock(b2);
+    int insert_time, prev_node, next_node, arc_removed_time;
+    for (int i = 0; i < this->route.size() - 1; i++)
+    {
+        prev_node = this->route[i], next_node = this->route[i + 1];
+        arc_removed_time = this->input->getArcTime(prev_node, next_node);
 
-    // TODO: check if the block removed allows to remove some node
-    // Now try to attach the new node to the route
+        for (auto node : nodes_from_block)
+        {
+            insert_time = input->getArcTime(prev_node, node) + input->getArcTime(node, next_node) - arc_removed_time;
+            if (this->time_route + this->time_blocks + insert_time + time_change <= input->getT())
+                return true;
+        }
+    }
 
-    return (this->time_route + this->time_blocks + time_change) <= input->getT();
+    return false;
 }
 
 bool Route::IsSwapTimeLowerThanT(int b1, int b2)

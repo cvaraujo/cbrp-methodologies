@@ -47,7 +47,9 @@ public:
 
     double GetModerateDeltaSwapBlocksStartScenario(int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps);
 
-    double ComputeInRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve);
+    double GetModerateDeltaOutRouteSwap(int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps);
+
+    double ComputeSwapBlocks(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve, bool is_out_route);
 
     double ComputeOutRouteSwapBlocksStartScenario(string delta_type, vector<pair<int, int_pair>> &best_swaps, bool is_first_improve);
 
