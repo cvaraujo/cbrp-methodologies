@@ -3,31 +3,33 @@
 
 #include "Parameters.hpp"
 
-class Scenario
-{
+class Scenario {
     double probability = 0.0;
     vector<double> cases_per_block;
 
-public:
-    Scenario(double probability, vector<double> cases_per_block)
-    {
+  public:
+    Scenario(double probability, vector<double> cases_per_block) {
         this->probability = probability;
-        this->cases_per_block = cases_per_block;
+        this->cases_per_block = std::move(cases_per_block);
     }
 
-    Scenario() {};
+    Scenario() = default;
 
     void setCase2Block(int block, double cases) { this->cases_per_block[block] = cases; };
 
-    float getCasesPerBlock(int block) { return this->cases_per_block[block]; };
+    [[nodiscard]] double getCasesPerBlock(int block) const {
+        if (block < int(this->cases_per_block.size()))
+            return this->cases_per_block[block];
+        return 0.0;
+    };
 
-    void setCasesPerBlock(vector<double> cases) { this->cases_per_block = cases; };
+    void setCasesPerBlock(vector<double> cases) { this->cases_per_block = std::move(cases); };
 
     vector<double> getCases() { return this->cases_per_block; };
 
-    float getProbability() { return this->probability; };
+    [[nodiscard]] double getProbability() const { return this->probability; };
 
-    void setProbability(double probability) { this->probability = probability; };
+    void setProbability(double prob) { this->probability = prob; };
 };
 
 #endif

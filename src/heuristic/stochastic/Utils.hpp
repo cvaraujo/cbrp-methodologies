@@ -5,22 +5,19 @@
 #ifndef DPARP_STOCHASTIC_UTILS_H
 #define DPARP_STOCHASTIC_UTILS_H
 
-#include "../../classes/Parameters.hpp"
 #include "../../classes/Input.hpp"
+#include "../../classes/Parameters.hpp"
 
-class Utils
-{
+class Utils {
 
-public:
-    static void UpdateFirstStageCosts(Input *input, vector<vector<double>> &cases_per_block)
-    {
+  public:
+    static void UpdateFirstStageCosts(Input *input, vector<vector<double>> &cases_per_block) {
         double alpha = input->getAlpha();
         Graph *graph = input->getGraph();
         int B = graph->getB();
         double cost;
 
-        for (int b = 0; b < B; b++)
-        {
+        for (int b = 0; b < B; b++) {
             cost = cases_per_block[0][b];
             for (int s = 0; s < input->getS(); s++)
                 cost += alpha * input->getScenario(s)->getProbability() * input->getScenario(s)->getCasesPerBlock(b);
@@ -28,8 +25,7 @@ public:
         }
     };
 
-    static void GetFirstStageCosts(Input *input, vector<double> &costs)
-    {
+    static void GetFirstStageCosts(Input *input, vector<double> &costs) {
         Graph *graph = input->getGraph();
         int B = graph->getB();
 
@@ -37,9 +33,7 @@ public:
             costs[b] = input->getFirstStageProfit(b);
     }
 
-    static void GetSecondStageCosts(Input *input, int s, vector<int> first_stage_solution, vector<double> &costs)
-    {
-        Graph *graph = input->getGraph();
+    static void GetSecondStageCosts(Input *input, int s, const vector<int> &first_stage_solution, vector<double> &costs) {
         double alpha = input->getAlpha();
         costs = input->getCasesFromScenario(s);
 
@@ -47,23 +41,19 @@ public:
             costs[b] *= (1.0 - alpha);
     }
 
-    static void UpdateSecondStageCosts(Input *input, vector<int> first_stage_solution, vector<vector<double>> &cases_per_block, int s)
-    {
+    static void UpdateSecondStageCosts(Input *input, const vector<int> &first_stage_solution, vector<vector<double>> &cases_per_block, int s) {
         double alpha = input->getAlpha();
         for (int b : first_stage_solution)
             cases_per_block[s][b] = (1.0 - alpha) * cases_per_block[s][b];
     };
 
-    static void FastShuffle(vector<int> &vec)
-    {
+    static void FastShuffle(vector<int> &vec) {
         static mt19937 g(random_device{}()); // Gerador estático para evitar re-seed
         shuffle(vec.begin(), vec.end(), g);
     }
 
-    static void IntVectorRemove(vector<int> &vec, vector<int>::iterator it)
-    {
-        if (it != vec.end())
-        {
+    static void IntVectorRemove(vector<int> &vec, vector<int>::iterator it) {
+        if (it != vec.end()) {
             iter_swap(it, vec.end() - 1);
             vec.pop_back();
         }

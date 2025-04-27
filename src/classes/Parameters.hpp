@@ -7,16 +7,16 @@
 
 using namespace std;
 
-#include <iostream>
-#include <vector>
 #include "string"
-#include <iomanip>
-#include <bits/ios_base.h>
 #include <algorithm>
-#include <fstream>
+#include <bits/ios_base.h>
 #include <deque>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <limits>
 #include <random>
+#include <vector>
 
 #include <boost/config.hpp>
 
@@ -24,10 +24,9 @@ using namespace std;
 #pragma warning(disable : 4267)
 #endif
 
-#include "boost/algorithm/string.hpp"
-#include "boost/algorithm/string/trim.hpp"
-#include <boost/graph/graph_traits.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graph_traits.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
 #include <lemon/list_graph.h>
@@ -36,5 +35,12 @@ using namespace std;
 const int INF = INT_MAX;
 
 typedef pair<int, int> int_pair;
+
+enum class ChangeAction {
+    None = 0,
+    Swap = 1,
+    Insertion = 2,
+    Deletion = 3
+};
 
 #endif // DPARP_INCLUDE_H

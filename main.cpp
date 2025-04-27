@@ -49,11 +49,11 @@ int main(int argc, const char *argv[])
   convDeltaSwap >> delta_type;
   double alpha = 0.8;
 
-  Input *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
+  auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
 
   Solution sol = StartSolution::CreateStartSolution(input);
 
-  LocalSearch *ls = new LocalSearch(input, &sol);
+  auto *ls = new LocalSearch(input, &sol);
   Route *r = sol.getRouteFromScenario(0);
   print_result(r);
   getchar();
