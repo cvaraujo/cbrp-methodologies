@@ -36,11 +36,4 @@ const int INF = INT_MAX;
 
 typedef pair<int, int> int_pair;
 
-enum class ChangeAction {
-    None = 0,
-    Swap = 1,
-    Insertion = 2,
-    Deletion = 3
-};
-
 #endif // DPARP_INCLUDE_H

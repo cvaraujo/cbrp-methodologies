@@ -118,11 +118,38 @@ class Route {
     };
 
     bool IsBlockInsertionFactible(int block, int route_time_increase) {
-        int total_time = this->time_route + route_time_increase +
+        int total_time = this->time_route + this->time_blocks + route_time_increase +
                          this->input->getBlockTime(block);
-        if (total_time > this->input->getT())
+        return (total_time <= this->input->getT());
+    };
+
+    bool IsBlockInsertionFactible(int block) {
+        Graph *graph = this->input->getGraph();
+        int T = this->input->getT();
+        int block_time = graph->getTimePerBlock(block);
+        int curr_time = this->time_route + this->time_blocks;
+
+        if (IsBlockInRoute(block)) {
+            return (curr_time + block_time <= T);
+        }
+
+        if (curr_time + block_time > T)
             return false;
-        return true;
+
+        set<int> nodes_from_block = graph->getNodesFromBlock(block);
+        int insert_time, prev_node, next_node, arc_removed_time;
+
+        for (int i = 0; i < this->route.size() - 1; i++) {
+            prev_node = this->route[i], next_node = this->route[i + 1];
+            arc_removed_time = this->input->getArcTime(prev_node, next_node);
+
+            for (auto node : nodes_from_block) {
+                insert_time = input->getArcTime(prev_node, node) + input->getArcTime(node, next_node) - arc_removed_time;
+                if (curr_time + insert_time + block_time <= T)
+                    return true;
+            }
+        }
+        return false;
     };
 
     void InsertNodeInRoute(int node, int position) {
@@ -172,11 +199,14 @@ class Route {
     };
 
     int EvaluateTimeIncreaseByAddingBlock(int block) {
-        Graph *graph = this->input->getGraph();
-        int time_increase = graph->getTimePerBlock(block);
-
-        return time_increase;
+        return 0;
     };
+
+    int IsBlockInsertionFeasible(int block) {
+        if (IsBlockInRoute(block)) {
+            return
+        }
+    }
 
     int GetBlockInsertionTime(int prev_node, int next_node, int new_block);
 

@@ -51,23 +51,27 @@ class LocalSearch {
     double GetModerateDeltaSwapBlocksStartScenario(
         int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps);
 
+    double GetWeakDeltaInsertBlock(int block);
+
+    double GetModerateDeltaInsertBlock(int block, vector<pair<int, int_pair>> &second_stage_swaps);
+
     double
     GetModerateDeltaOutRouteSwap(int b1, int b2,
                                  vector<pair<int, int_pair>> &second_stage_swaps);
 
     double ComputeSwapBlocks(vector<pair<int, int_pair>> &best_swaps, bool is_out_route);
 
-    double ComputeOutRouteSwapBlocksStartScenario(vector<pair<int, int_pair>> &best_swaps);
+    Change ComputeOutRouteSwapBlocksStartScenario();
 
     static int_pair GetRandomB1NB2(const Route *route, vector<int> &blocks);
 
-    double SelectRandomSwapBlocks(vector<pair<int, int_pair>> &best_swaps);
+    Change SelectRandomSwapBlocks();
 
     Change SelectRandomRemoveBlock();
 
     double TryImproveRouteTime();
 
-    double SelectRandomInsertBlock();
+    Change SelectRandomInsertBlock();
 
     int_pair GetRandomBlocksFeasibleSwap(Route *route);
 
@@ -77,7 +81,7 @@ class LocalSearch {
 
     double RunDefaultPerturbation(vector<pair<int, int_pair>> &swaps, bool use_random);
 
-    double RandomBlockChange(vector<pair<int, int_pair>> &swaps);
+    Change RandomBlockChange();
 
     double ComputeRandomBlockDiversification(vector<pair<int, int_pair>> &swaps);
 

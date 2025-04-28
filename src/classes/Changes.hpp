@@ -17,22 +17,9 @@ struct Change {
 
 namespace ChangeUtils {
 
-ChangeAction decideAction(const Change &change) {
-    if (!change.swaps.empty()) {
-        return ChangeAction::Swap;
-    }
-    if (!change.insertions.empty()) {
-        return ChangeAction::Insertion;
-    }
-    if (!change.deletions.empty()) {
-        return ChangeAction::Deletion;
-    }
-    return ChangeAction::None;
-}
-
 Change createEmptyChange() {
     Change change;
-    change.delta = 0.0;
+    change.delta = -INF;
     change.swaps.clear();
     change.insertions.clear();
     change.deletions.clear();
@@ -62,6 +49,17 @@ Change newChange(double delta, vector<int_pair> deletions) {
     change.delta = delta;
     change.deletions = std::move(deletions);
     return change;
+}
+
+Change newChange(double delta, vector<pair<int, int_pair>> swaps) {
+    Change change;
+    change.delta = delta;
+    change.swaps = std::move(swaps);
+    return change;
+}
+
+bool isEmpty(const Change &change) {
+    return (change.delta > -INF);
 }
 
 void clear(Change &change) {
