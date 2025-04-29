@@ -95,17 +95,15 @@ double LocalSearch::GetModerateDeltaInsertBlock(int block, vector<pair<int, int_
 
     double alpha = input->getAlpha(), prob, cases_bs;
     int S = input->getS(), lowest_in_block = -1, highest_block = -1;
-    double delta = graph->getCasesPerBlock(block);
+    double delta = this->input->getFirstStageProfit(block);
     second_stage_swaps = vector<pair<int, int_pair>>();
 
     for (int s = 1; s <= S; s++) {
         Scenario *scenario = input->getScenario(s - 1);
         Route *s_route = solution->getRouteFromScenario(s);
         prob = scenario->getProbability();
-
         cases_bs = scenario->getCasesPerBlock(block);
 
-        // TODO: fix time function from here
         int changed = -1;
         if (s_route->IsBlockAttended(block)) {
             highest_block = LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(
@@ -114,12 +112,10 @@ double LocalSearch::GetModerateDeltaInsertBlock(int block, vector<pair<int, int_
             if (highest_block != -1) {
                 bool attended_fs = first_stage_route->IsBlockAttended(highest_block);
 
-                delta += prob * (GetUpdatedSecondStageCases(scenario, highest_block,
-                                                            attended_fs) -
-                                 GetUpdatedSecondStageCases(scenario, b2, false));
-                second_stage_swaps.emplace_back(s, make_pair(b2, highest_block));
-            } else
-                delta -= alpha * prob * cases_b2;
+                delta += prob * (GetUpdatedSecondStageCases(scenario, highest_block, attended_fs) -
+                                 GetUpdatedSecondStageCases(scenario, block, false));
+                second_stage_swaps.emplace_back(s, make_pair(block, highest_block));
+            }
         }
     }
     return delta;

@@ -204,7 +204,7 @@ class Route {
 
     int IsBlockInsertionFeasible(int block) {
         if (IsBlockInRoute(block)) {
-            return
+            return 0.0;
         }
     }
 

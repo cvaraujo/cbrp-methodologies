@@ -1,6 +1,6 @@
 #include "src/classes/Input.hpp"
-#include "src/heuristic/stochastic/StartSolution.hpp"
 #include "src/heuristic/stochastic/LocalSearch.hpp"
+#include "src/heuristic/stochastic/StartSolution.hpp"
 
 // #include "src/heuristic/Lagrangean.hpp"
 // #include "src/exact/DeterministicModel.hpp"
@@ -8,87 +8,85 @@
 // #include "src/exact/StochasticModel.hpp"
 // #include "src/exact/StochasticModelWalk.hpp"
 
-void print_result(Route *r)
-{
-  cout << "=================\nRoute: ";
-  for (auto node : r->getRoute())
-    cout << node << ", ";
-  cout << endl;
+void print_result(Route *r) {
+    cout << "=================\nRoute: ";
+    for (auto node : r->getRoute())
+        cout << node << ", ";
+    cout << endl;
 
-  cout << "---------------------\nAtt. Blocks: ";
-  for (auto block : r->getSequenceOfAttendingBlocks())
-    cout << block << ", ";
-  cout << endl;
+    cout << "---------------------\nAtt. Blocks: ";
+    for (auto block : r->getSequenceOfAttendingBlocks())
+        cout << block << ", ";
+    cout << endl;
 
-  cout << "---------------------\nRoute Blocks: ";
-  for (auto block : r->getRouteBlocks())
-    cout << block << ", ";
-  cout << endl;
-  cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
-  cout << "=================" << endl;
+    cout << "---------------------\nRoute Blocks: ";
+    for (auto block : r->getRouteBlocks())
+        cout << block << ", ";
+    cout << endl;
+    cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
+    cout << "=================" << endl;
 }
 
-int main(int argc, const char *argv[])
-{
-  random_device rd; // seed
+int main(int argc, const char *argv[]) {
+    random_device rd; // seed
 
-  string file_graph = argv[1];
-  string file_scenarios = argv[2];
-  string result_file = argv[3];
-  stringstream convTime(argv[4]),
-      convDeltaSwap(argv[5]),
-      convFirstImprove(argv[6]);
+    string file_graph = argv[1];
+    string file_scenarios = argv[2];
+    string result_file = argv[3];
+    stringstream convTime(argv[4]),
+        convDeltaSwap(argv[5]),
+        convFirstImprove(argv[6]);
 
-  int T = 1200;
-  int default_vel = 20, neblize_vel = 10;
-  bool first_improve = true;
-  string delta_type = "moderate";
+    int T = 1200;
+    int default_vel = 20, neblize_vel = 10;
+    bool first_improve = true;
+    string delta_type = "moderate";
 
-  convTime >> T;
-  convFirstImprove >> first_improve;
-  convDeltaSwap >> delta_type;
-  double alpha = 0.8;
+    convTime >> T;
+    convFirstImprove >> first_improve;
+    convDeltaSwap >> delta_type;
+    double alpha = 0.8;
 
-  auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
+    auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
 
-  Solution sol = StartSolution::CreateStartSolution(input);
+    Solution sol = StartSolution::CreateStartSolution(input);
 
-  auto *ls = new LocalSearch(input, &sol);
-  Route *r = sol.getRouteFromScenario(0);
-  print_result(r);
-  getchar();
-  // r->RemoveBlockFromRoute(5);
-  r->RemoveBlockFromRoute(2);
-  r->RemoveBlockFromRoute(1);
+    auto *ls = new LocalSearch(input, &sol);
+    Route *r = sol.getRouteFromScenario(0);
+    print_result(r);
+    getchar();
+    // r->RemoveBlockFromRoute(5);
+    r->RemoveBlockFromRoute(2);
+    r->RemoveBlockFromRoute(1);
 
-  print_result(r);
-  getchar();
+    print_result(r);
+    getchar();
 
-  r->AddBlockToRoute(5, false);
-  r->RemoveBlockFromAttended(4);
-  r->AddBlockToAttended(3);
-  print_result(r);
-  getchar();
-  // vector<pair<int, int_pair>> best_swaps;
-  // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
+    r->AddBlockToRoute(5, false);
+    r->RemoveBlockFromAttended(4);
+    r->AddBlockToAttended(3);
+    print_result(r);
+    getchar();
+    // vector<pair<int, int_pair>> best_swaps;
+    // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
 
-  // Lagrangean *lag = new Lagrangean(input);
-  // lag->lagrangean_relax(result_file, lambda, maxIters, reduction);
+    // Lagrangean *lag = new Lagrangean(input);
+    // lag->lagrangean_relax(result_file, lambda, maxIters, reduction);
 
-  // if (stochastic_model == "FALSE")
-  // {
-  //   // DeterministicModel *dm = new DeterministicModel(input);
-  //   DeterministicModelWalk *dm = new DeterministicModelWalk(input);
-  //   Solution sol = dm->Run(false, "3600", model, frac_cut);
-  //   sol.WriteSolution(result_file);
-  // }
-  // else
-  // {
-  //   StochasticModel *sm = new StochasticModel(input);
-  //   // StochasticModelWalk *sm = new StochasticModelWalk(input);
-  //   Solution sol = sm->Run(false, "3600", model, frac_cut);
-  //   sol.WriteSolution(result_file);
-  // }
+    // if (stochastic_model == "FALSE")
+    // {
+    //   // DeterministicModel *dm = new DeterministicModel(input);
+    //   DeterministicModelWalk *dm = new DeterministicModelWalk(input);
+    //   Solution sol = dm->Run(false, "3600", model, frac_cut);
+    //   sol.WriteSolution(result_file);
+    // }
+    // else
+    // {
+    //   StochasticModel *sm = new StochasticModel(input);
+    //   // StochasticModelWalk *sm = new StochasticModelWalk(input);
+    //   Solution sol = sm->Run(false, "3600", model, frac_cut);
+    //   sol.WriteSolution(result_file);
+    // }
 
-  return 0;
+    return 0;
 }
