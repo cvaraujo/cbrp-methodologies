@@ -30,8 +30,8 @@ class LocalSearch {
     double GetWeakDeltaSwapBlocksStartScenario(int b1, int b2);
 
     double GetUpdatedSecondStageCases(const Scenario *scenario, int block, bool attended_first_stage) {
-        double cases = scenario->getCasesPerBlock(block), alpha = input->getAlpha();
-        return attended_first_stage ? (1.0 - alpha) * cases : cases;
+        double cases = scenario->getCasesPerBlock(block);
+        return attended_first_stage ? (1.0 - input->getAlpha()) * cases : cases;
     }
 
     double GetUpdatedFirstStageCases(int block) {
@@ -53,13 +53,15 @@ class LocalSearch {
 
     double GetWeakDeltaInsertBlock(int block);
 
+    double GetWeakDeltaRemoveBlock(int block);
+
     double GetModerateDeltaInsertBlock(int block, vector<pair<int, int_pair>> &second_stage_swaps);
 
-    double
-    GetModerateDeltaOutRouteSwap(int b1, int b2,
-                                 vector<pair<int, int_pair>> &second_stage_swaps);
+    double GetModerateDeltaRemoveBlock(int block, vector<pair<int, int_pair>> &second_stage_swaps);
 
-    double ComputeSwapBlocks(vector<pair<int, int_pair>> &best_swaps, bool is_out_route);
+    double GetModerateDeltaOutRouteSwap(int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps);
+
+    Change ComputeSwapBlocks(bool is_out_route);
 
     Change ComputeOutRouteSwapBlocksStartScenario();
 
@@ -69,9 +71,7 @@ class LocalSearch {
 
     Change SelectRandomRemoveBlock();
 
-    double TryImproveRouteTime();
-
-    Change SelectRandomInsertBlock();
+    Change SelectRandomInsertBlock(bool try_improve_route);
 
     int_pair GetRandomBlocksFeasibleSwap(Route *route);
 
@@ -79,13 +79,28 @@ class LocalSearch {
 
     void InsertOutRouteBlock(int route_idx, int block);
 
-    double RunDefaultPerturbation(vector<pair<int, int_pair>> &swaps, bool use_random);
+    Change RunDefaultPerturbation(bool use_random);
 
     Change RandomBlockChange();
 
     double ComputeRandomBlockDiversification(vector<pair<int, int_pair>> &swaps);
 
     double ComputeRandomBlockIntensification(vector<pair<int, int_pair>> &swaps);
+
+    // TODO: implement the following functions
+    Change SelectTimeInsertBlock();
+
+    Change SelectTimeRemoveBlock();
+
+    Change SelectProfitInsertBlock();
+
+    Change SelectProfitRemoveBlock();
+
+    void ImproveRouteTime();
+
+    int ApplyNodeSwap(vector<int> &route);
+
+    int getRouteConnectionTime(int prev, int node, int next);
 };
 
 #endif

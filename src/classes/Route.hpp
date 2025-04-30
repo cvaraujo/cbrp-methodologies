@@ -206,7 +206,11 @@ class Route {
         if (IsBlockInRoute(block)) {
             return 0.0;
         }
-    }
+    };
+
+    void ChangeRouteTime(int time) {
+        this->time_route += time;
+    };
 
     int GetBlockInsertionTime(int prev_node, int next_node, int new_block);
 

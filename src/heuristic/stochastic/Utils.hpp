@@ -59,6 +59,15 @@ class Utils {
         }
     }
 
+    static string GenerateStringFromIntVector(vector<int> blocks) {
+        stringstream result;
+        vector<int> keys(std::move(blocks));
+        sort(keys.begin(), keys.end());
+        copy(keys.begin(), keys.end(), ostream_iterator<int>(result, "_"));
+
+        return result.str();
+    };
+
     // static double ComputeOFFromSolution(Input *input, Solution *solution)
     // {
     //     double of = 0;

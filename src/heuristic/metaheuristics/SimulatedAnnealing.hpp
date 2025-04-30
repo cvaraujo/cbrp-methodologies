@@ -30,6 +30,7 @@ class SimulatedAnnealing {
         auto *current_solution = new Solution(solution);
         auto *ls = new LocalSearch(input, current_solution);
 
+        Change best_change, curr_change;
         double delta, ap;
         vector<pair<int, int_pair>> curr_swaps, best_swaps;
         while (temperature > temperature_min) {
@@ -38,10 +39,12 @@ class SimulatedAnnealing {
                     best_solution = current_solution;
 
                 // TODO: improve this to use all types of swap
-                delta = ls->RunDefaultPerturbation(curr_swaps);
+                curr_change = ls->RunDefaultPerturbation(true);
+                delta = curr_change.delta;
                 ap = exp(delta / temperature);
 
                 if (ap > dis(gen)) {
+                    // TODO: Genaralize
                     best_swaps = curr_swaps;
                     current_solution->ApplySwaps(best_swaps, delta);
                 }
