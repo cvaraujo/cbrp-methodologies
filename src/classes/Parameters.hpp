@@ -15,6 +15,7 @@ using namespace std;
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <queue>
 #include <random>
 #include <vector>
 
@@ -29,11 +30,12 @@ using namespace std;
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
-// #include <lemon/list_graph.h>
-// #include <lemon/preflow.h>
+#include <lemon/list_graph.h>
+#include <lemon/preflow.h>
 
 const int INF = INT_MAX;
 
 typedef pair<int, int> int_pair;
+typedef pair<int, double> double_pair;
 
 #endif // DPARP_INCLUDE_H

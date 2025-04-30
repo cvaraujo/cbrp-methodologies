@@ -18,7 +18,7 @@ class Input {
     ShortestPath *sp = nullptr;
     BlockConnection *bc = nullptr;
     vector<Scenario> scenarios;
-    vector<double> first_stage_profit;
+    vector<double> first_stage_profit, time_profit_proportion;
     vector<vector<vector<Arc *>>> arcs_in_path;
     vector<vector<int>> arc_length;
 
@@ -49,17 +49,20 @@ class Input {
         this->bc = new BlockConnection(*input->bc);
     };
 
-    ~Input() {}
+    ~Input() = default;
 
     void updateFirstStageCases() {
         int B = graph->getB();
         this->first_stage_profit = vector<double>(B);
+        this->time_profit_proportion = vector<double>(B);
 
         for (int b = 0; b < B; b++) {
             this->first_stage_profit[b] = graph->getCasesPerBlock(b);
-            for (int s = 0; s < S; s++)
+            for (int s = 0; s < S; s++) {
                 this->first_stage_profit[b] += alpha * scenarios[s].getProbability() *
                                                scenarios[s].getCasesPerBlock(b);
+            }
+            this->time_profit_proportion[b] = first_stage_profit[b] > 0.0 ? first_stage_profit[b] / double(this->getBlockTime(b)) : 0.0;
         }
     };
 
@@ -82,15 +85,15 @@ class Input {
         return this->scenarios[s].getProbability();
     }
 
-    vector<int> getBlockConnectionRoute(string key) {
+    vector<int> getBlockConnectionRoute(const string &key) {
         return this->bc->getBlocksAttendPath(key);
     };
 
-    int getBlockConnectionTime(string key) {
+    int getBlockConnectionTime(const string &key) {
         return this->bc->getBlocksAttendCost(key);
     };
 
-    vector<int> getBestOrderToAttendBlocks(string key) {
+    vector<int> getBestOrderToAttendBlocks(const string &key) {
         return this->bc->getBestOrderToAttendBlocks(key);
     };
 
@@ -154,13 +157,17 @@ class Input {
         }
     }
 
+    double getTimeProfitProportion(int b) {
+        return time_profit_proportion[b];
+    }
+
     vector<Scenario> getScenarios() { return this->scenarios; }
 
     ShortestPath *getShortestPath() { return this->sp; }
 
     void setShortestPath(ShortestPath *sp) { this->sp = sp; }
 
-    double getAlpha() { return this->alpha; }
+    [[nodiscard]] double getAlpha() const { return this->alpha; }
 
     void setAlpha(double alpha) { this->alpha = alpha; }
 
@@ -168,25 +175,25 @@ class Input {
 
     void setGraph(Graph *graph) { this->graph = graph; }
 
-    void setScenarios(vector<Scenario> scenarios) { this->scenarios = scenarios; }
+    void setScenarios(vector<Scenario> scenarios) { this->scenarios = std::move(scenarios); }
 
     Scenario *getScenario(int i) { return &this->scenarios[i]; }
 
-    void setScenario(int i, Scenario scenario) { this->scenarios[i] = scenario; }
+    void setScenario(int i, Scenario scenario) { this->scenarios[i] = std::move(scenario); }
 
-    int getS() { return this->S; }
+    [[nodiscard]] int getS() const { return this->S; }
 
     void setS(int s) { this->S = s; }
 
-    int getT() { return this->T; }
+    [[nodiscard]] int getT() const { return this->T; }
 
     void setT(int t) { this->T = t; }
 
-    bool isPreprocessing() { return this->preprocessing; }
+    [[nodiscard]] bool isPreprocessing() const { return this->preprocessing; }
 
-    bool isTrail() { return this->is_trail; }
+    [[nodiscard]] bool isTrail() const { return this->is_trail; }
 
-    bool isWalkMtzGraph() { return this->walk_mtz_model; }
+    [[nodiscard]] bool isWalkMtzGraph() const { return this->walk_mtz_model; }
 
     void setBlockConnection(BlockConnection *bc) { this->bc = bc; }
 

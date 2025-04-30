@@ -1,6 +1,7 @@
 //
 // Created by Carlos on 26/07/2024.
 //
+#include "Changes.hpp"
 #include "Parameters.hpp"
 #include "Route.hpp"
 #include <utility>
@@ -108,7 +109,7 @@ class Solution {
         return *this;
     }
 
-    void WriteSolution(string output_file) {
+    void WriteSolution(const string &output_file) {
         ofstream output;
         output.open(output_file);
         Graph *graph = this->input->getGraph();
@@ -149,7 +150,6 @@ class Solution {
             this->scenario_profit = vector<double>(S + 1, 0.0);
         }
 
-        Graph *graph = this->input->getGraph();
         this->routes[s] = new Route(this->input, x, y);
         this->x[s] = x, this->y[s] = y;
         this->scenario_profit[s] = profit;
@@ -164,7 +164,7 @@ class Solution {
 
     void ReplaceScenarioSolution(int s, vector<int_pair> x, vector<int> y, Route *route) {
         this->routes[s] = route;
-        this->x[s] = x, this->y[s] = y;
+        this->x[s] = std::move(x), this->y[s] = std::move(y);
     };
 
     void ScenarioBlockSwapWithoutOF(int s, int b1, int b2) {
@@ -188,6 +188,41 @@ class Solution {
             this->routes[s]->SwapInRouteBlocks(b1, b2);
         }
         this->of += delta;
+    }
+
+    void ApplyChanges(const Change &change) {
+        if (!ChangeUtils::isEmpty(change)) {
+            if (ChangeUtils::hasDeletions(change)) {
+                ApplyRemovals(change.deletions);
+            }
+            if (ChangeUtils::hasInsertions(change)) {
+                ApplyInsertions(change.insertions);
+            }
+            if (ChangeUtils::hasSwaps(change)) {
+                ApplySwaps(change.swaps);
+            }
+
+            this->of += change.delta;
+        }
+    }
+
+    void ApplyRemovals(const vector<int_pair> &removals) {
+        for (auto &[scenario, block] : removals) {
+            this->routes[scenario]->RemoveBlockFromRoute(block);
+        }
+    }
+
+    void ApplyInsertions(const vector<int_pair> &insertions) {
+        for (auto &[scenario, block] : insertions) {
+            this->routes[scenario]->AddBlockToRoute(block, true);
+        }
+    }
+
+    void ApplySwaps(const vector<pair<int, int_pair>> &swaps) {
+        for (auto &[scenario, blocks] : swaps) {
+            int to_remove = blocks.first, to_insert = blocks.second;
+            this->routes[scenario]->GeneralSwapBlocks(to_remove, to_insert);
+        }
     }
 
     double ComputeCurrentSolutionOF() {

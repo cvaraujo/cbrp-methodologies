@@ -86,6 +86,17 @@ class ChangeUtils {
         change.deletions.emplace_back(scenario, to_remove);
     }
 
+    static bool hasSwaps(const Change &change) {
+        return !change.swaps.empty();
+    }
+
+    static bool hasInsertions(const Change &change) {
+        return !change.insertions.empty();
+    }
+
+    static bool hasDeletions(const Change &change) {
+        return !change.deletions.empty();
+    }
 }; // namespace ChangeUtils
 
 #endif

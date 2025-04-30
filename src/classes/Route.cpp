@@ -114,22 +114,37 @@ void Route::SwapInRouteBlocks(int b1, int b2) {
     this->AddBlockToAttended(b2);
 }
 
+void Route::SwapOutRouteBlocks(int b1, int b2) {
+    // Basic checks
+    if (!this->blocks_attended[b1])
+        throw std::runtime_error("[!!!] Block " + to_string(b1) + " not attended to be swapped!");
+
+    if (this->blocks_attended[b2])
+        throw std::runtime_error("[!!!] Block " + to_string(b2) + " already attended!");
+
+    this->RemoveBlockFromRoute(b1);
+    this->AddBlockToRoute(b2, true);
+}
+
 void Route::GeneralSwapBlocks(int b1, int b2) {
     bool b1_in_route = this->IsBlockInRoute(b1), b2_in_route = this->IsBlockInRoute(b2);
     bool b1_attended = this->IsBlockAttended(b1), b2_attended = this->IsBlockAttended(b2);
 
-    if ((b1_attended && b2_attended) || (!b1_in_route && !b2_in_route)) {
+    if (b1_attended == b2_attended) {
         cout << "[!] Both blocks are in same situation, the swap is not feasible!" << endl
              << "(" << b1_attended << ", " << b2_attended << ")" << endl;
         return;
     }
 
     // Swap in route
-    if ((b1_attended && b2_in_route) || (b1_in_route && b2_attended)) {
+    if (b1_in_route && b2_in_route) {
         int to_remove = b1_attended ? b1 : b2;
         int to_insert = b2_attended ? b1 : b2;
         this->SwapInRouteBlocks(to_remove, to_insert);
-    } else if (b1_in_route && !b2_in_route) {
+    } else {
+        int to_remove = b1_attended ? b1 : b2;
+        int to_insert = b2_attended ? b1 : b2;
+        this->SwapOutRouteBlocks(to_remove, to_insert);
     }
 }
 

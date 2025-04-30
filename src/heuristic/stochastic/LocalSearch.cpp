@@ -8,18 +8,22 @@
 #include <utility>
 
 Change LocalSearch::RunDefaultPerturbation(bool use_random) {
+    cout << "[!] Running default perturbation" << endl;
     Change change;
 
+    cout << "[!] Try InRoute Swaps" << endl;
     // Best InRoute Swaps
     change = ComputeSwapBlocks(false);
     if (!ChangeUtils::isEmpty(change))
         return change;
 
+    cout << "[!] Try OutRoute Swaps" << endl;
     // Best OutRoute Swap
     change = ComputeSwapBlocks(true);
     if (!ChangeUtils::isEmpty(change))
         return change;
 
+    cout << "[!] Try Random Block Changes" << endl;
     // Ramdom Block Change
     change = RandomBlockChange();
     if (!ChangeUtils::isEmpty(change))
@@ -34,29 +38,17 @@ Change LocalSearch::RandomBlockChange() {
     uniform_int_distribution<> distrib(0, 2);
     int rand_option = distrib(gen);
 
+    // TODO: generalize the options for Remove and Insert
     if (rand_option == 0) {
-        // DONE
         return SelectRandomSwapBlocks();
     } else if (rand_option == 1) {
-        // DONE
-        return SelectRandomRemoveBlock();
+        return SelectRemoveBlock(3);
     } else {
-        // WIP
-        return SelectRandomInsertBlock(true);
+        return SelectInsertBlock(3);
     }
 }
 
-// Intensification step try to improve route and insert new blocks to route
-double LocalSearch::ComputeRandomBlockIntensification(vector<pair<int, int_pair>> &swaps) {
-    return 0.0;
-}
-
-// Diversification step try to remove blocks and nodes from route
-double LocalSearch::ComputeRandomBlockDiversification(vector<pair<int, int_pair>> &swaps) {
-    return 0.0;
-}
-
-Change LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
+int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
     if (try_improve_route)
         ImproveRouteTime();
 
@@ -73,18 +65,10 @@ Change LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
     }
 
     if (blocks.size() <= 0)
-        return ChangeUtils::createEmptyChange();
+        return -1;
 
     Utils::FastShuffle(blocks);
-    int to_insert_b = blocks[0];
-    vector<pair<int, int_pair>> swaps;
-    double delta = 0.0;
-    if (this->delta_type == "weak")
-        delta = GetWeakDeltaInsertBlock(to_insert_b);
-    else if (this->delta_type == "moderate")
-        delta = GetModerateDeltaInsertBlock(to_insert_b, swaps);
-
-    return ChangeUtils::newChange(delta);
+    return blocks[0];
 }
 
 double LocalSearch::GetWeakDeltaInsertBlock(int block) {
@@ -491,6 +475,7 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
 }
 
 Change LocalSearch::SelectRandomSwapBlocks() {
+    cout << "\t[*] SelectRandomSwapBlocks" << endl;
     Route *route = solution->getRouteFromScenario(0);
     int_pair b1nb2 = GetRandomBlocksFeasibleSwap(route);
     int to_remove = b1nb2.first, to_insert = b1nb2.second;
@@ -511,19 +496,20 @@ Change LocalSearch::SelectRandomSwapBlocks() {
     return ChangeUtils::newChange(delta, swaps);
 }
 
-Change LocalSearch::SelectRandomRemoveBlock() {
-    Route *route = solution->getRouteFromScenario(0);
-    set<int> r_blocks = route->getRouteBlocks();
-    static mt19937 gen(random_device{}());
-    uniform_int_distribution<> distrib(0, int(r_blocks.size()) - 1);
-
-    int set_idx = distrib(gen);
-    auto it = r_blocks.begin();
-    advance(it, set_idx);
-
-    int to_remove_b = *it;
-
+// 0 = HighestTime, 1 = lowestProfit, 2 = lowestProportion, 3 = random
+Change LocalSearch::SelectRemoveBlock(int option) {
+    cout << "\t[*] SelectRemoveBlock" << endl;
+    int to_remove_b = -1;
     double delta;
+    if (option <= 0) {
+        to_remove_b = SelectTopTimeBlock(false, true);
+    } else if (option <= 1) {
+        to_remove_b = SelectTopProfitBlock(true, true);
+    } else if (option <= 2) {
+        to_remove_b = SelectTopProportionBlock(true, true);
+    } else
+        to_remove_b = SelectRandomRemoveBlock();
+
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
         delta = GetWeakDeltaRemoveBlock(to_remove_b);
@@ -532,6 +518,36 @@ Change LocalSearch::SelectRandomRemoveBlock() {
 
     Change change = ChangeUtils::newChange(delta, second_stage_swaps);
     ChangeUtils::addDeletion(change, 0, to_remove_b);
+    return change;
+}
+
+// 0 = LowestTime, 1 = HighestProfit, 2 = HighestProportion, 3 = Random
+Change LocalSearch::SelectInsertBlock(int option) {
+    cout << "\t[*] SelectInsertBlock" << endl;
+    int to_insert_b = -1;
+    if (option <= 0) {
+        to_insert_b = SelectTopTimeBlock(true, false);
+    } else if (option <= 1) {
+        to_insert_b = SelectTopProfitBlock(false, false);
+    } else if (option <= 2) {
+        to_insert_b = SelectTopProportionBlock(false, false);
+    }
+
+    if (to_insert_b == -1)
+        to_insert_b = SelectRandomInsertBlock(true);
+
+    if (to_insert_b == -1)
+        return ChangeUtils::createEmptyChange();
+
+    double delta;
+    vector<pair<int, int_pair>> second_stage_swaps;
+    if (this->delta_type == "weak")
+        delta = GetWeakDeltaInsertBlock(to_insert_b);
+    else
+        delta = GetModerateDeltaInsertBlock(to_insert_b, second_stage_swaps);
+
+    Change change = ChangeUtils::newChange(delta, second_stage_swaps);
+    ChangeUtils::addInsertion(change, 0, to_insert_b);
     return change;
 }
 

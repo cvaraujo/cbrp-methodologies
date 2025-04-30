@@ -12,6 +12,17 @@
 #include "Utils.hpp"
 
 class LocalSearch {
+    struct CompareSecond {
+        bool operator()(const int_pair &a, const int_pair &b) const {
+            return a.second > b.second; // min-heap based on second
+        }
+    };
+
+    struct CompareSecondDouble {
+        bool operator()(const double_pair &a, const double_pair &b) const {
+            return a.second > b.second; // min-heap based on second
+        }
+    };
 
   private:
     Input *input;
@@ -69,9 +80,7 @@ class LocalSearch {
 
     Change SelectRandomSwapBlocks();
 
-    Change SelectRandomRemoveBlock();
-
-    Change SelectRandomInsertBlock(bool try_improve_route);
+    int SelectRandomInsertBlock(bool try_improve_route);
 
     int_pair GetRandomBlocksFeasibleSwap(Route *route);
 
@@ -87,14 +96,149 @@ class LocalSearch {
 
     double ComputeRandomBlockIntensification(vector<pair<int, int_pair>> &swaps);
 
-    // TODO: implement the following functions
-    Change SelectTimeInsertBlock();
+    int SelectTopTimeBlock(bool use_lowest, bool is_remove) {
+        Route *route = this->solution->getRouteFromScenario(0);
+        set<int> route_blocks = route->getBlocks();
 
-    Change SelectTimeRemoveBlock();
+        if (is_remove) {
+            int selec_block = -1, top_time = 0, time;
+            for (int b : route_blocks) {
+                time = use_lowest ? input->getBlockTime(b) : -input->getBlockTime(b);
+                if (time < top_time) {
+                    selec_block = b;
+                    top_time = time;
+                }
+            }
+            return selec_block;
+        }
 
-    Change SelectProfitInsertBlock();
+        priority_queue<int_pair, vector<int_pair>, CompareSecond> pq;
+        int block_time = 0;
+        for (int b : route_blocks) {
+            block_time = use_lowest ? input->getBlockTime(b) : -input->getBlockTime(b);
+            pq.emplace(b, block_time);
+        }
 
-    Change SelectProfitRemoveBlock();
+        int block = -1;
+        while (!pq.empty()) {
+            int_pair p = pq.top();
+            block = p.first;
+            if (route->IsBlockInsertionFactible(block)) {
+                return block;
+            }
+            pq.pop();
+        }
+        return block;
+    };
+
+    int SelectTopProfitBlock(bool use_lowest, bool is_remove) {
+        Route *route = this->solution->getRouteFromScenario(0);
+        set<int> route_blocks = route->getBlocks();
+
+        if (is_remove) {
+            int selec_block = -1;
+            double top_profit = INF, profit;
+
+            for (int b : route_blocks) {
+                profit = input->getFirstStageProfit(b);
+                if (profit <= 0)
+                    continue;
+
+                profit = use_lowest ? profit : -profit;
+
+                if (profit < top_profit) {
+                    selec_block = b;
+                    top_profit = profit;
+                }
+            }
+            return selec_block;
+        }
+
+        priority_queue<double_pair, vector<double_pair>, CompareSecond> pq;
+        double block_profit = 0;
+        for (int b : route_blocks) {
+            block_profit = input->getFirstStageProfit(b);
+            if (block_profit <= 0)
+                continue;
+
+            block_profit = use_lowest ? block_profit : -block_profit;
+            pq.emplace(b, block_profit);
+        }
+
+        int block = -1;
+        while (!pq.empty()) {
+            int_pair p = pq.top();
+            block = p.first;
+            if (route->IsBlockInsertionFactible(block)) {
+                return block;
+            }
+            pq.pop();
+        }
+        return block;
+    };
+
+    int SelectTopProportionBlock(bool use_lowest, bool is_remove) {
+        Route *route = this->solution->getRouteFromScenario(0);
+        set<int> route_blocks = route->getBlocks();
+
+        if (is_remove) {
+            int selec_block = -1;
+            double top_proportion = INF, proportion;
+
+            for (int b : route_blocks) {
+                proportion = input->getTimeProfitProportion(b);
+                if (proportion <= 0)
+                    continue;
+
+                proportion = use_lowest ? proportion : -proportion;
+
+                if (proportion < top_proportion) {
+                    selec_block = b;
+                    top_proportion = proportion;
+                }
+            }
+            return selec_block;
+        }
+
+        priority_queue<double_pair, vector<double_pair>, CompareSecond> pq;
+        double block_proportion = 0;
+        for (int b : route_blocks) {
+            block_proportion = input->getTimeProfitProportion(b);
+            if (block_proportion <= 0)
+                continue;
+
+            block_proportion = use_lowest ? block_proportion : -block_proportion;
+            pq.emplace(b, block_proportion);
+        }
+
+        int block = -1;
+        while (!pq.empty()) {
+            int_pair p = pq.top();
+            block = p.first;
+            if (route->IsBlockInsertionFactible(block)) {
+                return block;
+            }
+            pq.pop();
+        }
+        return block;
+    };
+
+    int SelectRandomRemoveBlock() {
+        Route *route = solution->getRouteFromScenario(0);
+        set<int> r_blocks = route->getRouteBlocks();
+        static mt19937 gen(random_device{}());
+        uniform_int_distribution<> distrib(0, int(r_blocks.size()) - 1);
+
+        int set_idx = distrib(gen);
+        auto it = r_blocks.begin();
+        advance(it, set_idx);
+
+        return *it;
+    };
+
+    Change SelectRemoveBlock(int option);
+
+    Change SelectInsertBlock(int option);
 
     void ImproveRouteTime();
 

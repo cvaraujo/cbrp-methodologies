@@ -95,6 +95,8 @@ class Route {
 
     void SwapInRouteBlocks(int b1, int b2);
 
+    void SwapOutRouteBlocks(int b1, int b2);
+
     void RemoveBlockFromAttended(int b);
 
     void RemoveNodeFromRoute(int node);
@@ -196,16 +198,6 @@ class Route {
             time_gain += EvaluateNodeRemoval(node);
 
         return time_gain;
-    };
-
-    int EvaluateTimeIncreaseByAddingBlock(int block) {
-        return 0;
-    };
-
-    int IsBlockInsertionFeasible(int block) {
-        if (IsBlockInRoute(block)) {
-            return 0.0;
-        }
     };
 
     void ChangeRouteTime(int time) {

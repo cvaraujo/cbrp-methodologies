@@ -33,20 +33,29 @@ class SimulatedAnnealing {
         Change best_change, curr_change;
         double delta, ap;
         vector<pair<int, int_pair>> curr_swaps, best_swaps;
-        while (temperature > temperature_min) {
-            for (int i = 0; i < max_iterations; i++) {
-                if (best_solution->getOf() < current_solution->getOf())
-                    best_solution = current_solution;
 
-                // TODO: improve this to use all types of swap
+        while (temperature > temperature_min) {
+            cout << "[*] Temperature: " << temperature << ", Temp. Min: " << temperature_min << endl;
+            for (int i = 0; i < max_iterations; i++) {
+                cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
+                // TODO: Check changes
+                cout << "\t[*] Checking the OF from CurrSol: " << current_solution->ComputeCurrentSolutionOF() << endl;
+                getchar();
+
+                if (best_solution->getOf() < current_solution->getOf()) {
+                    best_solution = current_solution;
+                }
+
                 curr_change = ls->RunDefaultPerturbation(true);
+                if (ChangeUtils::isEmpty(curr_change))
+                    continue;
+
                 delta = curr_change.delta;
                 ap = exp(delta / temperature);
+                cout << "[*] Delta: " << delta << ", AP: " << ap << endl;
 
-                if (ap > dis(gen)) {
-                    // TODO: Genaralize
-                    best_swaps = curr_swaps;
-                    current_solution->ApplySwaps(best_swaps, delta);
+                if (delta > 0 || ap > dis(gen)) {
+                    current_solution->ApplyChanges(curr_change);
                 }
             }
             temperature *= alpha;
