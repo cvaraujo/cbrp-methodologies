@@ -11,20 +11,26 @@ Change LocalSearch::RunDefaultPerturbation(bool use_random) {
     cout << "[!] Running default perturbation" << endl;
     Change change;
 
-    cout << "[!] Try InRoute Swaps" << endl;
-    // Best InRoute Swaps
-    change = ComputeSwapBlocks(false);
-    if (!ChangeUtils::isEmpty(change))
-        return change;
+    int rand_option = 3;
+    if (use_random) {
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> distrib(0, 2);
+        rand_option = distrib(gen);
+    }
 
-    cout << "[!] Try OutRoute Swaps" << endl;
-    // Best OutRoute Swap
-    change = ComputeSwapBlocks(true);
+    if (rand_option == 0) {
+        cout << "[!] Try InRoute Swaps" << endl;
+        change = ComputeSwapBlocks(false);
+    } else if (rand_option == 1) {
+        cout << "[!] Try OutRoute Swaps" << endl;
+        change = ComputeSwapBlocks(true);
+    }
+
     if (!ChangeUtils::isEmpty(change))
         return change;
 
     cout << "[!] Try Random Block Changes" << endl;
-    // Ramdom Block Change
     change = RandomBlockChange();
     if (!ChangeUtils::isEmpty(change))
         return change;
@@ -38,17 +44,21 @@ Change LocalSearch::RandomBlockChange() {
     uniform_int_distribution<> distrib(0, 2);
     int rand_option = distrib(gen);
 
-    // TODO: generalize the options for Remove and Insert
+    Change change;
     if (rand_option == 0) {
-        return SelectRandomSwapBlocks();
+        change = SelectRandomSwapBlocks();
     } else if (rand_option == 1) {
-        return SelectRemoveBlock(3);
-    } else {
-        return SelectInsertBlock(3);
+        change = SelectInsertBlock(3);
     }
+
+    if (!ChangeUtils::isEmpty(change))
+        return change;
+
+    return SelectRemoveBlock(3);
 }
 
 int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
+    cout << "\t[*] SelectRandomInsertBlock" << endl;
     if (try_improve_route)
         ImproveRouteTime();
 
@@ -64,7 +74,7 @@ int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
         }
     }
 
-    if (blocks.size() <= 0)
+    if (blocks.empty())
         return -1;
 
     Utils::FastShuffle(blocks);
@@ -72,29 +82,42 @@ int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
 }
 
 double LocalSearch::GetWeakDeltaInsertBlock(int block) {
+    cout << "[*] Weak Insert Block: " << block << endl;
     double delta = input->getFirstStageProfit(block);
 
+    cout << "\t[*] Delta FS: " << delta << endl;
     for (int s = 1; s <= input->getS(); s++) {
         Route *s_route = solution->getRouteFromScenario(s);
-        if (s_route->IsBlockAttended(block))
+        if (s_route->IsBlockAttended(block)) {
+            cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
             delta -= input->getSecondStageProfit(s - 1, block);
+        }
     }
 
+    cout << "\t[*] Delta SS: " << delta << endl;
+    if (std::abs(delta) < EPS)
+        delta = 0.0;
     return delta;
 }
 
 double LocalSearch::GetWeakDeltaRemoveBlock(int block) {
+    cout << "[*] Weak Remove Block: " << block << endl;
     Route *first_stage_route = solution->getRouteFromScenario(0);
     if (!first_stage_route->IsBlockAttended(block))
         return 0.0;
 
     double delta = -input->getFirstStageProfit(block);
+    cout << "\t[*] Delta FS: " << delta << endl;
+
     for (int s = 1; s <= input->getS(); s++) {
         Route *s_route = solution->getRouteFromScenario(s);
-        if (s_route->IsBlockAttended(block))
+        if (s_route->IsBlockAttended(block)) {
+            cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
             delta += input->getSecondStageProfit(s - 1, block);
+        }
     }
 
+    cout << "\t[*] Delta SS: " << delta << endl;
     return delta;
 }
 
@@ -106,7 +129,7 @@ double LocalSearch::GetModerateDeltaRemoveBlock(int block, vector<pair<int, int_
     double delta = -input->getFirstStageProfit(block), cases_bs, prob;
     int lowest_in_block = -1, S = input->getS();
     second_stage_swaps = vector<pair<int, int_pair>>();
-    second_stage_swaps.reserve(S);
+    second_stage_swaps.reserve(S + 1);
 
     for (int s = 1; s <= S; s++) {
         Scenario *scenario = input->getScenario(s - 1);
@@ -117,7 +140,7 @@ double LocalSearch::GetModerateDeltaRemoveBlock(int block, vector<pair<int, int_
         if (s_route->IsBlockAttended(block))
             delta += input->getSecondStageProfit(s - 1, block);
         else if (s_route->IsBlockInRoute(block) && cases_bs > 0) {
-            lowest_in_block = GetBestSecondStageOptionIfB1LeaveFSSolution(scenario, first_stage_route, s_route, block, block);
+            lowest_in_block = GetBestSecondStageOptionIfB1LeaveFSSolution(scenario, first_stage_route, s_route, block, block, 0);
 
             if (lowest_in_block != -1) {
                 bool attended_fs = first_stage_route->IsBlockAttended(lowest_in_block);
@@ -126,6 +149,9 @@ double LocalSearch::GetModerateDeltaRemoveBlock(int block, vector<pair<int, int_
             }
         }
     }
+
+    if (std::abs(delta) <= EPS)
+        delta = 0.0;
     return delta;
 }
 
@@ -135,7 +161,7 @@ double LocalSearch::GetModerateDeltaInsertBlock(int block, vector<pair<int, int_
     int S = input->getS(), highest_block = -1;
     bool attended_fs;
     second_stage_swaps = vector<pair<int, int_pair>>();
-    second_stage_swaps.reserve(S);
+    second_stage_swaps.reserve(2 * S + 1);
 
     for (int s = 1; s <= S; s++) {
         Scenario *scenario = input->getScenario(s - 1);
@@ -144,13 +170,14 @@ double LocalSearch::GetModerateDeltaInsertBlock(int block, vector<pair<int, int_
         cases_bs = scenario->getCasesPerBlock(block);
 
         if (s_route->IsBlockAttended(block)) {
-            highest_block = GetBestSecondStageOptionIfB2EnterFSSolution(scenario, first_stage_route, s_route, block, block, -1);
+            highest_block = GetBestSecondStageOptionIfB2EnterFSSolution(scenario, first_stage_route, s_route, block, block, -1, 0);
 
             if (highest_block != -1) {
                 attended_fs = first_stage_route->IsBlockAttended(highest_block);
                 delta += prob * (GetUpdatedSecondStageCases(scenario, highest_block, attended_fs) - GetUpdatedSecondStageCases(scenario, block, false));
                 second_stage_swaps.emplace_back(s, make_pair(block, highest_block));
-            }
+            } else
+                delta -= input->getSecondStageProfit(s - 1, block);
         }
     }
     return delta;
@@ -183,11 +210,9 @@ double LocalSearch::GetWeakDeltaSwapBlocksStartScenario(int b1, int b2) {
 };
 
 int LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(
-    const Scenario *scenario,
-    const Route *f_stage_route,
-    const Route *s_stage_route,
-    int b1, int b2) {
+    const Scenario *scenario, const Route *f_stage_route, const Route *s_stage_route, int b1, int b2, int curr_time_change) {
 
+    // cout << "\t[**] GetBestSecondStageOptionIfB1LeaveFSSolution" << endl;
     double block_profit, best_profit = LocalSearch::GetUpdatedSecondStageCases(scenario, b1, false);
     int best_block = -1;
 
@@ -199,7 +224,7 @@ int LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(
              is_block_attended_ss = s_stage_route->IsBlockAttended(block);
 
         if (!is_block_attended_ss ||
-            !s_stage_route->IsSwapTimeLowerThanT(b1, block))
+            !s_stage_route->IsSwapTimeLowerThanT(block, b1, curr_time_change))
             continue;
 
         block_profit = LocalSearch::GetUpdatedSecondStageCases(scenario, block, is_block_attended_fs);
@@ -210,7 +235,7 @@ int LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(
     return best_block;
 }
 
-int LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(Scenario *scenario, Route *f_stage_route, Route *s_stage_route, int b1, int b2, int changed) {
+int LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(Scenario *scenario, Route *f_stage_route, Route *s_stage_route, int b1, int b2, int changed, int curr_time_change) {
     double best_profit = GetUpdatedSecondStageCases(scenario, b2, true);
     int best_block = -1;
 
@@ -222,7 +247,7 @@ int LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(Scenario *scenario,
         bool is_block_attended_fs = f_stage_route->IsBlockAttended(block),
              is_block_attended_ss = s_stage_route->IsBlockAttended(block);
 
-        if (is_block_attended_ss || !s_stage_route->IsSwapTimeLowerThanT(b2, block))
+        if (is_block_attended_ss || !s_stage_route->IsSwapTimeLowerThanT(b2, block, curr_time_change))
             continue;
 
         double profit_block = GetUpdatedSecondStageCases(scenario, block, is_block_attended_fs);
@@ -234,17 +259,19 @@ int LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(Scenario *scenario,
     return best_block;
 }
 
-double LocalSearch::GetModerateDeltaSwapBlocksStartScenario(
-    int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps) {
+double LocalSearch::GetModerateDeltaSwapBlocksStartScenario(int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps) {
     Graph *graph = input->getGraph();
     Route *first_stage_route = solution->getRouteFromScenario(0);
 
-    double cases_b1 = graph->getCasesPerBlock(b1), cases_b2 = graph->getCasesPerBlock(b2), alpha = input->getAlpha(),
-           prob;
+    double cases_b1 = graph->getCasesPerBlock(b1),
+           cases_b2 = graph->getCasesPerBlock(b2),
+           alpha = input->getAlpha(), prob;
     int S = input->getS(), lowest_in_block = -1, highest_block = -1;
     double delta = cases_b2 - cases_b1;
     second_stage_swaps = vector<pair<int, int_pair>>();
+    second_stage_swaps.reserve(2 * this->input->getS() + 1);
 
+    int changed, time_diff_after_change;
     for (int s = 1; s <= S; s++) {
         Scenario *scenario = input->getScenario(s - 1);
         Route *s_route = solution->getRouteFromScenario(s);
@@ -255,34 +282,29 @@ double LocalSearch::GetModerateDeltaSwapBlocksStartScenario(
         // Update first stage change
         delta += prob * alpha * (cases_b2 - cases_b1);
 
-        int changed = -1;
-
+        changed = -1, time_diff_after_change = 0;
         // B1 leaving the First Stage Solution
         if (s_route->IsBlockAttended(b1))
             delta += alpha * prob * cases_b1;
         else if (s_route->IsBlockInRoute(b1) && cases_b1 > 0) {
-            lowest_in_block =
-                LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(
-                    scenario, first_stage_route, s_route, b1, b2);
+            lowest_in_block = LocalSearch::GetBestSecondStageOptionIfB1LeaveFSSolution(scenario, first_stage_route, s_route, b1, b2, 0);
 
             if (lowest_in_block != -1) {
                 bool attended_fs = first_stage_route->IsBlockAttended(lowest_in_block);
-                delta +=
-                    prob * (cases_b1 - GetUpdatedSecondStageCases(
-                                           scenario, lowest_in_block, attended_fs));
+                delta += prob * (cases_b1 - GetUpdatedSecondStageCases(scenario, lowest_in_block, attended_fs));
                 second_stage_swaps.emplace_back(s, make_pair(lowest_in_block, b1));
+                changed = lowest_in_block;
+                time_diff_after_change = input->getBlockTime(b1) - input->getBlockTime(lowest_in_block);
             }
         }
 
         if (s_route->IsBlockAttended(b2)) {
-            highest_block = LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(
-                scenario, first_stage_route, s_route, b1, b2, changed);
+            highest_block = LocalSearch::GetBestSecondStageOptionIfB2EnterFSSolution(scenario, first_stage_route, s_route, b1, b2, changed, time_diff_after_change);
 
             if (highest_block != -1) {
                 bool attended_fs = first_stage_route->IsBlockAttended(highest_block);
 
-                delta += prob * (GetUpdatedSecondStageCases(scenario, highest_block,
-                                                            attended_fs) -
+                delta += prob * (GetUpdatedSecondStageCases(scenario, highest_block, attended_fs) -
                                  GetUpdatedSecondStageCases(scenario, b2, false));
                 second_stage_swaps.emplace_back(s, make_pair(b2, highest_block));
             } else
@@ -300,11 +322,7 @@ Change LocalSearch::ComputeSwapBlocks(bool is_out_route) {
     vector<pair<int, int_pair>> curr_swaps, best_swaps;
     int best_b1 = -1, best_b2 = -1;
 
-    for (int b1 : route_blocks) {
-        // If b1 is not attended, continue
-        if (!route->IsBlockAttended(b1))
-            continue;
-
+    for (int b1 : route->getSequenceOfAttendingBlocks()) {
         if (is_out_route) {
             for (int b2 = 0; b2 < graph->getB(); b2++) {
                 // If b2 is attended, continue
@@ -331,8 +349,7 @@ Change LocalSearch::ComputeSwapBlocks(bool is_out_route) {
         } else {
             for (int b2 : route_blocks) {
                 // If b2 is attended, continue
-                if (b1 == b2 || this->input->getFirstStageProfit(b2) <= 0 ||
-                    route->IsBlockAttended(b2) || !route->IsSwapFeasible(b1, b2))
+                if (b1 == b2 || route->IsBlockAttended(b2) || this->input->getFirstStageProfit(b2) <= 0 || !route->IsSwapFeasible(b1, b2))
                     continue;
 
                 delta = 0.0;
@@ -435,12 +452,7 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
     int B = graph->getB();
 
     // Copy Attended blocks
-    set<int> r_blocks = route->getBlocks();
-    vector<int> route_blocks;
-    route_blocks.reserve(r_blocks.size());
-    for (int b : r_blocks)
-        if (route->IsBlockAttended(b))
-            route_blocks.push_back(b);
+    vector<int> att_blocks = route->getSequenceOfAttendingBlocks();
 
     // Copy Unattended blocks
     vector<int> other_blocks;
@@ -449,7 +461,10 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
         if (!route->IsBlockAttended(b))
             other_blocks.push_back(b);
 
-    Utils::FastShuffle(route_blocks);
+    if (other_blocks.empty() || att_blocks.empty())
+        return {-1, -1};
+
+    Utils::FastShuffle(att_blocks);
     Utils::FastShuffle(other_blocks);
 
     int b1 = -1, b2 = -1;
@@ -457,7 +472,7 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
     for (int b_insert : other_blocks) {
         is_in_route_swap = route->IsBlockInRoute(b_insert);
 
-        for (int b_remove : route_blocks) {
+        for (int b_remove : att_blocks) {
             if (is_in_route_swap) {
                 is_feasible = route->IsSwapFeasible(b_remove, b_insert);
             } else {
@@ -485,7 +500,6 @@ Change LocalSearch::SelectRandomSwapBlocks() {
 
     double delta = 0.0;
     vector<pair<int, int_pair>> swaps;
-    swaps.reserve(this->input->getS() + 1);
 
     if (this->delta_type == "weak")
         delta = GetWeakDeltaSwapBlocksStartScenario(to_remove, to_insert);
@@ -498,7 +512,7 @@ Change LocalSearch::SelectRandomSwapBlocks() {
 
 // 0 = HighestTime, 1 = lowestProfit, 2 = lowestProportion, 3 = random
 Change LocalSearch::SelectRemoveBlock(int option) {
-    cout << "\t[*] SelectRemoveBlock" << endl;
+    cout << "[*] SelectRemoveBlock" << endl;
     int to_remove_b = -1;
     double delta;
     if (option <= 0) {
@@ -510,6 +524,7 @@ Change LocalSearch::SelectRemoveBlock(int option) {
     } else
         to_remove_b = SelectRandomRemoveBlock();
 
+    cout << "\t[*] Block Selected to Remove" << endl;
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
         delta = GetWeakDeltaRemoveBlock(to_remove_b);
@@ -524,6 +539,7 @@ Change LocalSearch::SelectRemoveBlock(int option) {
 // 0 = LowestTime, 1 = HighestProfit, 2 = HighestProportion, 3 = Random
 Change LocalSearch::SelectInsertBlock(int option) {
     cout << "\t[*] SelectInsertBlock" << endl;
+
     int to_insert_b = -1;
     if (option <= 0) {
         to_insert_b = SelectTopTimeBlock(true, false);
@@ -539,12 +555,16 @@ Change LocalSearch::SelectInsertBlock(int option) {
     if (to_insert_b == -1)
         return ChangeUtils::createEmptyChange();
 
-    double delta;
+    cout << "\t[*] Block to Insert in Route: " << to_insert_b << endl;
+    double delta = 0.0;
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
         delta = GetWeakDeltaInsertBlock(to_insert_b);
     else
         delta = GetModerateDeltaInsertBlock(to_insert_b, second_stage_swaps);
+
+    if (std::abs(delta) < EPS)
+        delta = 0.0;
 
     Change change = ChangeUtils::newChange(delta, second_stage_swaps);
     ChangeUtils::addInsertion(change, 0, to_insert_b);
@@ -595,18 +615,28 @@ void LocalSearch::RunInRouteSwapImprove() {
 };
 
 void LocalSearch::ImproveRouteTime() {
+    cout << "\t[*] ImproveRouteTime" << endl;
     Route *first_stage_route = this->solution->getRouteFromScenario(0);
     vector<int> route = first_stage_route->getRoute();
     bool has_improved = false;
     int time_diff;
 
     while (true) {
+        // for (int r : route) {
+        //     cout << r << ", ";
+        // }
+        // cout << endl;
+
         time_diff = ApplyNodeSwap(route);
+        // cout << "\t[!] TimeDiff = " << time_diff << endl;
+        // cout << endl;
+
         if (time_diff <= 0)
             break;
 
         has_improved = true;
         first_stage_route->ChangeRouteTime(-time_diff);
+        // getchar();
     }
 
     if (has_improved) {
@@ -630,10 +660,15 @@ void LocalSearch::ImproveRouteTime() {
 int LocalSearch::ApplyNodeSwap(vector<int> &route) {
     int i, j, N = int(route.size()), best_time_improve = 0;
     int curr_time_i, new_time_i, curr_time_j, new_time_j, time_diff;
+    int best_i = -1, best_j = -1;
+    // Only one node of the route is used, no improve is available
+    if (N <= 4)
+        return best_time_improve;
+
     for (i = 1; i < N; i++) {
         curr_time_i = getRouteConnectionTime(route[i - 1], route[i], route[i + 1]);
 
-        for (j = i + 1; j < N - 2; j++) {
+        for (j = i + 2; j < N - 2; j++) {
             curr_time_j = getRouteConnectionTime(route[j - 1], route[j], route[j + 1]);
             new_time_j = getRouteConnectionTime(route[i - 1], route[j], route[i + 1]);
             new_time_i = getRouteConnectionTime(route[j - 1], route[i], route[j + 1]);
@@ -646,12 +681,44 @@ int LocalSearch::ApplyNodeSwap(vector<int> &route) {
                     return time_diff;
                 }
                 best_time_improve = time_diff;
+                best_i = i, best_j = j;
             }
         }
     }
+    if (best_i != best_j)
+        std::swap(route[best_i], route[best_j]);
     return best_time_improve;
 }
 
 int LocalSearch::getRouteConnectionTime(int prev, int node, int next) {
     return input->getArcTime(prev, node) + input->getArcTime(node, next);
+}
+
+void LocalSearch::PostProcessing(Solution &sol) {
+    Graph *graph = input->getGraph();
+    int S = sol.getS(), B = graph->getB(), T = input->getT();
+    double of = 0.0;
+    Route *route = sol.getRouteFromScenario(0);
+    vector<int> y_0 = vector<int>(), y = vector<int>();
+
+    GreedyHeuristic greedy_heuristic = GreedyHeuristic(input);
+    vector<double> cases_per_block = vector<double>(B, 0);
+    vector<int> time_per_block = graph->getTimePerBlock();
+
+    // Get FirstStage solution profit
+    for (int b : route->getSequenceOfAttendingBlocks()) {
+        y_0.push_back(b);
+        of += input->getFirstStageProfit(b);
+    }
+
+    for (int s = 1; s <= S; s++) {
+        y = vector<int>();
+        Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
+
+        // Solve scenario s
+        of += input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
+    }
+
+    sol.setOf(of);
+    cout << "[!] PostProcessing OF: " << of << endl;
 }

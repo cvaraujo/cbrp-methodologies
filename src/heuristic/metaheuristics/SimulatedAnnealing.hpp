@@ -14,9 +14,7 @@
 class SimulatedAnnealing {
 
   private:
-    float temperature = 1;
-    float temperature_min = 0.0001;
-    float alpha = 0.9;
+    double temperature = 1.0, temperature_max = 100, alpha = 1.15;
     int max_iterations = 100;
     string delta_type = "moderate";
     bool first_improve = true;
@@ -33,33 +31,42 @@ class SimulatedAnnealing {
         Change best_change, curr_change;
         double delta, ap;
         vector<pair<int, int_pair>> curr_swaps, best_swaps;
+        int acc_change = 0, refuse_change = 0;
+        double best_of = best_solution->getOf();
 
-        while (temperature > temperature_min) {
-            cout << "[*] Temperature: " << temperature << ", Temp. Min: " << temperature_min << endl;
+        while (temperature < temperature_max) {
             for (int i = 0; i < max_iterations; i++) {
-                cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
-                // TODO: Check changes
-                cout << "\t[*] Checking the OF from CurrSol: " << current_solution->ComputeCurrentSolutionOF() << endl;
-                getchar();
-
-                if (best_solution->getOf() < current_solution->getOf()) {
-                    best_solution = current_solution;
-                }
-
                 curr_change = ls->RunDefaultPerturbation(true);
                 if (ChangeUtils::isEmpty(curr_change))
                     continue;
 
                 delta = curr_change.delta;
-                ap = exp(delta / temperature);
-                cout << "[*] Delta: " << delta << ", AP: " << ap << endl;
+                ap = delta != 0 ? exp((delta * temperature) / best_of) : 0.0;
 
-                if (delta > 0 || ap > dis(gen)) {
+                cout << "[*] Delta: " << delta << ", AP: " << ap << endl;
+                if (delta > 0 || dis(gen) < ap) {
+                    acc_change++;
+                    cout << "\t[*] Apply Changes!" << endl;
                     current_solution->ApplyChanges(curr_change);
+                } else
+                    refuse_change++;
+
+                if (best_solution->getOf() < current_solution->getOf()) {
+                    best_solution = new Solution(*current_solution);
+                    best_of = best_solution->getOf();
                 }
+
+                cout << "[*] Temperature: " << temperature << ", Temp. Max: " << temperature_max << endl;
+                cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
+                cout << "\t[*] Checking the OF from CurrSol:" << endl;
+                current_solution->ComputeCurrentSolutionOF();
+                // getchar();
             }
             temperature *= alpha;
+            // getchar();
         }
+        cout << "[!] Acepted Changes: " << acc_change << ", Refused: " << refuse_change << endl;
+        ls->PostProcessing(*best_solution);
     };
 };
 

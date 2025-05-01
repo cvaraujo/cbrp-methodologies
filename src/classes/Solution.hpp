@@ -52,8 +52,8 @@ class Solution {
         this->num_lazy_cuts = num_lazy_cuts;
         this->num_frac_cuts = num_frac_cuts;
         this->solver_nodes = solver_nodes;
-        this->y = y;
-        this->x = x;
+        this->y = std::move(y);
+        this->x = std::move(x);
     }
 
     ~Solution() {
@@ -77,6 +77,7 @@ class Solution {
             this->y = other.y;
             this->x = other.x;
             this->scenario_profit = other.scenario_profit;
+            this->input = other.input;
 
             for (Route *r : other.routes)
                 routes.push_back(new Route(*r)); // Copia profunda
@@ -101,6 +102,7 @@ class Solution {
             this->y = other.y;
             this->x = other.x;
             this->scenario_profit = other.scenario_profit;
+            this->input = other.input;
 
             // Copia profunda das rotas
             for (Route *r : other.routes)
@@ -221,40 +223,40 @@ class Solution {
     void ApplySwaps(const vector<pair<int, int_pair>> &swaps) {
         for (auto &[scenario, blocks] : swaps) {
             int to_remove = blocks.first, to_insert = blocks.second;
+            // cout << "\t[*] ScenarioSwap " << scenario << ": " << to_remove << " -> " << to_insert << endl;
             this->routes[scenario]->GeneralSwapBlocks(to_remove, to_insert);
         }
     }
 
     double ComputeCurrentSolutionOF() {
-        double of = 0;
+        // cout << "[!] Current Solution OF: " << endl;
+        double curr_of = 0.0;
         Graph *graph = input->getGraph();
         vector<double> cases_per_block = graph->getCasesPerBlock();
         vector<bool> attended_first_stage = vector<bool>(graph->getB(), false);
 
-        for (auto b : this->y[0]) {
+        // cout << "\t[*] First Stage Blocks: ";
+        for (auto b : this->routes[0]->getSequenceOfAttendingBlocks()) {
+            // cout << b << ", ";
             attended_first_stage[b] = true;
-            of += cases_per_block[b];
-
-            for (int s = 0; s < input->getS(); s++) {
-                auto *scn = input->getScenario(s);
-                of += input->getAlpha() * input->getScenario(s)->getProbability() * scn->getCasesPerBlock(b);
-            }
+            curr_of += input->getFirstStageProfit(b);
         }
 
-        // cout << "[!] First Stage OF: " << of << endl;
+        // cout << "\n[!] First Stage OF: " << curr_of << ", ";
 
         for (int s = 0; s < input->getS(); s++) {
             Scenario *scn = input->getScenario(s);
-            for (auto b : this->y[s + 1]) {
+            // cout << "\n\t[*] Scenario " << s + 1 << " Blocks: ";
+            for (auto b : this->routes[s + 1]->getSequenceOfAttendingBlocks()) {
+                // cout << b << ", ";
                 if (attended_first_stage[b])
-                    of += scn->getProbability() * (1.0 - input->getAlpha()) * scn->getCasesPerBlock(b);
+                    curr_of += scn->getProbability() * (1.0 - input->getAlpha()) * scn->getCasesPerBlock(b);
                 else
-                    of += scn->getProbability() * scn->getCasesPerBlock(b);
+                    curr_of += scn->getProbability() * scn->getCasesPerBlock(b);
             }
         }
-        cout << "[!] Second Stage OF: " << of << endl;
-        getchar();
-        return of;
+        cout << "[!] Computed OF: " << curr_of << endl;
+        return curr_of;
     }
 
     double getScenarioProfit(int s) { return this->scenario_profit[s]; }

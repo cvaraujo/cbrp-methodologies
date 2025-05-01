@@ -1,4 +1,5 @@
 #include "src/classes/Input.hpp"
+#include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
 #include "src/heuristic/stochastic/LocalSearch.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
 
@@ -48,25 +49,12 @@ int main(int argc, const char *argv[]) {
     double alpha = 0.8;
 
     auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
-
     Solution sol = StartSolution::CreateStartSolution(input);
-
-    auto *ls = new LocalSearch(input, &sol);
-    Route *r = sol.getRouteFromScenario(0);
-    print_result(r);
+    print_result(sol.getRouteFromScenario(0));
     getchar();
-    // r->RemoveBlockFromRoute(5);
-    r->RemoveBlockFromRoute(2);
-    r->RemoveBlockFromRoute(1);
+    auto *sa = new SimulatedAnnealing();
+    sa->Run(input, sol, rd);
 
-    print_result(r);
-    getchar();
-
-    r->AddBlockToRoute(5, false);
-    r->RemoveBlockFromAttended(4);
-    r->AddBlockToAttended(3);
-    print_result(r);
-    getchar();
     // vector<pair<int, int_pair>> best_swaps;
     // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
 

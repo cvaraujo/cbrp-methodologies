@@ -34,6 +34,7 @@ using namespace std;
 #include <lemon/preflow.h>
 
 const int INF = INT_MAX;
+const double EPS = 1e-8;
 
 typedef pair<int, int> int_pair;
 typedef pair<int, double> double_pair;

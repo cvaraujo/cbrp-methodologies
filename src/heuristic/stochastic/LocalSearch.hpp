@@ -9,6 +9,7 @@
 #include "../../classes/Input.hpp"
 #include "../../classes/Parameters.hpp"
 #include "../../classes/Solution.hpp"
+#include "../GreedyHeuristic.hpp"
 #include "Utils.hpp"
 
 class LocalSearch {
@@ -52,12 +53,12 @@ class LocalSearch {
     int GetBestSecondStageOptionIfB1LeaveFSSolution(const Scenario *scenario,
                                                     const Route *f_stage_route,
                                                     const Route *s_stage_route, int b1,
-                                                    int b2);
+                                                    int b2, int curr_time_change);
 
     int GetBestSecondStageOptionIfB2EnterFSSolution(Scenario *scenario,
                                                     Route *f_stage_route,
                                                     Route *s_stage_route, int b1,
-                                                    int b2, int changed);
+                                                    int b2, int changed, int curr_time_change);
 
     double GetModerateDeltaSwapBlocksStartScenario(
         int b1, int b2, vector<pair<int, int_pair>> &second_stage_swaps);
@@ -97,6 +98,7 @@ class LocalSearch {
     double ComputeRandomBlockIntensification(vector<pair<int, int_pair>> &swaps);
 
     int SelectTopTimeBlock(bool use_lowest, bool is_remove) {
+        cout << "\t[*] SelectTopTimeBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -115,6 +117,8 @@ class LocalSearch {
         priority_queue<int_pair, vector<int_pair>, CompareSecond> pq;
         int block_time = 0;
         for (int b : route_blocks) {
+            if (route->IsBlockAttended(b))
+                continue;
             block_time = use_lowest ? input->getBlockTime(b) : -input->getBlockTime(b);
             pq.emplace(b, block_time);
         }
@@ -132,6 +136,7 @@ class LocalSearch {
     };
 
     int SelectTopProfitBlock(bool use_lowest, bool is_remove) {
+        cout << "\t[*] SelectTopProfitBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -158,7 +163,7 @@ class LocalSearch {
         double block_profit = 0;
         for (int b : route_blocks) {
             block_profit = input->getFirstStageProfit(b);
-            if (block_profit <= 0)
+            if (block_profit <= 0 || route->IsBlockAttended(b))
                 continue;
 
             block_profit = use_lowest ? block_profit : -block_profit;
@@ -178,6 +183,7 @@ class LocalSearch {
     };
 
     int SelectTopProportionBlock(bool use_lowest, bool is_remove) {
+        cout << "\t[*] SelectTopProportionBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -204,7 +210,7 @@ class LocalSearch {
         double block_proportion = 0;
         for (int b : route_blocks) {
             block_proportion = input->getTimeProfitProportion(b);
-            if (block_proportion <= 0)
+            if (block_proportion <= 0.0 || route->IsBlockAttended(b))
                 continue;
 
             block_proportion = use_lowest ? block_proportion : -block_proportion;
@@ -224,16 +230,15 @@ class LocalSearch {
     };
 
     int SelectRandomRemoveBlock() {
+        cout << "\t[*] SelectRandomRemoveBlock" << endl;
         Route *route = solution->getRouteFromScenario(0);
-        set<int> r_blocks = route->getRouteBlocks();
+        vector<int> blocks = route->getSequenceOfAttendingBlocks();
+        if (blocks.empty())
+            return -1;
+
         static mt19937 gen(random_device{}());
-        uniform_int_distribution<> distrib(0, int(r_blocks.size()) - 1);
-
-        int set_idx = distrib(gen);
-        auto it = r_blocks.begin();
-        advance(it, set_idx);
-
-        return *it;
+        uniform_int_distribution<> distrib(0, int(blocks.size()) - 1);
+        return blocks[distrib(gen)];
     };
 
     Change SelectRemoveBlock(int option);
@@ -245,6 +250,8 @@ class LocalSearch {
     int ApplyNodeSwap(vector<int> &route);
 
     int getRouteConnectionTime(int prev, int node, int next);
+
+    void PostProcessing(Solution &sol);
 };
 
 #endif

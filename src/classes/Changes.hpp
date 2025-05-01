@@ -10,7 +10,7 @@
 #pragma once
 
 struct Change {
-    double delta = -INF;
+    double delta = 0.0;
     vector<pair<int, int_pair>> swaps;
     vector<int_pair> insertions;
     vector<int_pair> deletions;
@@ -21,7 +21,7 @@ class ChangeUtils {
   public:
     static Change createEmptyChange() {
         Change change;
-        change.delta = -INF;
+        change.delta = 0.0;
         change.swaps.clear();
         change.insertions.clear();
         change.deletions.clear();
@@ -61,7 +61,7 @@ class ChangeUtils {
     }
 
     static bool isEmpty(const Change &change) {
-        return (change.delta > -INF);
+        return (change.insertions.empty() && change.deletions.empty() && change.swaps.empty());
     }
 
     static void clear(Change &change) {

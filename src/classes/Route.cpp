@@ -4,6 +4,7 @@
 
 #include "Route.hpp"
 #include "../heuristic/stochastic/Utils.hpp"
+#include <iterator>
 
 Route::Route(Input *input, const vector<pair<int, int>> &arcs, const vector<int> &blocks) {
     this->input = input;
@@ -119,14 +120,15 @@ void Route::SwapOutRouteBlocks(int b1, int b2) {
     if (!this->blocks_attended[b1])
         throw std::runtime_error("[!!!] Block " + to_string(b1) + " not attended to be swapped!");
 
-    if (this->blocks_attended[b2])
-        throw std::runtime_error("[!!!] Block " + to_string(b2) + " already attended!");
+    if (IsBlockInRoute(b2))
+        throw std::runtime_error("[!!!] Block " + to_string(b2) + " already in route!");
 
     this->RemoveBlockFromRoute(b1);
     this->AddBlockToRoute(b2, true);
 }
 
 void Route::GeneralSwapBlocks(int b1, int b2) {
+    // cout << "[!] GeneralSwapBlocks" << endl;
     bool b1_in_route = this->IsBlockInRoute(b1), b2_in_route = this->IsBlockInRoute(b2);
     bool b1_attended = this->IsBlockAttended(b1), b2_attended = this->IsBlockAttended(b2);
 
@@ -196,8 +198,12 @@ bool Route::CanAlocateRemainingBlocksIntoOtherNodes(Graph *graph, int removed_b,
 };
 
 void Route::RemoveNodeFromRoute(int node) {
+    // Minimal route
+    if (route.size() <= 3)
+        return;
+
     int i, curr_node, prev_node, next_node;
-    for (i = 0; i < route.size(); i++) {
+    for (i = 1; i < route.size() - 1; i++) {
         curr_node = route[i];
         if (curr_node == node) {
             prev_node = route[i - 1], next_node = route[i + 1];
@@ -251,7 +257,7 @@ void Route::RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node) {
     }
 
     this->RemoveBlockFromAttended(block);
-    if (this->blocks_attendeds_per_node[node].size() <= 0)
+    if (this->blocks_attendeds_per_node[node].size() <= 0 && route.size() > 3)
         this->RemoveNodeFromRoute(node);
 }
 
@@ -363,7 +369,7 @@ int_pair Route::FindBestPositionToInsertBlock(int new_block) {
     for (int i = 0; i < this->route.size() - 1; i++) {
         int prev_node = this->route[i], next_node = this->route[i + 1];
         insert_pair = this->EvaluateBlockInsertion(prev_node, next_node, new_block);
-        int time_insert = insert_pair.first, node_insert = insert_pair.second;
+        int node_insert = insert_pair.first, time_insert = insert_pair.second;
 
         if (node_insert == -1)
             continue;
@@ -376,8 +382,10 @@ int_pair Route::FindBestPositionToInsertBlock(int new_block) {
 }
 
 void Route::AddBlockToRoute(int b, bool in_best_order) {
-    if (this->IsBlockInRoute(b))
-        throw std::runtime_error("[!!!] Block " + to_string(b) + " already in route!");
+    if (this->IsBlockInRoute(b)) {
+        this->AddBlockToAttended(b);
+        return;
+    }
 
     int used_node = -1, position = -1;
     if (in_best_order) {
@@ -403,8 +411,9 @@ void Route::AddBlockToAttended(int b) {
         throw std::runtime_error("[!!!] Block " + to_string(b) + " already attended!");
 
     int time_block = graph->getTimePerBlock(b);
-    if (this->time_route + this->time_blocks + time_block > this->input->getT())
-        return;
+    if (this->time_route + this->time_blocks + time_block > this->input->getT()) {
+        throw std::runtime_error("[!!!] Time to Isert Block " + to_string(b) + " exceeds time limit!");
+    }
 
     set<int> nodes_b = graph->getNodesFromBlock(b);
     for (auto node : nodes_b) {
@@ -452,7 +461,6 @@ bool Route::IsOutSwapFeasible(int b1, int b2) {
     return false;
 }
 
-bool Route::IsSwapTimeLowerThanT(int b1, int b2) const {
-    Graph *graph = this->input->getGraph();
-    return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= input->getT();
+bool Route::IsSwapTimeLowerThanT(int b1, int b2, int prev_time_change) const {
+    return (this->time_route + this->time_blocks) + prev_time_change + (input->getBlockTime(b2) - input->getBlockTime(b1)) <= input->getT();
 }

@@ -77,6 +77,8 @@ class Input {
     }
 
     double getSecondStageProfit(int s, int b) {
+        if (scenarios[s].getCasesPerBlock(b) <= 0.0)
+            return 0.0;
         return alpha * scenarios[s].getProbability() *
                scenarios[s].getCasesPerBlock(b);
     }

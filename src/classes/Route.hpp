@@ -135,7 +135,7 @@ class Route {
             return (curr_time + block_time <= T);
         }
 
-        if (curr_time + block_time > T)
+        if (curr_time + block_time >= T)
             return false;
 
         set<int> nodes_from_block = graph->getNodesFromBlock(block);
@@ -214,6 +214,6 @@ class Route {
 
     set<int> getBlocks() const { return this->route_blocks; };
 
-    bool IsSwapTimeLowerThanT(int b1, int b2) const;
+    bool IsSwapTimeLowerThanT(int b1, int b2, int prev_time_change) const;
 };
 #endif
