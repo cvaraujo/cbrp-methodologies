@@ -46,13 +46,6 @@ class ChangeUtils {
         return change;
     }
 
-    static Change newChange(double delta, vector<int_pair> deletions) {
-        Change change;
-        change.delta = delta;
-        change.deletions = std::move(deletions);
-        return change;
-    }
-
     static Change newChange(double delta, vector<pair<int, int_pair>> swaps) {
         Change change;
         change.delta = delta;

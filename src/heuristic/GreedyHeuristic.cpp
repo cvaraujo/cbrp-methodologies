@@ -1,8 +1,12 @@
 
 #include "GreedyHeuristic.hpp"
 
-double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, int T, vector<int> &y)
-{
+GreedyHeuristic::GreedyHeuristic(Input *input) {
+    this->input = input;
+    this->objective_value = 0;
+}
+
+double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y) {
     // Start greedy heuristic
     int available_time_to_attend = T;
     double lb = 0.5, ub = 1.0, mid = 0.0, of = 0, temp_of;
@@ -12,22 +16,23 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, in
     // Optimal solution = (1.0 * T)
     temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
 
-    if (temp_of != -1)
-    {
+    if (temp_of != -1) {
         y = temp_y;
         return temp_of;
     }
 
     // LB solution = (0.5 * T)
     available_time_to_attend = round(double(T) * lb);
-    temp_of = Knapsack::Run(y, cases, time, available_time_to_attend);
+    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
 
     if (temp_of == -1)
         ub = lb, lb = 0.0;
+    else
+        of = temp_of, y = temp_y;
+
     mid = (lb + ub) / 2.0;
 
-    while ((ub - lb) > 0.001)
-    {
+    while ((ub - lb) > 0.001) {
         available_time_to_attend = round(double(T) * mid);
         temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
 
@@ -41,8 +46,7 @@ double GreedyHeuristic::SolveScenario(vector<double> cases, vector<int> time, in
     return of;
 }
 
-double GreedyHeuristic::BinarySolve(vector<double> cases, vector<int> time, int reserved_time, int T, vector<int> &y)
-{
+double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y) {
     // Start greedy heuristic
     Graph *graph = input->getGraph();
     BlockConnection *bc = input->getBlockConnection();
@@ -60,7 +64,7 @@ double GreedyHeuristic::BinarySolve(vector<double> cases, vector<int> time, int 
         block_attended_time += graph->getTimePerBlock(b);
 
     // Generate a hash to solution
-    string key = bc->GenerateStringFromIntVector(y);
+    string key = BlockConnection::GenerateStringFromIntVector(y);
 
     // Get route cost
     int connection_cost = T + 1;
@@ -74,8 +78,7 @@ double GreedyHeuristic::BinarySolve(vector<double> cases, vector<int> time, int 
     return -1;
 }
 
-Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg)
-{
+Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool use_avg) {
     // Get all blocks
     Graph *graph = input->getGraph();
     int S = input->getS(), T = input->getT(), B = graph->getB();
@@ -89,19 +92,16 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
 
     // Solve First Stage
     vector<double> real_cases = vector<double>(B, 0);
-    for (int i = 0; i < B; i++)
-    {
+    for (int i = 0; i < B; i++) {
         blocks[i] = i;
         time[i] = graph->getTimePerBlock(i);
         cases[i] = graph->getCasesPerBlock(i);
 
-        if (use_avg)
-        {
+        if (use_avg) {
             pair<double, double> values = getBlockSecondStageProfitAvg(input->getScenarios(), i);
             real_cases[i] = cases[i] + values.second;
             cases[i] += values.first;
-        }
-        else
+        } else
             cases[i] += getBlockSecondStageProfitSum(input->getScenarios(), i);
     }
 
@@ -116,11 +116,9 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
     for (auto i : y[0])
         in_first_stage[i] = true;
 
-    for (int s = 0; s < S; s++)
-    {
+    for (int s = 0; s < S; s++) {
         bool all_zeros = true;
-        for (int i = 0; i < B; i++)
-        {
+        for (int i = 0; i < B; i++) {
             cases[i] = input->getScenario(s)->getCasesPerBlock(i);
             if (in_first_stage[i])
                 cases[i] *= (1 - alpha);
@@ -133,5 +131,5 @@ Solution GreedyHeuristic::Run(double route_time_increase, int max_tries, bool us
             of += input->getScenario(s)->getProbability() * SolveScenario(cases, time, T, y[s + 1]);
     }
 
-    return Solution(of, y, x, input);
+    return {of, y, x, input};
 }

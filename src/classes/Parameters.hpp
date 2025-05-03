@@ -10,6 +10,7 @@ using namespace std;
 #include "string"
 #include <algorithm>
 #include <bits/ios_base.h>
+#include <cstdlib>
 #include <deque>
 #include <fstream>
 #include <iomanip>
@@ -17,6 +18,7 @@ using namespace std;
 #include <limits>
 #include <queue>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include <boost/config.hpp>

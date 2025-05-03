@@ -3,15 +3,12 @@
 //
 
 #include "LocalSearch.hpp"
-#include <algorithm>
-#include <cstdlib>
-#include <utility>
 
 Change LocalSearch::RunDefaultPerturbation(bool use_random) {
     cout << "[!] Running default perturbation" << endl;
     Change change;
 
-    int rand_option = 3;
+    int rand_option = 0;
     if (use_random) {
         random_device rd;
         mt19937 gen(rd());
@@ -22,7 +19,9 @@ Change LocalSearch::RunDefaultPerturbation(bool use_random) {
     if (rand_option == 0) {
         cout << "[!] Try InRoute Swaps" << endl;
         change = ComputeSwapBlocks(false);
-    } else if (rand_option == 1) {
+    }
+
+    if (rand_option == 1 || ChangeUtils::isEmpty(change)) {
         cout << "[!] Try OutRoute Swaps" << endl;
         change = ComputeSwapBlocks(true);
     }
@@ -44,17 +43,20 @@ Change LocalSearch::RandomBlockChange() {
     uniform_int_distribution<> distrib(0, 2);
     int rand_option = distrib(gen);
 
+    uniform_int_distribution<> distrib_2(0, 3);
+    int other_rand_option = distrib_2(gen);
+
     Change change;
     if (rand_option == 0) {
         change = SelectRandomSwapBlocks();
     } else if (rand_option == 1) {
-        change = SelectInsertBlock(3);
+        change = SelectInsertBlock(other_rand_option);
     }
 
     if (!ChangeUtils::isEmpty(change))
         return change;
 
-    return SelectRemoveBlock(3);
+    return SelectRemoveBlock(other_rand_option);
 }
 
 int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
@@ -358,6 +360,8 @@ Change LocalSearch::ComputeSwapBlocks(bool is_out_route) {
                 else if (this->delta_type == "moderate")
                     delta = GetModerateDeltaSwapBlocksStartScenario(b1, b2, curr_swaps);
 
+                // cout << "\t[*] Trying swap B" << b1 << " -> B" << b2 << " = delta(" << delta << ")" << endl;
+                // getchar();
                 if (delta > best) {
                     best = delta, best_b1 = b1, best_b2 = b2;
                     if (this->delta_type != "weak")
@@ -479,10 +483,8 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
                 is_feasible = route->IsOutSwapFeasible(b_remove, b_insert);
             }
 
-            if (is_feasible) {
-                b1 = b_remove, b2 = b_insert;
-                break;
-            }
+            if (is_feasible)
+                return {b_remove, b_insert};
         }
     }
 
@@ -524,7 +526,7 @@ Change LocalSearch::SelectRemoveBlock(int option) {
     } else
         to_remove_b = SelectRandomRemoveBlock();
 
-    cout << "\t[*] Block Selected to Remove" << endl;
+    cout << "\t[*] Block Selected to Remove: " << to_remove_b << endl;
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
         delta = GetWeakDeltaRemoveBlock(to_remove_b);
@@ -701,7 +703,7 @@ void LocalSearch::PostProcessing(Solution &sol) {
     Route *route = sol.getRouteFromScenario(0);
     vector<int> y_0 = vector<int>(), y = vector<int>();
 
-    GreedyHeuristic greedy_heuristic = GreedyHeuristic(input);
+    GreedyHeuristic *greedy_heuristic = new GreedyHeuristic(this->input);
     vector<double> cases_per_block = vector<double>(B, 0);
     vector<int> time_per_block = graph->getTimePerBlock();
 
@@ -716,9 +718,60 @@ void LocalSearch::PostProcessing(Solution &sol) {
         Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
 
         // Solve scenario s
-        of += input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
+        of += input->getScenarioProbability(s - 1) * greedy_heuristic->SolveScenario(cases_per_block, time_per_block, T, y);
     }
 
     sol.setOf(of);
     cout << "[!] PostProcessing OF: " << of << endl;
+}
+
+void LocalSearch::ImproveSecondStageRoutes(Input *input, Solution *sol, bool use_full_replace) {
+    cout << "[*] Trying Improve the Second Stage Routes" << endl;
+    Graph *graph = input->getGraph();
+    int S = input->getS(), T = input->getT(), B = graph->getB();
+    vector<int> y_0 = vector<int>(), y = vector<int>();
+    y_0.reserve(B), y.reserve(B);
+
+    // Solving the first stage problem
+    auto *greedy_heuristic = new GreedyHeuristic(input);
+    vector<double> cases_per_block = vector<double>(B, 0);
+    vector<int> time_per_block = graph->getTimePerBlock();
+    Route *fs_route = sol->getRouteFromScenario(0);
+    vector<int> fs_solution = fs_route->getSequenceOfAttendingBlocks();
+    double prob, curr_scenario_profit, new_scenario_profit, of = sol->getOf();
+
+    for (int s = 1; s <= S; s++) {
+        // cout << "\t[*] Improving Scenario S" << s - 1 << endl;
+        y.clear(), y.reserve(B);
+        Utils::GetSecondStageCosts(input, s - 1, fs_solution, cases_per_block);
+        prob = input->getScenarioProbability(s - 1);
+        Route *route = sol->getRouteFromScenario(s);
+        curr_scenario_profit = 0.0;
+
+        // cout << "\t[*] CurrBlocks: ";
+        for (int b : route->getSequenceOfAttendingBlocks()) {
+            curr_scenario_profit += prob * cases_per_block[b];
+            // cout << b << ", ";
+        }
+        // cout << endl;
+
+        new_scenario_profit = prob * greedy_heuristic->SolveScenario(cases_per_block, time_per_block, T, y);
+
+        // cout << "\t[*] NewBlocks: ";
+        // for (int b : y)
+        //     cout << b << ", ";
+        // cout << endl;
+
+        // cout << "\t[*] NewProfit = " << new_scenario_profit << ", CurrProfit = " << curr_scenario_profit << endl;
+        if (new_scenario_profit >= curr_scenario_profit) {
+            of += new_scenario_profit - curr_scenario_profit;
+            sol->setRoute(new Route(input, y), s);
+        }
+        // getchar();
+    }
+    sol->setOf(of);
+
+    // cout << "\t[*] Is Solution Correct?" << endl;
+    // cout << "[*] Curr. OF = " << sol->getOf() << endl;
+    // sol->ComputeCurrentSolutionOF();
 }

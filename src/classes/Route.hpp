@@ -83,7 +83,7 @@ class Route {
 
     void setTimeBlocks(int time) { this->time_blocks = time; };
 
-    vector<int> getSequenceOfAttendingBlocks() {
+    vector<int> getSequenceOfAttendingBlocks() const {
         return this->sequence_of_attended_blocks;
     };
 
@@ -215,5 +215,13 @@ class Route {
     set<int> getBlocks() const { return this->route_blocks; };
 
     bool IsSwapTimeLowerThanT(int b1, int b2, int prev_time_change) const;
+
+    double GetScenarioProfit(const vector<int> &fs_blocks, int s) const {
+        double profit = 0;
+        for (int b : this->getSequenceOfAttendingBlocks()) {
+            profit += this->input->getSecondStageProfit(s, b);
+        }
+        return profit;
+    }
 };
 #endif

@@ -37,6 +37,8 @@ class LocalSearch {
         this->solution = solution;
     }
 
+    void setSolution(Solution *sol) { this->solution = sol; };
+
     void RunInRouteSwapImprove();
 
     double GetWeakDeltaSwapBlocksStartScenario(int b1, int b2);
@@ -132,7 +134,7 @@ class LocalSearch {
             }
             pq.pop();
         }
-        return block;
+        return -1;
     };
 
     int SelectTopProfitBlock(bool use_lowest, bool is_remove) {
@@ -174,12 +176,13 @@ class LocalSearch {
         while (!pq.empty()) {
             int_pair p = pq.top();
             block = p.first;
+
             if (route->IsBlockInsertionFactible(block)) {
                 return block;
             }
             pq.pop();
         }
-        return block;
+        return -1;
     };
 
     int SelectTopProportionBlock(bool use_lowest, bool is_remove) {
@@ -221,12 +224,12 @@ class LocalSearch {
         while (!pq.empty()) {
             int_pair p = pq.top();
             block = p.first;
-            if (route->IsBlockInsertionFactible(block)) {
+
+            if (route->IsBlockInsertionFactible(block))
                 return block;
-            }
             pq.pop();
         }
-        return block;
+        return -1;
     };
 
     int SelectRandomRemoveBlock() {
@@ -252,6 +255,8 @@ class LocalSearch {
     int getRouteConnectionTime(int prev, int node, int next);
 
     void PostProcessing(Solution &sol);
+
+    static void ImproveSecondStageRoutes(Input *input, Solution *sol, bool use_full_replace);
 };
 
 #endif

@@ -50,10 +50,15 @@ int main(int argc, const char *argv[]) {
 
     auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
     Solution sol = StartSolution::CreateStartSolution(input);
-    print_result(sol.getRouteFromScenario(0));
-    getchar();
+    // print_result(sol.getRouteFromScenario(0));
+    // getchar();
     auto *sa = new SimulatedAnnealing();
+    auto start = std::chrono::high_resolution_clock::now();
     sa->Run(input, sol, rd);
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Execution time: " << duration.count() << " seconds\n";
 
     // vector<pair<int, int_pair>> best_swaps;
     // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);

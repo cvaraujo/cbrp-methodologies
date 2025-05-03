@@ -173,7 +173,7 @@ class Input {
 
     void setAlpha(double alpha) { this->alpha = alpha; }
 
-    Graph *getGraph() { return this->graph; }
+    [[nodiscard]] Graph *getGraph() const { return this->graph; }
 
     void setGraph(Graph *graph) { this->graph = graph; }
 

@@ -6,30 +6,25 @@
 #ifndef SCBRP_KNAPSACK_H
 #define SCBRP_KNAPSACK_H
 
-#include <iostream>
 #include <vector>
 
 using namespace std;
 
-class Knapsack
-{
+class Knapsack {
 
-public:
-    Knapsack() {};
+  public:
+    Knapsack() = default;
 
-    static double Run(vector<int> &y, vector<double> cases, vector<int> time, int MT)
-    {
+    static double Run(vector<int> &y, const vector<double> &cases, const vector<int> &time, int MT) {
         if (cases.size() <= 0 || MT <= 1)
             return 0;
 
         int i, w;
-        int s = cases.size();
+        int s = int(cases.size());
         double dp[s + 1][MT + 1];
 
-        for (i = 0; i <= s; i++)
-        {
-            for (w = 0; w <= MT; w++)
-            {
+        for (i = 0; i <= s; i++) {
+            for (w = 0; w <= MT; w++) {
                 if (i == 0 || w == 0)
                     dp[i][w] = 0;
                 else if (time[i - 1] <= w)
@@ -40,13 +35,9 @@ public:
         }
 
         // Retrieving the items
-        int res = dp[s][MT];
         w = MT;
-
-        for (i = s; i > 0; i--)
-        {
-            if (dp[i][w] != dp[i - 1][w])
-            {
+        for (i = s; i > 0; i--) {
+            if (dp[i][w] != dp[i - 1][w]) {
                 y.push_back(i - 1);
                 w -= time[i - 1];
             }

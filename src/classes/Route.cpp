@@ -433,8 +433,7 @@ void Route::AddBlockToAttended(int b) {
 };
 
 bool Route::IsSwapFeasible(int b1, int b2) {
-    Graph *graph = this->input->getGraph();
-    return (this->time_route + this->time_blocks) + (graph->getTimePerBlock(b2) - graph->getTimePerBlock(b1)) <= input->getT();
+    return (this->time_route + this->time_blocks) + (input->getBlockTime(b2) - input->getBlockTime(b1)) <= input->getT();
 };
 
 bool Route::IsOutSwapFeasible(int b1, int b2) {
