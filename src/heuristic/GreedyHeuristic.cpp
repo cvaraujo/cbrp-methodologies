@@ -68,9 +68,9 @@ double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<in
 
     // Get route cost
     int connection_cost = T + 1;
-    if (!bc->keyExists(key))
+    if (!bc->keyExists(key)) {
         connection_cost = bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
-    else
+    } else
         connection_cost = bc->getBlocksAttendCost(key);
 
     if (block_attended_time + connection_cost <= T)

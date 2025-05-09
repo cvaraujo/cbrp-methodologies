@@ -6,9 +6,10 @@
 #include "Arc.hpp"
 
 Graph::Graph(string instance, int km_path, int km_nebulize) {
-    if (instance != "")
+    if (instance != "") {
         LoadGraph(instance, km_path, km_nebulize);
-    else
+        this->ComputeNodeBlockHops();
+    } else
         exit(EXIT_FAILURE);
 }
 

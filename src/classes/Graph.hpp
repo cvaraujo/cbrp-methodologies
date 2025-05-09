@@ -12,14 +12,15 @@
 class Graph {
     int N, M, B, PB;
 
+  public:
     vector<vector<Arc *>> arcs, arcs_matrix, arcs_per_block;
     vector<pair<int, set<int>>> nodes;
     vector<set<int>> nodes_per_block;
     vector<int> time_per_block;
     vector<double> cases_per_block;
     vector<vector<int>> node_block_hops;
+    vector<int> blocks_cumm_hops, nodes_cum_hops, block_count_zero_hops;
 
-  public:
     Graph(string instance, int km_path, int km_nebulize);
 
     void LoadGraph(string instance, int km_path, int km_nebulize);
@@ -171,7 +172,6 @@ class Graph {
 
     void ComputeNodeBlockHops() {
         node_block_hops = vector<vector<int>>(N, vector<int>(B, 0));
-        int N = getN(), B = getB();
 
         for (int i = 0; i < N; i++) {
             int allocated_blocks = 0;
@@ -206,6 +206,26 @@ class Graph {
                     }
                 }
             }
+        }
+
+        blocks_cumm_hops = vector<int>(B, 0);
+        nodes_cum_hops = vector<int>(N, 0);
+        block_count_zero_hops = vector<int>(N, 0);
+
+        for (int node = 0; node < N; node++) {
+            block_count_zero_hops[node] = 0;
+            int node_hops = 0;
+
+            for (int b = 0; b < B; b++) {
+                int hops = getNodeBlockHops(node, b);
+                if (hops != -1) {
+                    node_hops += hops;
+                    blocks_cumm_hops[b] += hops;
+                    if (hops == 0)
+                        block_count_zero_hops[node]++;
+                }
+            }
+            nodes_cum_hops[node] = node_hops;
         }
     };
 };
