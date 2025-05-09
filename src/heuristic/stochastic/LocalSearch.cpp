@@ -5,7 +5,7 @@
 #include "LocalSearch.hpp"
 
 Change LocalSearch::RunDefaultPerturbation(bool use_random) {
-    cout << "[!] Running default perturbation" << endl;
+    // cout << "[!] Running default perturbation" << endl;
     Change change;
 
     int rand_option = 0;
@@ -17,19 +17,19 @@ Change LocalSearch::RunDefaultPerturbation(bool use_random) {
     }
 
     if (rand_option == 0) {
-        cout << "[!] Try InRoute Swaps" << endl;
+        // cout << "[!] Try InRoute Swaps" << endl;
         change = ComputeSwapBlocks(false);
     }
 
     if (rand_option == 1 || ChangeUtils::isEmpty(change)) {
-        cout << "[!] Try OutRoute Swaps" << endl;
+        // cout << "[!] Try OutRoute Swaps" << endl;
         change = ComputeSwapBlocks(true);
     }
 
     if (!ChangeUtils::isEmpty(change))
         return change;
 
-    cout << "[!] Try Random Block Changes" << endl;
+    // cout << "[!] Try Random Block Changes" << endl;
     change = RandomBlockChange();
     if (!ChangeUtils::isEmpty(change))
         return change;
@@ -60,7 +60,7 @@ Change LocalSearch::RandomBlockChange() {
 }
 
 int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
-    cout << "\t[*] SelectRandomInsertBlock" << endl;
+    // cout << "\t[*] SelectRandomInsertBlock" << endl;
     if (try_improve_route)
         ImproveRouteTime();
 
@@ -84,42 +84,42 @@ int LocalSearch::SelectRandomInsertBlock(bool try_improve_route) {
 }
 
 double LocalSearch::GetWeakDeltaInsertBlock(int block) {
-    cout << "[*] Weak Insert Block: " << block << endl;
+    // cout << "[*] Weak Insert Block: " << block << endl;
     double delta = input->getFirstStageProfit(block);
 
-    cout << "\t[*] Delta FS: " << delta << endl;
+    // cout << "\t[*] Delta FS: " << delta << endl;
     for (int s = 1; s <= input->getS(); s++) {
         Route *s_route = solution->getRouteFromScenario(s);
         if (s_route->IsBlockAttended(block)) {
-            cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
+            // cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
             delta -= input->getSecondStageProfit(s - 1, block);
         }
     }
 
-    cout << "\t[*] Delta SS: " << delta << endl;
+    // cout << "\t[*] Delta SS: " << delta << endl;
     if (std::abs(delta) < EPS)
         delta = 0.0;
     return delta;
 }
 
 double LocalSearch::GetWeakDeltaRemoveBlock(int block) {
-    cout << "[*] Weak Remove Block: " << block << endl;
+    // cout << "[*] Weak Remove Block: " << block << endl;
     Route *first_stage_route = solution->getRouteFromScenario(0);
     if (!first_stage_route->IsBlockAttended(block))
         return 0.0;
 
     double delta = -input->getFirstStageProfit(block);
-    cout << "\t[*] Delta FS: " << delta << endl;
+    // cout << "\t[*] Delta FS: " << delta << endl;
 
     for (int s = 1; s <= input->getS(); s++) {
         Route *s_route = solution->getRouteFromScenario(s);
         if (s_route->IsBlockAttended(block)) {
-            cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
+            // cout << "\t[!] S" << s - 1 << ", B" << block << " = " << input->getSecondStageProfit(s - 1, block) << endl;
             delta += input->getSecondStageProfit(s - 1, block);
         }
     }
 
-    cout << "\t[*] Delta SS: " << delta << endl;
+    // cout << "\t[*] Delta SS: " << delta << endl;
     return delta;
 }
 
@@ -492,7 +492,7 @@ int_pair LocalSearch::GetRandomBlocksFeasibleSwap(Route *route) {
 }
 
 Change LocalSearch::SelectRandomSwapBlocks() {
-    cout << "\t[*] SelectRandomSwapBlocks" << endl;
+    // cout << "\t[*] SelectRandomSwapBlocks" << endl;
     Route *route = solution->getRouteFromScenario(0);
     int_pair b1nb2 = GetRandomBlocksFeasibleSwap(route);
     int to_remove = b1nb2.first, to_insert = b1nb2.second;
@@ -514,7 +514,7 @@ Change LocalSearch::SelectRandomSwapBlocks() {
 
 // 0 = HighestTime, 1 = lowestProfit, 2 = lowestProportion, 3 = random
 Change LocalSearch::SelectRemoveBlock(int option) {
-    cout << "[*] SelectRemoveBlock" << endl;
+    // cout << "[*] SelectRemoveBlock" << endl;
     int to_remove_b = -1;
     double delta;
     if (option <= 0) {
@@ -526,7 +526,7 @@ Change LocalSearch::SelectRemoveBlock(int option) {
     } else
         to_remove_b = SelectRandomRemoveBlock();
 
-    cout << "\t[*] Block Selected to Remove: " << to_remove_b << endl;
+    // cout << "\t[*] Block Selected to Remove: " << to_remove_b << endl;
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
         delta = GetWeakDeltaRemoveBlock(to_remove_b);
@@ -540,7 +540,7 @@ Change LocalSearch::SelectRemoveBlock(int option) {
 
 // 0 = LowestTime, 1 = HighestProfit, 2 = HighestProportion, 3 = Random
 Change LocalSearch::SelectInsertBlock(int option) {
-    cout << "\t[*] SelectInsertBlock" << endl;
+    // cout << "\t[*] SelectInsertBlock" << endl;
 
     int to_insert_b = -1;
     if (option <= 0) {
@@ -557,7 +557,7 @@ Change LocalSearch::SelectInsertBlock(int option) {
     if (to_insert_b == -1)
         return ChangeUtils::createEmptyChange();
 
-    cout << "\t[*] Block to Insert in Route: " << to_insert_b << endl;
+    // cout << "\t[*] Block to Insert in Route: " << to_insert_b << endl;
     double delta = 0.0;
     vector<pair<int, int_pair>> second_stage_swaps;
     if (this->delta_type == "weak")
@@ -588,9 +588,9 @@ void LocalSearch::InsertOutRouteBlock(int route_idx, int block) {}
 void LocalSearch::RunInRouteSwapImprove() {
     bool is_stuck = false;
     vector<pair<int, int_pair>> best_swaps;
-    cout << "[*] Run Best Improve 2OPT!" << endl;
-    cout << "[*] Start OF is matching? " << solution->getOf()
-         << " == " << solution->ComputeCurrentSolutionOF() << endl;
+    // cout << "[*] Run Best Improve 2OPT!" << endl;
+    // cout << "[*] Start OF is matching? " << solution->getOf()
+    //      << " == " << solution->ComputeCurrentSolutionOF() << endl;
 
     while (!is_stuck) {
         Change change = LocalSearch::ComputeSwapBlocks(false);
@@ -599,25 +599,25 @@ void LocalSearch::RunInRouteSwapImprove() {
             for (auto scenario_swap : change.swaps) {
                 int_pair swap = scenario_swap.second;
                 int scenario = scenario_swap.first, b1 = swap.first, b2 = swap.second;
-                cout << "[**] Best swap in scenario " << scenario << " = " << swap.first
-                     << " " << swap.second << endl;
+                // cout << "[**] Best swap in scenario " << scenario << " = " << swap.first
+                //      << " " << swap.second << endl;
                 solution->ScenarioBlockSwapWithoutOF(scenario, b1, b2);
             }
 
             solution->setOf(solution->getOf() + change.delta);
 
-            cout << "[*] Updated OF: " << solution->getOf() << endl;
-            cout << "[=] OF matching? " << solution->ComputeCurrentSolutionOF()
-                 << endl;
+            // cout << "[*] Updated OF: " << solution->getOf() << endl;
+            // cout << "[=] OF matching? " << solution->ComputeCurrentSolutionOF()
+            //      << endl;
         } else {
-            cout << "[!] No more profitable swap found!" << endl;
+            // cout << "[!] No more profitable swap found!" << endl;
             is_stuck = true;
         }
     }
 };
 
 void LocalSearch::ImproveRouteTime() {
-    cout << "\t[*] ImproveRouteTime" << endl;
+    // cout << "\t[*] ImproveRouteTime" << endl;
     Route *first_stage_route = this->solution->getRouteFromScenario(0);
     vector<int> route = first_stage_route->getRoute();
     bool has_improved = false;
@@ -703,7 +703,7 @@ void LocalSearch::PostProcessing(Solution &sol) {
     Route *route = sol.getRouteFromScenario(0);
     vector<int> y_0 = vector<int>(), y = vector<int>();
 
-    GreedyHeuristic *greedy_heuristic = new GreedyHeuristic(this->input);
+    auto *greedy_heuristic = new GreedyHeuristic(this->input);
     vector<double> cases_per_block = vector<double>(B, 0);
     vector<int> time_per_block = graph->getTimePerBlock();
 
@@ -722,11 +722,10 @@ void LocalSearch::PostProcessing(Solution &sol) {
     }
 
     sol.setOf(of);
-    cout << "[!] PostProcessing OF: " << of << endl;
 }
 
 void LocalSearch::ImproveSecondStageRoutes(Input *input, Solution *sol, bool use_full_replace) {
-    cout << "[*] Trying Improve the Second Stage Routes" << endl;
+    // cout << "[*] Trying Improve the Second Stage Routes" << endl;
     Graph *graph = input->getGraph();
     int S = input->getS(), T = input->getT(), B = graph->getB();
     vector<int> y_0 = vector<int>(), y = vector<int>();

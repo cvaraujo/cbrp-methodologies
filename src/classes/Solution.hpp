@@ -12,7 +12,7 @@
 class Solution {
 
   private:
-    double of = 0.0, UB = INF, runtime = 0.0;
+    double of = 0.0, UB = INF, runtime = 0.0, start_UB;
     int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
     Input *input = nullptr;
     vector<vector<int>> y;
@@ -54,6 +54,7 @@ class Solution {
         this->solver_nodes = solver_nodes;
         this->y = std::move(y);
         this->x = std::move(x);
+        this->start_UB = UB;
     }
 
     ~Solution() {
@@ -78,6 +79,7 @@ class Solution {
             this->x = other.x;
             this->scenario_profit = other.scenario_profit;
             this->input = other.input;
+            this->start_UB = other.start_UB;
 
             for (Route *r : other.routes)
                 routes.push_back(new Route(*r)); // Copia profunda
@@ -103,6 +105,7 @@ class Solution {
             this->x = other.x;
             this->scenario_profit = other.scenario_profit;
             this->input = other.input;
+            this->start_UB = other.start_UB;
 
             // Copia profunda das rotas
             for (Route *r : other.routes)
@@ -110,6 +113,8 @@ class Solution {
         }
         return *this;
     }
+
+    void setStartUB(double ub) { this->start_UB = ub; };
 
     void WriteSolution(const string &output_file) {
         ofstream output;
@@ -122,20 +127,23 @@ class Solution {
         output << "S: " << this->input->getS() << endl;
         output << "Alpha: " << this->input->getAlpha() << endl;
         output << "LB: " << this->of << endl;
+        output << "Start_UB: " << this->start_UB << endl;
         output << "UB: " << this->UB << endl;
         output << "Gurobi_Nodes: " << this->solver_nodes << endl;
         output << "Lazy_cuts: " << this->num_lazy_cuts << endl;
         output << "Frac_cuts: " << this->num_frac_cuts << endl;
         output << "Runtime: " << this->runtime << endl;
 
-        for (int s = 0; s <= getS(); s++) {
+        for (int s = 0; s <= 0; s++) {
+            auto *route = getRouteFromScenario(s);
             output << "Scenario: " << s << endl;
-            for (auto arc : this->x[s])
-                output << "X: " << arc.first << " " << arc.second << endl;
-
-            for (auto b : this->y[s])
-                output << "Y: " << b << endl;
-            output << "Route_Time: " << this->time_used << endl;
+            output << "X: ";
+            for (int node : route->getRoute())
+                output << node << ", ";
+            output << "\nY: ";
+            for (auto b : route->getSequenceOfAttendingBlocks())
+                output << b << ", ";
+            output << "\nRoute_Time: " << route->getTimeRoute() << "\nAttend_Time: " << route->getTimeAttBlocks() << endl;
         }
         output.close();
 #ifndef Silence

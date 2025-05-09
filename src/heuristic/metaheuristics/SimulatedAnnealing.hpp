@@ -20,7 +20,18 @@ class SimulatedAnnealing {
     bool first_improve = true;
 
   public:
-    void Run(Input *input, const Solution &solution, random_device &rd) {
+    SimulatedAnnealing() = default;
+
+    SimulatedAnnealing(double temperature, double temperature_max, double alpha, int max_iterations, const string &delta_type, bool first_improve) {
+        this->temperature = temperature;
+        this->temperature_max = temperature_max;
+        this->alpha = alpha;
+        this->max_iterations = max_iterations;
+        this->delta_type = delta_type;
+        this->first_improve = first_improve;
+    }
+
+    Solution *Run(Input *input, const Solution &solution, random_device &rd) {
         mt19937 gen(rd()); // Mersenne Twister RNG
         uniform_real_distribution<> dis(0.0, 1.0);
 
@@ -55,7 +66,7 @@ class SimulatedAnnealing {
                 }
 
                 // cout << "[*] Temperature: " << temperature << ", Temp. Max: " << temperature_max << endl;
-                cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
+                // cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
                 // cout << "\t[*] Checking the OF from CurrSol:" << endl;
                 // current_solution->ComputeCurrentSolutionOF();
                 // getchar();
@@ -67,9 +78,10 @@ class SimulatedAnnealing {
             } else
                 LocalSearch::ImproveSecondStageRoutes(input, current_solution, true);
             temperature *= alpha;
-            // getchar();
         }
+
         ls->PostProcessing(*best_solution);
+        return best_solution;
     };
 };
 

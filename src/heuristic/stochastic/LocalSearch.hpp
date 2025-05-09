@@ -100,7 +100,7 @@ class LocalSearch {
     double ComputeRandomBlockIntensification(vector<pair<int, int_pair>> &swaps);
 
     int SelectTopTimeBlock(bool use_lowest, bool is_remove) {
-        cout << "\t[*] SelectTopTimeBlock" << endl;
+        // cout << "\t[*] SelectTopTimeBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -138,7 +138,7 @@ class LocalSearch {
     };
 
     int SelectTopProfitBlock(bool use_lowest, bool is_remove) {
-        cout << "\t[*] SelectTopProfitBlock" << endl;
+        // cout << "\t[*] SelectTopProfitBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -186,7 +186,7 @@ class LocalSearch {
     };
 
     int SelectTopProportionBlock(bool use_lowest, bool is_remove) {
-        cout << "\t[*] SelectTopProportionBlock" << endl;
+        // cout << "\t[*] SelectTopProportionBlock" << endl;
         Route *route = this->solution->getRouteFromScenario(0);
         set<int> route_blocks = route->getBlocks();
 
@@ -233,7 +233,7 @@ class LocalSearch {
     };
 
     int SelectRandomRemoveBlock() {
-        cout << "\t[*] SelectRandomRemoveBlock" << endl;
+        // cout << "\t[*] SelectRandomRemoveBlock" << endl;
         Route *route = solution->getRouteFromScenario(0);
         vector<int> blocks = route->getSequenceOfAttendingBlocks();
         if (blocks.empty())

@@ -24,12 +24,6 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
         map<int, int> dag_2_graph;
 
         blocks = this->getBestOrderToAttendBlocks(org_blocks, sort_opt);
-        cout << "[DEFAULT] Blocks Order to visit = " << sort_opt << endl;
-        for (int b : blocks) {
-            cout << b << ", ";
-        }
-        cout << endl;
-
         // Create the DAG
         int V;
         vector<vector<Arc>> dag = this->createLayeredDag(blocks, dag_2_graph, V);
@@ -59,9 +53,6 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
             best_cost = cost;
             best_path = path;
         }
-
-        cout << "[*] Default route: " << cost << endl;
-        getchar();
     }
     this->setBlocksAttendPath(key, best_path);
     this->setBlocksAttendCost(key, best_cost);

@@ -54,6 +54,7 @@ class StartSolution {
 #ifndef Silence
         cout << "[**] Stochastic Start Solution OF: " << solution.getOf() << endl;
 #endif
+        solution.setStartUB(solution.getOf());
         return solution;
     };
 };
