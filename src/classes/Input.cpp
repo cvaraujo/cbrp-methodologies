@@ -1,7 +1,6 @@
 #include "Input.hpp"
 
-Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha)
-{
+Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel, int T, double alpha) {
     this->graph = new Graph(file_graph, default_vel, neblize_vel);
 
     if (scenarios_graph != "")
@@ -18,6 +17,10 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
     this->bc = new BlockConnection(graph, sp);
     this->bc->computeBlock2BlockCost();
 
+    int N = graph->getN();
+    this->arcs_in_path = vector<vector<vector<Arc *>>>(N, vector<vector<Arc *>>(N, vector<Arc *>()));
+    this->arc_length = vector<vector<int>>(N, vector<int>(N, -1));
+
     if (preprocessing)
         this->reduceGraphToPositiveCases();
 
@@ -25,12 +28,36 @@ Input::Input(string file_graph, string scenarios_graph, bool preprocessing, bool
         this->walkAdaptMTZModel();
 
 #ifndef Silence
+    cout << "[*] Input constructed Successfully!" << endl;
+#endif
+}
+
+Input::Input(string file_graph, string scenarios_graph, int default_vel, int nebulize_vel, int T, double alpha) {
+    this->graph = new Graph(file_graph, default_vel, nebulize_vel);
+
+    if (scenarios_graph != "")
+        this->loadScenarios(scenarios_graph);
+
+    this->T = T;
+    this->preprocessing = preprocessing;
+    this->default_vel = default_vel;
+    this->neblize_vel = nebulize_vel;
+    this->alpha = alpha;
+    this->sp = new ShortestPath(graph);
+    this->bc = new BlockConnection(graph, sp);
+    this->bc->computeBlock2BlockCost();
+    this->updateFirstStageCases();
+
+    int N = graph->getN();
+    this->arcs_in_path = vector<vector<vector<Arc *>>>(N, vector<vector<Arc *>>(N, vector<Arc *>()));
+    this->arc_length = vector<vector<int>>(N, vector<int>(N, -1));
+
+#ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;
 #endif
 }
 
-void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs)
-{
+void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> set_of_used_nodes, vector<vector<bool>> used_arcs) {
     // Re-map blocks in nodes and arcs
     int N = graph->getN(), newN = 0, bl;
     vector<pair<int, set<int>>> new_nodes;
@@ -39,10 +66,8 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     vector<set<int>> nodes_per_block = vector<set<int>>(graph->getPB());
 
     // Update Nodes
-    for (int i = 0; i < N; i++)
-    {
-        if (set_of_used_nodes.find(i) == set_of_used_nodes.end())
-        {
+    for (int i = 0; i < N; i++) {
+        if (set_of_used_nodes.find(i) == set_of_used_nodes.end()) {
             // cout << "Remove node " << i << endl;
             continue;
         }
@@ -51,8 +76,7 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
         new_nodes[newN].first = newN;
         map_new_nodes[i] = newN;
 
-        for (int b : graph->getNode(i).second)
-        {
+        for (int b : graph->getNode(i).second) {
             if (b == -1)
                 continue;
 
@@ -71,15 +95,12 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     this->graph->resetArcsMatrix(newN);
 
     // Update Arcs
-    for (int i = 0; i < N; i++)
-    {
+    for (int i = 0; i < N; i++) {
         if (set_of_used_nodes.find(i) == set_of_used_nodes.end())
             continue;
 
-        for (auto arc : graph->getArcs(i))
-        {
-            if (!used_arcs[i][arc->getD()])
-            {
+        for (auto arc : graph->getArcs(i)) {
+            if (!used_arcs[i][arc->getD()]) {
                 // cout << "Remove arc " << i << " - " << arc->getD() << endl;
                 continue;
             }
@@ -103,38 +124,31 @@ void Input::updateBlocksInGraph(map<int, int> positive_block_to_block, set<int> 
     this->graph->setM(M);
 }
 
-void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>> &used_arcs)
-{
+void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>> &used_arcs) {
     int B = graph->getB();
     vector<int> path;
     if (graph->getPB() < 3)
         return;
 
-    for (int b1 = 0; b1 < B; b1++)
-    {
+    for (int b1 = 0; b1 < B; b1++) {
         if (graph->getCasesPerBlock(b1) <= 0)
             continue;
 
-        for (int b2 = 0; b2 < B; b2++)
-        {
+        for (int b2 = 0; b2 < B; b2++) {
             if (b2 == b1 || graph->getCasesPerBlock(b2) <= 0)
                 continue;
 
-            for (auto i : graph->getNodesFromBlock(b1))
-            {
-                for (auto j : graph->getNodesFromBlock(b2))
-                {
+            for (auto i : graph->getNodesFromBlock(b1)) {
+                for (auto j : graph->getNodesFromBlock(b2)) {
                     if (i == j)
                         continue;
 
                     path = this->sp->getPath(i, j);
 
                     // Intermediate nodes
-                    for (int k = 0; k < path.size(); k++)
-                    {
+                    for (int k = 0; k < path.size(); k++) {
                         int node = path[k];
-                        for (auto b3 : graph->getNode(node).second)
-                        {
+                        for (auto b3 : graph->getNode(node).second) {
                             if (b3 == -1 || b3 == b1 || b3 == b2)
                                 continue;
 
@@ -148,21 +162,16 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes, vector<vector<bool>
     }
 }
 
-void Input::reduceGraphToPositiveCases()
-{
-    // Re-map blocks
+void Input::reduceGraphToPositiveCases() {
     map<int, int> positive_block_to_block;
     vector<double> cases_per_block;
     vector<int> time_per_block;
     int B = graph->getB(), new_index = 0, N = graph->getN();
 
-    for (int b = 0; b < B; b++)
-    {
+    for (int b = 0; b < B; b++) {
         bool has_cases = graph->getCasesPerBlock(b) > 0;
-        if (!has_cases)
-        {
-            for (int s = 0; s < S; s++)
-            {
+        if (!has_cases) {
+            for (int s = 0; s < S; s++) {
                 if (scenarios[s].getCasesPerBlock(b) <= 0)
                     continue;
 
@@ -171,19 +180,16 @@ void Input::reduceGraphToPositiveCases()
             }
         }
 
-        if (has_cases)
-        {
+        if (has_cases) {
             positive_block_to_block[b] = new_index++;
             cases_per_block.push_back(graph->getCasesPerBlock(b));
             time_per_block.push_back(graph->getTimePerBlock(b));
-        }
-        else
+        } else
             positive_block_to_block[b] = -1;
     }
 
     graph->setPB(new_index);
-    for (int s = 0; s < S; s++)
-    {
+    for (int s = 0; s < S; s++) {
         vector<double> cases_per_block_s(new_index, 0);
         for (int b = 0; b < B; b++)
             if (positive_block_to_block[b] != -1)
@@ -229,16 +235,14 @@ void Input::reduceGraphToPositiveCases()
 #endif
 }
 
-void Input::loadScenarios(string instance)
-{
+void Input::loadScenarios(string instance) {
     string token;
     ifstream file;
     int i, block, cases;
     double probability;
     file.open(instance, fstream::in);
 
-    if (!file.is_open())
-    {
+    if (!file.is_open()) {
         cout << "[!] Could not open file: " << instance << endl;
         exit(EXIT_FAILURE);
     }
@@ -246,38 +250,31 @@ void Input::loadScenarios(string instance)
     file >> this->S;
     this->scenarios = vector<Scenario>(S);
 
-    while (!file.eof())
-    {
+    while (!file.eof()) {
         file >> token;
-        if (token == "P")
-        {
+        if (token == "P") {
             file >> i >> probability;
             vector<double> cases_per_block = vector<double>(graph->getB(), 0);
             Scenario scn(probability, cases_per_block);
             this->scenarios[i] = scn;
-        }
-        else if (token == "B")
-        {
+        } else if (token == "B") {
             file >> i >> block >> cases;
             this->scenarios[i].setCase2Block(block, cases);
         }
     }
 #ifndef Silence
-    cout << "Load Scenarios successfully" << endl;
+    cout << "[*] Load Scenarios successfully" << endl;
 #endif
 }
 
-bool Input::isNodeInPositiveValidBlock(int node)
-{
+bool Input::isNodeInPositiveValidBlock(int node) {
     auto node_info = graph->getNode(node);
 
-    for (int b : node_info.second)
-    {
+    for (int b : node_info.second) {
         if (b != -1 && graph->getCasesPerBlock(b) > 0)
             return true;
 
-        for (int s = 0; s < this->S; s++)
-        {
+        for (int s = 0; s < this->S; s++) {
             if (scenarios[s].getCasesPerBlock(b) > 0)
                 return true;
         }
@@ -286,8 +283,7 @@ bool Input::isNodeInPositiveValidBlock(int node)
     return false;
 }
 
-void Input::walkAdaptMTZModel()
-{
+void Input::walkAdaptMTZModel() {
 #ifndef Silence
     cout << "[*] Block to Block Complete Digraph Adapt" << endl;
 #endif
@@ -297,19 +293,16 @@ void Input::walkAdaptMTZModel()
     vector<int> path;
 
     // Add new arcs
-    for (int i = 0; i < graph->getN(); i++)
-    {
+    for (i = 0; i < graph->getN(); i++) {
         if (!isNodeInPositiveValidBlock(i))
             continue;
 
-        for (int j = 0; j < graph->getN(); j++)
-        {
+        for (int j = 0; j < graph->getN(); j++) {
             if (i == j || !isNodeInPositiveValidBlock(j) || graph->getArc(i, j) != nullptr)
                 continue;
 
             length = sp->ShortestPathST(i, j, path);
-            if (length != INF)
-            {
+            if (length != INF) {
                 Arc *arc = new Arc(i, j, length, -1);
                 graph->addArc(i, arc);
                 M++;
@@ -323,20 +316,17 @@ void Input::walkAdaptMTZModel()
 #endif
 }
 
-void Input::filterMostDifferentScenarios(int new_s)
-{
+void Input::filterMostDifferentScenarios(int new_s) {
     vector<double> cases_in_scenarios = this->graph->getCasesPerBlock();
     vector<Scenario> new_scenarios = vector<Scenario>(new_s);
     map<int, bool> scenarios_used;
 
     int ns = 0;
-    while (ns < new_s)
-    {
+    while (ns < new_s) {
         double diff_factor = -INF;
         int best_idx = -1;
 
-        for (int s = 0; s < this->S; s++)
-        {
+        for (int s = 0; s < this->S; s++) {
             if (scenarios_used.find(s) != scenarios_used.end())
                 continue;
 
@@ -346,8 +336,7 @@ void Input::filterMostDifferentScenarios(int new_s)
             for (int b = 0; b < graph->getB(); b++)
                 diff += scenario->getCasesPerBlock(b) - cases_in_scenarios[b];
 
-            if (diff > diff_factor)
-            {
+            if (diff > diff_factor) {
                 best_idx = s;
                 diff_factor = diff;
             }

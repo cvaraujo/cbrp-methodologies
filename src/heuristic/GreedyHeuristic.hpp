@@ -5,54 +5,49 @@
 #ifndef DPARP_GREEDYHEURISTIC_H
 #define DPARP_GREEDYHEURISTIC_H
 
-#include "../classes/Parameters.hpp"
 #include "../classes/Input.hpp"
+#include "../classes/Parameters.hpp"
 #include "../classes/Solution.hpp"
-#include "../common/Knapsack.hpp"
 #include "../common/BlockConnection.hpp"
+#include "../common/Knapsack.hpp"
 
-class GreedyHeuristic
-{
+class GreedyHeuristic {
     Input *input;
     vector<vector<pair<int, int>>> y;
     vector<pair<int, int>> x;
-    double objective_value;
+    double objective_value = 0;
 
-    pair<double, double> getBlockSecondStageProfitAvg(vector<Scenario> scenarios, int b)
-    {
+    pair<double, double> getBlockSecondStageProfitAvg(const vector<Scenario> &scenarios, int b) {
         double profit = 0;
         for (int s = 0; s < this->input->getS(); s++)
             profit += (input->getAlpha() * input->getScenario(s)->getProbability() * input->getScenario(s)->getCasesPerBlock(b));
         return make_pair((profit / this->input->getS()), profit);
     };
 
-    double getBlockSecondStageProfitSum(vector<Scenario> scenarios, int b)
-    {
+    double getBlockSecondStageProfitSum(const vector<Scenario> &scenarios, int b) {
         double profit = 0;
         for (int s = 0; s < this->input->getS(); s++)
             profit += (input->getAlpha() * input->getScenario(s)->getProbability() * input->getScenario(s)->getCasesPerBlock(b));
         return profit;
     };
 
-    double getRealValueOfFirstStageSolution(vector<int> y, vector<double> profit)
-    {
+  public:
+    GreedyHeuristic() = default;
+
+    explicit GreedyHeuristic(Input *input);
+
+    double SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y);
+
+    Solution Run(double route_time_increase, int max_tries, bool use_avg);
+
+    double BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y);
+
+    static double getRealValueOfFirstStageSolution(const vector<int> &y, vector<double> profit) {
         double of = 0;
         for (auto b : y)
             of += profit[b];
         return of;
     };
-
-public:
-    GreedyHeuristic(Input *input)
-    {
-        this->input = input;
-    };
-
-    double SolveScenario(vector<double> cases, vector<int> time, double route_time_increase, int max_tries, int T, vector<int> &y, vector<int_pair> &x);
-
-    Solution Run(double route_time_increase, int max_tries, bool use_avg);
-
-    double BinarySolve(vector<double> cases, vector<int> time, int reserved_time, int T, vector<int> &y, vector<int_pair> &x);
 };
 
 #endif

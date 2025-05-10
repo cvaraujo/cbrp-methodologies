@@ -5,57 +5,56 @@
 #ifndef DPARP_STOCHASTIC_STARTSOLUTION_H
 #define DPARP_STOCHASTIC_STARTSOLUTION_H
 
-#include "../../classes/Solution.hpp"
 #include "../../classes/Input.hpp"
+#include "../../classes/Solution.hpp"
 #include "../GreedyHeuristic.hpp"
 #include "Utils.hpp"
 
-class StartSolution
-{
+class StartSolution {
 
-public:
-    static Solution CreateStartSolution(Input *input)
-    {
+  public:
+    static Solution CreateStartSolution(Input *input) {
+#ifndef Silence
+        cout << "[*] Creating Start Solution..." << endl;
+#endif
         Graph *graph = input->getGraph();
         int S = input->getS(), T = input->getT(), B = graph->getB();
-        double alpha = input->getAlpha();
+
         vector<int> y_0 = vector<int>(), y = vector<int>();
-        vector<int_pair> x = vector<int_pair>();
         Solution solution = Solution(input);
-
-        // Getting all cases in a matrix
-        vector<vector<double>> cases_per_block = vector<vector<double>>(S + 1, vector<double>());
-        cases_per_block[0] = graph->getCasesPerBlock();
-
-        for (int s = 0; s < S; s++)
-            cases_per_block[s + 1] = input->getScenario(s)->getCases();
 
         // Solving the first stage problem
         GreedyHeuristic greedy_heuristic = GreedyHeuristic(input);
 
-        // Update first stage costs
-        Utils::UpdateFirstStageCosts(input, cases_per_block);
+        vector<double> cases_per_block = vector<double>(B, 0);
+        vector<int> time_per_block = graph->getTimePerBlock();
 
-        auto time_per_block = graph->getTimePerBlock();
-        double of = greedy_heuristic.SolveScenario(cases_per_block[0], time_per_block, 0.01, 100, T, y_0, x);
-        solution.AddScenarioSolution(0, x, y_0, of);
+        for (int b = 0; b < B; b++)
+            cases_per_block[b] = input->getFirstStageProfit(b);
 
-        // Solve second stage problems
-        for (int s = 1; s <= S; s++)
-        {
-            // Update second stage costs
-            y = vector<int>(), x = vector<int_pair>();
-            Utils::UpdateSecondStageCosts(input, y_0, cases_per_block, s);
-            double scenario_of = input->getScenario(s - 1)->getProbability() * greedy_heuristic.SolveScenario(cases_per_block[s], time_per_block, 0.01, 100, T, y, x);
-            of += scenario_of;
-            solution.AddScenarioSolution(s, x, y, scenario_of);
-            // cout << "[!] OF from Scenario[" << s << "]: " << of << endl;
+        // Solve first stage
+        double of = greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y_0);
+        Route *route = new Route(input, y_0);
+        solution.AddScenarioSolution(0, route, of);
+
+#ifndef Silence
+        cout << "[**] First Stage OF = " << of << endl;
+#endif
+
+        for (int s = 1; s <= S; s++) {
+            y = vector<int>();
+            Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
+
+            // Solve scenario s
+            double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
+            Route *route = new Route(input, y);
+            solution.AddScenarioSolution(s, route, scenario_of);
         }
 
-        // Update OF
-        cout << "[*] Start OF: " << of << endl;
-        solution.setOf(of);
-
+#ifndef Silence
+        cout << "[**] Stochastic Start Solution OF: " << solution.getOf() << endl;
+#endif
+        solution.setStartUB(solution.getOf());
         return solution;
     };
 };

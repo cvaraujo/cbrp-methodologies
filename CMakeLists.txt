@@ -1,20 +1,22 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(cbrp)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIL_STD -std=c++17 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIL_STD -std=c++17 -DSilence -O3")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(/workspaces/gurobi1103/armlinux64/include /workspaces/boost_1_87_0 /workspaces/lemon-1.3.1)
+include_directories(/opt/gurobi1201/linux64/include /opt/boost_1_88_0 /opt/lemon-1.3.1)
 
-link_directories(/workspaces/gurobi1103/armlinux64/lib /workspaces/boost_1_87_0 /workspaces/lemon-1.3.1/lemon)
+link_directories(/opt/gurobi1201/linux64/lib /opt/boost_1_88_0 /opt/lemon-1.3.1/lemon)
 
 set(
-    sources 
+    sources
     main.cpp
     src/classes/Arc.hpp
     src/classes/Parameters.hpp
+    src/classes/Route.hpp
+    src/classes/Route.cpp
     src/classes/Graph.hpp
     src/classes/Graph.cpp
     src/classes/Input.hpp
@@ -31,6 +33,8 @@ set(
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
     src/exact/DeterministicModelWalk.cpp
+    src/exact/DeterministicModelWalkBarrierMethod.hpp
+    src/exact/DeterministicModelWalkBarrierMethod.cpp
     src/exact/StochasticModel.hpp
     src/exact/StochasticModel.cpp
     src/exact/StochasticModelWalk.hpp
@@ -39,11 +43,12 @@ set(
     src/heuristic/GreedyHeuristic.cpp
     src/heuristic/Lagrangean.hpp
     src/heuristic/Lagrangean.cpp
-    src/heuristic/LocalSearch.hpp
-    src/heuristic/LocalSearch.cpp
+    src/heuristic/stochastic/Utils.hpp
+    src/heuristic/stochastic/LocalSearch.hpp
+    src/heuristic/stochastic/LocalSearch.cpp
+    src/heuristic/stochastic/StartSolution.hpp
 )
 
 add_executable(cbrp ${sources})
 
-target_link_libraries(cbrp gurobi_c++ gurobi110 pthread m emon)
-
+target_link_libraries(cbrp gurobi_c++ gurobi120 pthread m emon)

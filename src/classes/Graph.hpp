@@ -6,170 +6,228 @@
 #define DPARP_GRAPH_H
 
 #include "Arc.hpp"
-#include "Scenario.hpp"
 #include "Parameters.hpp"
+#include "Scenario.hpp"
 
-class Graph
-{
-  int N, M, B, PB;
+class Graph {
+    int N, M, B, PB;
 
-  vector<vector<Arc *>> arcs, arcs_matrix, arcs_per_block;
-  vector<pair<int, set<int>>> nodes;
-  vector<set<int>> nodes_per_block;
-  vector<int> time_per_block;
-  vector<double> cases_per_block;
+  public:
+    vector<vector<Arc *>> arcs, arcs_matrix, arcs_per_block;
+    vector<pair<int, set<int>>> nodes;
+    vector<set<int>> nodes_per_block;
+    vector<int> time_per_block;
+    vector<double> cases_per_block;
+    vector<vector<int>> node_block_hops;
+    vector<int> blocks_cumm_hops, nodes_cum_hops, block_count_zero_hops;
 
-public:
-  Graph(string instance, int km_path, int km_nebulize);
+    Graph(string instance, int km_path, int km_nebulize);
 
-  void LoadGraph(string instance, int km_path, int km_nebulize);
+    void LoadGraph(string instance, int km_path, int km_nebulize);
 
-  void ShowGraph()
-  {
-    for (int i = 0; i <= N; i++)
-      for (auto *arc : arcs[i])
-        cout << "[" << i << ", " << arc->getD() << "] - " << arc->getBlock() << endl;
-  }
-
-  set<int> getBlocksFromRoute(set<pair<int, int>> x)
-  {
-    int i;
-    set<int> blocks;
-
-    for (auto p : x)
-    {
-      i = p.first;
-      if (i >= N)
-        continue;
-
-      for (auto b : this->nodes[i].second)
-        if (b != -1)
-          blocks.insert(b);
+    void ShowGraph() {
+        for (int i = 0; i <= N; i++)
+            for (auto *arc : arcs[i])
+                cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << endl;
     }
 
-    return blocks;
-  }
+    set<int> getBlocksFromRoute(set<pair<int, int>> x) {
+        int i;
+        set<int> blocks;
 
-  set<int> getBlocksFromRoute(map<int_pair, int> x)
-  {
-    int i;
-    set<int> blocks;
+        for (auto p : x) {
+            i = p.first;
+            if (i >= N)
+                continue;
 
-    for (auto x_p : x)
-    {
-      int_pair p = x_p.first;
+            for (auto b : this->nodes[i].second)
+                if (b != -1)
+                    blocks.insert(b);
+        }
 
-      i = p.first;
-      if (i >= N)
-        continue;
-
-      for (auto b : this->nodes[i].second)
-        if (b != -1)
-          blocks.insert(b);
+        return blocks;
     }
 
-    return blocks;
-  }
+    set<int> getBlocksFromRoute(map<int_pair, int> x) {
+        int i;
+        set<int> blocks;
 
-  Arc *getArc(int i, int j)
-  {
-    if (arcs_matrix[i][j] != nullptr)
-      return arcs_matrix[i][j];
+        for (auto x_p : x) {
+            int_pair p = x_p.first;
 
-    for (auto arc : arcs[i])
-      if (arc->getD() == j)
-      {
-        arcs_matrix[i][j] = arc;
-        return arc;
-      }
+            i = p.first;
+            if (i >= N)
+                continue;
 
-    return nullptr;
-  }
+            for (auto b : this->nodes[i].second)
+                if (b != -1)
+                    blocks.insert(b);
+        }
 
-  void addArtificialNode(int n)
-  {
-    this->nodes.push_back(make_pair(n, set<int>()));
-    this->arcs.push_back(vector<Arc *>());
+        return blocks;
+    }
 
-    for (int i = 0; i < N; i++)
-      this->arcs[N].push_back(new Arc(n, i, 0, -1)), this->arcs[i].push_back(new Arc(i, n, 0, -1));
-  };
+    Arc *getArc(int i, int j) {
+        if (arcs_matrix[i][j] != nullptr)
+            return arcs_matrix[i][j];
 
-  void addArc(int i, Arc *arc) { this->arcs[i].push_back(arc); }
+        for (auto arc : arcs[i])
+            if (arc->getD() == j) {
+                arcs_matrix[i][j] = arc;
+                return arc;
+            }
 
-  vector<Arc *> getArcsPerBlock(int block) { return arcs_per_block[block]; }
+        return nullptr;
+    }
 
-  void setCasesPerBlock(int block, double cases) { cases_per_block[block] = cases; }
+    void addArtificialNode(int n) {
+        this->nodes.push_back(make_pair(n, set<int>()));
+        this->arcs.push_back(vector<Arc *>());
 
-  void setCasesPerBlock(vector<double> cases) { cases_per_block = cases; }
+        for (int i = 0; i < N; i++)
+            this->arcs[N].push_back(new Arc(n, i, 0, -1)), this->arcs[i].push_back(new Arc(i, n, 0, -1));
+    };
 
-  double getCasesPerBlock(int block) { return cases_per_block[block]; }
+    void addArc(int i, Arc *arc) { this->arcs[i].push_back(arc); }
 
-  void setTimePerBlock(int block, int time) { time_per_block[block] = time; }
+    vector<Arc *> getArcsPerBlock(int block) { return arcs_per_block[block]; }
 
-  void setTimePerBlock(vector<int> time) { time_per_block = time; }
+    void setCasesPerBlock(int block, double cases) { cases_per_block[block] = cases; }
 
-  void setNodesPerBlock(int block, set<int> nodes) { nodes_per_block[block] = nodes; }
+    void setCasesPerBlock(vector<double> cases) { cases_per_block = cases; }
 
-  void setNodesPerBlock(vector<set<int>> nodes) { nodes_per_block = nodes; }
+    double getCasesPerBlock(int block) { return cases_per_block[block]; }
 
-  vector<double> getCasesPerBlock() { return cases_per_block; }
+    void setTimePerBlock(int block, int time) { time_per_block[block] = time; }
 
-  int getTimePerBlock(int block) { return time_per_block[block]; }
+    void setTimePerBlock(vector<int> time) { time_per_block = time; }
 
-  vector<int> getTimePerBlock() { return time_per_block; }
+    void setNodesPerBlock(int block, set<int> nodes) { nodes_per_block[block] = nodes; }
 
-  pair<int, set<int>> getNodes(int i) { return nodes[i]; }
+    void setNodesPerBlock(vector<set<int>> nodes) { nodes_per_block = nodes; }
 
-  void setBlocksFromNode(int i, set<int> blocks) { nodes[i].second = blocks; }
+    vector<double> getCasesPerBlock() { return cases_per_block; }
 
-  set<int> getNodesFromBlock(int block) { return nodes_per_block[block]; }
+    int getTimePerBlock(int block) { return time_per_block[block]; }
 
-  vector<Arc *> getArcs(int i) { return arcs[i]; }
+    vector<int> getTimePerBlock() { return time_per_block; }
 
-  pair<int, set<int>> getNode(int i) { return nodes[i]; }
+    pair<int, set<int>> getNodes(int i) { return nodes[i]; }
 
-  vector<pair<int, set<int>>> getNodes() { return nodes; }
+    void setBlocksFromNode(int i, set<int> blocks) { nodes[i].second = blocks; }
 
-  void setNodes(vector<pair<int, set<int>>> nodes) { this->nodes = nodes; }
+    set<int> getNodesFromBlock(int block) { return nodes_per_block[block]; }
 
-  void setArcs(vector<vector<Arc *>> arcs) { this->arcs = arcs; }
+    vector<Arc *> getArcs(int i) { return arcs[i]; }
 
-  void setArcsMatrix(vector<vector<Arc *>> arcs) { this->arcs_matrix = arcs; }
+    pair<int, set<int>> getNode(int i) { return nodes[i]; }
 
-  void resetArcsMatrix(int N) { this->arcs_matrix = vector<vector<Arc *>>(N + 2, vector<Arc *>(N + 2, nullptr)); }
+    vector<pair<int, set<int>>> getNodes() { return nodes; }
 
-  void resetArcsMatrixRow(int i) { this->arcs_matrix[i] = vector<Arc *>(N + 2, nullptr); }
+    void setNodes(vector<pair<int, set<int>>> nodes) { this->nodes = nodes; }
 
-  void removeArcFromArcsMatrix(int i, int j) { this->arcs_matrix[i][j] = nullptr; }
+    void setArcs(vector<vector<Arc *>> arcs) { this->arcs = arcs; }
 
-  void addArcInMatrix(int i, int j, Arc *arc) { this->arcs_matrix[i][j] = arc; }
+    void setArcsMatrix(vector<vector<Arc *>> arcs) { this->arcs_matrix = arcs; }
 
-  vector<set<int>> getNodesPerBlock() { return nodes_per_block; }
+    void resetArcsMatrix(int N) { this->arcs_matrix = vector<vector<Arc *>>(N + 2, vector<Arc *>(N + 2, nullptr)); }
 
-  int getN() const { return N; }
+    void resetArcsMatrixRow(int i) { this->arcs_matrix[i] = vector<Arc *>(N + 2, nullptr); }
 
-  void setN(int N) { this->N = N; }
+    void removeArcFromArcsMatrix(int i, int j) { this->arcs_matrix[i][j] = nullptr; }
 
-  int getM() const { return M; }
+    void addArcInMatrix(int i, int j, Arc *arc) { this->arcs_matrix[i][j] = arc; }
 
-  void setM(int M) { this->M = M; }
+    vector<set<int>> getNodesPerBlock() { return nodes_per_block; }
 
-  int getB() const { return B; }
+    int getN() const { return N; }
 
-  void setB(int B) { this->B = B; }
+    void setN(int N) { this->N = N; }
 
-  int getPB() const { return PB; }
+    int getM() const { return M; }
 
-  void setPB(int PB) { this->PB = PB; }
+    void setM(int M) { this->M = M; }
 
-  int getDepot() const { return N; }
+    int getB() const { return B; }
 
-  void setDepot(int N) { this->N = N; }
+    void setB(int B) { this->B = B; }
 
-  int getSink() const { return N + 1; }
+    int getPB() const { return PB; }
 
-  void setSink(int N) { this->N = N; }
+    void setPB(int PB) { this->PB = PB; }
+
+    int getDepot() const { return N; }
+
+    void setDepot(int N) { this->N = N; }
+
+    int getSink() const { return N + 1; }
+
+    void setSink(int N) { this->N = N; }
+
+    int getNodeBlockHops(int i, int b) {
+        if (i < N && b < B)
+            return this->node_block_hops[i][b];
+        return -1;
+    }
+
+    void ComputeNodeBlockHops() {
+        node_block_hops = vector<vector<int>>(N, vector<int>(B, 0));
+
+        for (int i = 0; i < N; i++) {
+            int allocated_blocks = 0;
+            vector<int> res, hops(N, 0);
+            queue<int> q;
+            vector<bool> visited(N, false), allocated(N, false);
+
+            visited[i] = true;
+            q.push(i);
+            while (!q.empty()) {
+                int curr = q.front();
+                q.pop();
+                res.push_back(curr);
+
+                for (auto b : nodes[curr].second) {
+                    if (b != -1 && !allocated[b]) {
+                        allocated_blocks++;
+                        allocated[b] = true;
+                        this->node_block_hops[i][b] = hops[curr];
+                    }
+                }
+
+                if (allocated_blocks == B)
+                    break;
+
+                for (Arc *arc : arcs[curr]) {
+                    int x = arc->getD();
+                    if (x < N && !visited[x]) {
+                        visited[x] = true;
+                        q.push(x);
+                        hops[x] = hops[curr] + 1;
+                    }
+                }
+            }
+        }
+
+        blocks_cumm_hops = vector<int>(B, 0);
+        nodes_cum_hops = vector<int>(N, 0);
+        block_count_zero_hops = vector<int>(N, 0);
+
+        for (int node = 0; node < N; node++) {
+            block_count_zero_hops[node] = 0;
+            int node_hops = 0;
+
+            for (int b = 0; b < B; b++) {
+                int hops = getNodeBlockHops(node, b);
+                if (hops != -1) {
+                    node_hops += hops;
+                    blocks_cumm_hops[b] += hops;
+                    if (hops == 0)
+                        block_count_zero_hops[node]++;
+                }
+            }
+            nodes_cum_hops[node] = node_hops;
+        }
+    };
 };
 
 #endif

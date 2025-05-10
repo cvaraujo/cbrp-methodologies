@@ -5,28 +5,24 @@
 #ifndef SCBRP_BC_H
 #define SCBRP_BC_H
 
-#include "ShortestPath.hpp"
-#include "../classes/Parameters.hpp"
-#include "../classes/Graph.hpp"
 #include "../classes/Arc.hpp"
+#include "../classes/Graph.hpp"
+#include "../classes/Parameters.hpp"
+#include "ShortestPath.hpp"
 
-using namespace std;
+class BlockConnection {
 
-class BlockConnection
-{
-
-private:
+  private:
     Graph *graph;
     ShortestPath *sp;
-    map<string, double> blocks_attend_cost;
-    map<string, vector<int>> blocks_attend_path;
+    map<string, int> blocks_attend_cost;
+    map<string, vector<int>> blocks_attend_path, best_order_attend_blocks;
     vector<vector<int>> block_2_block_cost;
 
-public:
-    BlockConnection() {};
+  public:
+    BlockConnection() = default;
 
-    BlockConnection(Graph *graph, ShortestPath *sp)
-    {
+    BlockConnection(Graph *graph, ShortestPath *sp) {
         this->graph = graph;
         this->sp = sp;
     };
@@ -35,24 +31,18 @@ public:
 
     int HeuristicBlockConnection(Graph *graph, ShortestPath *sp, vector<int> blocks, string key);
 
-    int SimplePathBlockConnection(vector<int> blocks, vector<int> &pred);
-
-    set<int> computeBlock2BlockCost()
-    {
+    set<int> computeBlock2BlockCost() {
         // Remove unecessary arcs between blocks
         int B = graph->getB();
         this->block_2_block_cost = vector<vector<int>>(B, vector<int>(B, INF));
         set<int> set_of_used_nodes, nodes_in_path, union_set;
 
-        for (int b = 0; b < B - 1; b++)
-        {
-            for (int b2 = b + 1; b2 < B; b2++)
-            {
+        for (int b = 0; b < B - 1; b++) {
+            for (int b2 = b + 1; b2 < B; b2++) {
                 nodes_in_path = set<int>();
                 int cost = this->sp->SHPBetweenBlocks(b, b2, nodes_in_path);
 
-                if (cost < INF)
-                {
+                if (cost < INF) {
                     union_set = set<int>();
                     set_union(nodes_in_path.begin(), nodes_in_path.end(), set_of_used_nodes.begin(), set_of_used_nodes.end(), inserter(union_set, union_set.begin()));
                     set_of_used_nodes = union_set;
@@ -64,35 +54,46 @@ public:
         return set_of_used_nodes;
     };
 
-    static string GenerateStringFromIntVector(vector<int> blocks)
-    {
+    static string GenerateStringFromIntVector(vector<int> blocks) {
         stringstream result;
-        copy(blocks.begin(), blocks.end(), ostream_iterator<int>(result, ""));
+        vector<int> keys(std::move(blocks));
+        sort(keys.begin(), keys.end());
+        copy(keys.begin(), keys.end(), ostream_iterator<int>(result, "_"));
 
         return result.str();
     };
 
     vector<vector<Arc>> createLayeredDag(vector<int> nodes, map<int, int> &dag_2_graph, int &V);
 
-    vector<int> getBestOrderToAttendBlocks(vector<int> blocks);
+    vector<int> getBestOrderToAttendBlocks(const vector<int> &blocks, int block_sort_option);
 
-    void setBlocksAttendCost(string key, double cost) { this->blocks_attend_cost[key] = cost; }
+    void setBlocksAttendCost(const string &key, int cost) { this->blocks_attend_cost[key] = cost; }
 
-    void setBlocksAttendPath(string key, vector<int> path) { this->blocks_attend_path[key] = path; }
+    void setBlocksAttendPath(const string &key, vector<int> path) { this->blocks_attend_path[key] = std::move(path); }
 
-    double getBlocksAttendCost(string key) { return this->blocks_attend_cost[key]; }
+    int getBlocksAttendCost(const string &key) { return this->blocks_attend_cost[key]; }
 
-    vector<int> getBlocksAttendPath(string key) { return this->blocks_attend_path[key]; }
+    vector<int> getBlocksAttendPath(const string &key) { return this->blocks_attend_path[key]; }
 
-    void setBlock2BlockCost(vector<vector<int>> block_2_block_cost) { this->block_2_block_cost = block_2_block_cost; }
+    void setBlock2BlockCost(vector<vector<int>> block_2_block_cost) { this->block_2_block_cost = std::move(block_2_block_cost); }
 
     vector<vector<int>> getBlock2BlockCost() { return this->block_2_block_cost; }
 
+    void setBestOrderToAttendBlocks(const string &key, vector<int> order) { this->best_order_attend_blocks[key] = std::move(order); }
+
+    vector<int> getBestOrderToAttendBlocks(const string &key) { return this->best_order_attend_blocks[key]; }
+
     int getBlock2BlockCost(int i, int j) { return this->block_2_block_cost[i][j]; }
 
-    bool keyExists(string key) { return this->blocks_attend_cost.find(key) != this->blocks_attend_cost.end(); }
+    bool keyExists(const string &key) { return this->blocks_attend_cost.find(key) != this->blocks_attend_cost.end(); }
 
     void updateBlock2BlockCost(int i, int j, int cost) { this->block_2_block_cost[i][j] = cost; }
+
+    void UpdateBestKnowBlockConnection(vector<int> &blocks, vector<int> &path, int time) {
+        string key = BlockConnection::GenerateStringFromIntVector(blocks);
+        setBlocksAttendCost(key, time);
+        setBlocksAttendPath(key, path);
+    }
 };
 
 #endif // SCBRP_SHP_H

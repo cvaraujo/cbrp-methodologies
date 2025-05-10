@@ -51,23 +51,11 @@ int ShortestPath::ShortestPathST(int s, int t, vector<int> &path)
 
     if (s == t)
     {
-        cout << "[ShortestPathST] Entrei nessa merda?" << endl;
-        getchar();
         path.push_back(s);
         return 0;
     }
     if (!ij_path[s][t].empty())
     {
-        // if (s == 33 && t == 65)
-        // {
-        //     cout << "[ShortestPathST] Condicional 3!" << endl;
-
-        //     for (auto i : ij_path[s][t])
-        //         cout << i << " ";
-        //     cout << endl;
-        //     getchar();
-        // }
-
         path = ij_path[s][t];
         return dist[s][t];
     }
@@ -81,20 +69,12 @@ int ShortestPath::ShortestPathST(int s, int t, vector<int> &path)
     int i = s, j = t;
     path = vector<int>();
     path.push_back(i);
+
     while (i != j)
     {
         i = next[i][j];
         path.push_back(i);
     }
-    // if (s == 33 && t == 65)
-    // {
-    //     cout << "[ShortestPathST] Fluxo normal!" << endl;
-
-    //     for (auto i : path)
-    //         cout << i << " ";
-    //     cout << endl;
-    //     getchar();
-    // }
 
     ij_path[s][t] = path;
 
