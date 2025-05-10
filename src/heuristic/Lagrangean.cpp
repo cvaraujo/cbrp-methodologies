@@ -42,11 +42,6 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
         for (auto arc : graph->getArcs(i)) {
             j = arc->getD();
             of += X[i][j] * mult_time * arc->getLength();
-            // if (mult_time != 0)
-            // {
-            //   cout << "[1 -->] i: " << i << ", j: " << j << ", mult: " << mult_time * arc->getLength() << endl;
-            //   getchar();
-            // }
         }
     }
 
@@ -55,11 +50,6 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
             for (auto arc : graph->getArcs(i)) {
                 j = arc->getD();
                 of += -1 * X[i][j] * mult_conn[b];
-                // if (mult_conn[b] != 0)
-                // {
-                //   cout << "[2 -->] i: " << i << ", j: " << j << ", b: " << b << ", mult: " << mult_conn[b] << endl;
-                //   getchar();
-                // }
             }
         }
     }
@@ -212,6 +202,7 @@ double Lagrangean::solve_ppl(map<pair<int, int>, int> &x, vector<int> &y) {
     //      << "\t[-] OF: " << of << endl
     //      << "\t[-] Route Cost: " << route_cost << endl
     //      << "\t[-] Knapsack Cost: " << knapsack_cost << endl;
+    // getchar();
     return of - route_cost + knapsack_cost;
 }
 
@@ -379,12 +370,16 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
 
     vector<int> y_heu;
     vector<int_pair> x_heu;
+
     // TODO: back here later
     LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), T, y_heu);
 
     this->initial_LB = LB;
     this->initial_UB = UB;
     obj_ppl = UB;
+    auto *bm = new DeterministicModelWalkBarrier(input);
+    bm->Run(false, "3600", "EXP", false);
+    mult_time = bm->getMultipliers(mult_conn);
 
     auto end = chrono::high_resolution_clock::now();
     auto elapsed = duration_cast<chrono::seconds>(end - start);
@@ -394,7 +389,7 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
         vector<int> y, y_aux;
 
         // cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
-        if (iter > 0)
+        if (iter >= 0)
             obj_ppl = solve_ppl(x, y);
         else {
             y = y_heu;
@@ -457,8 +452,8 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
             }
 
             if ((UB - LB) < 1) {
-                // cout << "[!!!] Found optimal solution!" << endl
-                //      << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
+                cout << "[!!!] Found optimal solution!" << endl
+                     << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << endl;
                 break;
             }
 

@@ -8,6 +8,7 @@
 #include "../classes/Input.hpp"
 #include "../common/BoostLibrary.hpp"
 #include "../common/Knapsack.hpp"
+#include "../exact/DeterministicModelWalkBarrierMethod.hpp"
 #include "GreedyHeuristic.hpp"
 #include "gurobi_c++.h"
 #include <vector>

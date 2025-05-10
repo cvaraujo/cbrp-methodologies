@@ -33,12 +33,16 @@ set(
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
     src/exact/DeterministicModelWalk.cpp
+    src/exact/DeterministicModelWalkBarrierMethod.hpp
+    src/exact/DeterministicModelWalkBarrierMethod.cpp
     src/exact/StochasticModel.hpp
     src/exact/StochasticModel.cpp
     src/exact/StochasticModelWalk.hpp
     src/exact/StochasticModelWalk.cpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
+    src/heuristic/Lagrangean.hpp
+    src/heuristic/Lagrangean.cpp
     src/heuristic/stochastic/Utils.hpp
     src/heuristic/stochastic/LocalSearch.hpp
     src/heuristic/stochastic/LocalSearch.cpp

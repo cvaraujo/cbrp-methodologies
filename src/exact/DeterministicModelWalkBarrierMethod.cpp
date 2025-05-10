@@ -2,16 +2,17 @@
 // Created by carlos on 06/07/21.
 //
 
-#include "DeterministicModel.hpp"
+#include "DeterministicModelWalkBarrierMethod.hpp"
 #include "gurobi_c.h"
 
-class cyclecallback : public GRBCallback {
+class cyclecallbackWalkbarrier : public GRBCallback {
 
   public:
     double lastiter, lastnode;
     int numvars, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
     bool frac_cut = false;
-    vector<vector<GRBVar>> x, y;
+    vector<vector<GRBVar>> x;
+    vector<GRBVar> y;
     typedef ListDigraph G;
     typedef G::Arc Arc;
     typedef G::ArcIt ArcIt;
@@ -20,13 +21,13 @@ class cyclecallback : public GRBCallback {
     typedef G::NodeMap<bool> BoolNodeMap;
     Input *input;
 
-    cyclecallback(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<vector<GRBVar>> yy, bool frac_cut) {
+    cyclecallbackWalkbarrier(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<GRBVar> yy, bool frac_cut) {
         lastiter = lastnode = 0;
         numvars = xnumvars;
-        x = xx;
-        y = yy;
+        x = std::move(xx);
+        y = std::move(yy);
         input = xinput;
-        this->frac_cut = frac_cut;
+        frac_cut = frac_cut;
     }
 
   protected:
@@ -36,12 +37,12 @@ class cyclecallback : public GRBCallback {
                 bool is_feasible = true;
                 Graph *graph = input->getGraph();
 
-                int i, j, s, n = graph->getN();
-                vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
-                vector<bool> used_node = vector<bool>(n + 1);
+                int i, j, s, N = graph->getN();
+                vector<vector<int>> g = vector<vector<int>>(N + 2, vector<int>());
+                vector<bool> used_node = vector<bool>(N + 1);
 
                 // Create graph G'
-                for (i = 0; i <= n; i++) {
+                for (i = 0; i <= N; i++) {
                     for (auto *arc : graph->getArcs(i)) {
                         if (getSolution(x[i][arc->getD()]) > 0.1) {
                             g[i].push_back(arc->getD());
@@ -50,14 +51,14 @@ class cyclecallback : public GRBCallback {
                     }
                 }
 
-                vector<bool> visited(n + 1, false);
-                vector<int> node_connected_component = vector<int>(n + 1, -1);
+                vector<bool> visited(N + 1, false);
+                vector<int> node_connected_component = vector<int>(N + 1, -1);
                 vector<vector<int>> connected_component;
                 vector<vector<int_pair>> arcs_from_component;
                 int idx = 0;
 
                 // DFS
-                for (i = n; i >= 0; i--) {
+                for (i = N; i >= 0; i--) {
                     if (!used_node[i] || visited[i])
                         continue;
 
@@ -93,44 +94,32 @@ class cyclecallback : public GRBCallback {
                 // Need Cuts
                 is_feasible = false;
 
-                if (input->isTrail()) {
-                    for (i = 1; i < connected_component.size(); i++) {
-                        vector<int> s_nodes = connected_component[i];
-                        vector<int_pair> s_arcs = arcs_from_component[i];
-                        GRBLinExpr in_arcs, cut_arcs;
-                        int num_in_nodes = s_nodes.size();
+                for (i = 1; i < connected_component.size(); i++) {
+                    vector<int> s_nodes = connected_component[i];
+                    GRBLinExpr cut_arcs;
 
-                        // Arcs inside S
-                        for (auto pair : s_arcs)
-                            in_arcs += x[pair.first][pair.second];
+                    // Arcs in the cut S
+                    for (int j = 0; j < N; j++)
+                        if (node_connected_component[j] != i)
+                            for (auto arc : graph->getArcs(j))
+                                if (node_connected_component[arc->getD()] == i)
+                                    cut_arcs += x[j][arc->getD()];
 
-                        addLazy(in_arcs <= num_in_nodes - 1);
-                        num_lazy_cuts++;
-                    }
-                } else {
-                    // Need Cuts
-                    for (i = 1; i < connected_component.size(); i++) {
-                        vector<int> s_nodes = connected_component[i];
-                        vector<int_pair> s_arcs = arcs_from_component[i];
-                        GRBLinExpr in_arcs, cut_arcs;
-                        int num_in_arcs = s_arcs.size();
-                        int num_in_nodes = s_nodes.size();
+                    for (int org_1 : s_nodes) {
+                        for (int org_2 : s_nodes) {
+                            if (org_1 == org_2)
+                                continue;
 
-                        // Arcs inside S
-                        for (auto pair : s_arcs)
-                            in_arcs += x[pair.first][pair.second];
-
-                        // Arcs in the cut S
-                        for (int j = 0; j < n; j++)
-                            if (node_connected_component[j] != i)
-                                for (auto arc : graph->getArcs(j))
-                                    if (node_connected_component[arc->getD()] == i)
-                                        cut_arcs += x[j][arc->getD()];
-
-                        addLazy(in_arcs <= num_in_nodes - 1 + cut_arcs);
-                        num_lazy_cuts++;
+                            for (auto a_p : graph->getArcs(org_1)) {
+                                for (auto a_pp : graph->getArcs(org_2)) {
+                                    addLazy(cut_arcs >= x[org_1][a_p->getD()] + x[org_2][a_pp->getD()] - 1);
+                                    num_lazy_cuts++;
+                                }
+                            }
+                        }
                     }
                 }
+
                 if (is_feasible)
                     return;
             } catch (GRBException e) {
@@ -139,9 +128,7 @@ class cyclecallback : public GRBCallback {
             } catch (...) {
                 cout << "Error during callback" << endl;
             }
-        }
-
-        else if (where == GRB_CB_MIPNODE) {
+        } else if (where == GRB_CB_MIPNODE) {
             try {
                 if (!frac_cut)
                     return;
@@ -190,7 +177,6 @@ class cyclecallback : public GRBCallback {
 
                         if (mincut_value >= 1.0)
                             continue;
-                        // cout << "MinCut: " << mincut_value << endl;
 
                         // Create basic variables
                         GRBLinExpr cut_arcs;
@@ -227,25 +213,17 @@ class cyclecallback : public GRBCallback {
     }
 };
 
-Solution DeterministicModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts) {
+void DeterministicModelWalkBarrier::Run(bool use_warm_start, string time_limit, string model, bool use_cuts) {
     this->createVariables();
     this->initModel(model);
-
-    if (model == "MTZ")
-        this->solveCompact(time_limit);
-    else if (model == "EXP")
-        this->solveExponential(time_limit, use_cuts);
-    else {
-        cout << "[!] Model not found!" << endl;
-        exit(EXIT_FAILURE);
-    }
+    this->solveExponential(time_limit, use_cuts);
 
     // this->checkSolution();
 
-    return this->getSolution();
+    // return this->getSolution();
 }
 
-void DeterministicModel::createVariables() {
+void DeterministicModelWalkBarrier::createVariables() {
     Graph *graph = this->input->getGraph();
     int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB();
 
@@ -254,8 +232,7 @@ void DeterministicModel::createVariables() {
         env.start();
 
         x = vector<vector<GRBVar>>(n + 1, vector<GRBVar>(n + 1));
-        y = vector<vector<GRBVar>>(n, vector<GRBVar>(b));
-        t = vector<vector<GRBVar>>(n + 1, vector<GRBVar>(n + 1));
+        y = vector<GRBVar>(b);
 
         // X
         char name[40];
@@ -263,25 +240,13 @@ void DeterministicModel::createVariables() {
             for (auto *arc : graph->getArcs(o)) {
                 d = arc->getD();
                 sprintf(name, "x_%d_%d", o, d);
-                x[o][d] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+                x[o][d] = model.addVar(0.0, GRB_INFINITY, 0, GRB_CONTINUOUS, name);
             }
         }
         // Y
-        for (int i = 0; i < n; i++) {
-            o = graph->getNodes()[i].first;
-            for (auto bl : graph->getNode(i).second) {
-                sprintf(name, "y_%d_%d", o, bl);
-                y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
-            }
-        }
-
-        // T
-        for (o = 0; o <= n; o++) {
-            for (auto *arc : graph->getArcs(o)) {
-                d = arc->getD();
-                sprintf(name, "t_%d_%d", o, d);
-                t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
-            }
+        for (int bl = 0; bl < b; bl++) {
+            sprintf(name, "y_%d", bl);
+            y[bl] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
         }
 
         model.update();
@@ -295,17 +260,13 @@ void DeterministicModel::createVariables() {
     }
 }
 
-void DeterministicModel::initModel(string model) {
+void DeterministicModelWalkBarrier::initModel(string model) {
 #ifndef Silence
     cout << "[***] Creating " << model << " model!" << endl;
 #endif
 
-    objectiveFunction();
-    artificialNodes(), flowConservation();
-    maxAttending(), attendingPath();
-    timeConstraint();
-    if (model == "MTZ")
-        compactTimeConstraint();
+    objectiveFunction(), artificialNodes();
+    flowConservation(), attendingPath(), timeConstraint();
 
     this->model.update();
 
@@ -314,17 +275,13 @@ void DeterministicModel::initModel(string model) {
 #endif
 }
 
-void DeterministicModel::objectiveFunction() {
+void DeterministicModelWalkBarrier::objectiveFunction() {
     GRBLinExpr objective;
     auto graph = input->getGraph();
-    int i, j, n = graph->getN();
+    int B = graph->getB();
 
-    for (i = 0; i < n; i++) {
-        j = graph->getNode(i).first;
-        for (auto b : graph->getNode(i).second) {
-            objective += (y[j][b] * graph->getCasesPerBlock(b));
-        }
-    }
+    for (int b = 0; b < B; b++)
+        objective += (y[b] * graph->getCasesPerBlock(b));
 
     model.setObjective(objective, GRB_MAXIMIZE);
     model.update();
@@ -334,7 +291,7 @@ void DeterministicModel::objectiveFunction() {
 #endif
 }
 
-void DeterministicModel::artificialNodes() {
+void DeterministicModelWalkBarrier::artificialNodes() {
     int n = this->input->getGraph()->getN();
     GRBLinExpr sink, target;
 
@@ -351,7 +308,7 @@ void DeterministicModel::artificialNodes() {
 #endif
 }
 
-void DeterministicModel::flowConservation() {
+void DeterministicModelWalkBarrier::flowConservation() {
     auto graph = input->getGraph();
     int i, j, n = graph->getN();
 
@@ -381,34 +338,17 @@ void DeterministicModel::flowConservation() {
 #endif
 }
 
-void DeterministicModel::maxAttending() {
+void DeterministicModelWalkBarrier::attendingPath() {
     auto graph = input->getGraph();
-    int bl, b = graph->getB();
+    int b, B = graph->getB();
 
-    for (bl = 0; bl < b; bl++) {
-        GRBLinExpr maxServ;
-        for (auto i : graph->getNodesFromBlock(bl))
-            maxServ += y[i][bl];
-
-        model.addConstr(maxServ <= 1, "max_service_block_" + to_string(bl));
-    }
-
-#ifndef Silence
-    cout << "[***] Constraint: Serve each block at most once" << endl;
-#endif
-}
-
-void DeterministicModel::attendingPath() {
-    auto graph = input->getGraph();
-    int j, bl, n = graph->getN(), b = graph->getB();
-    for (bl = 0; bl < b; bl++) {
-        for (auto i : graph->getNodesFromBlock(bl)) {
-            GRBLinExpr served;
+    for (b = 0; b < B; b++) {
+        GRBLinExpr served = 0;
+        for (auto i : graph->getNodesFromBlock(b)) {
             for (auto *arc : graph->getArcs(i))
                 served += x[i][arc->getD()];
-
-            model.addConstr(served >= y[i][bl], "att_path_" + to_string(i) + "_" + to_string(bl));
         }
+        model.addConstr(served >= y[b], "att_path_" + to_string(b));
     }
 
 #ifndef Silence
@@ -416,21 +356,19 @@ void DeterministicModel::attendingPath() {
 #endif
 }
 
-void DeterministicModel::timeConstraint() {
+void DeterministicModelWalkBarrier::timeConstraint() {
     auto graph = input->getGraph();
-    int i, j, n = graph->getN();
+    int i, j, N = graph->getN(), B = graph->getB();
 
-    GRBLinExpr arcTravel, blockTravel;
-    for (i = 0; i < n; i++) {
-        for (auto *arc : graph->getArcs(i)) {
-            j = arc->getD();
-            arcTravel += x[i][j] * arc->getLength();
-        }
+    GRBLinExpr arcTravel;
+    for (i = 0; i < N; i++)
+        for (auto *arc : graph->getArcs(i))
+            arcTravel += x[i][arc->getD()] * arc->getLength();
 
-        for (auto b : graph->getNode(i).second)
-            if (b != -1)
-                blockTravel += y[i][b] * graph->getTimePerBlock(b);
-    }
+    GRBLinExpr blockTravel;
+    for (int b = 0; b < B; b++)
+        blockTravel += y[b] * graph->getTimePerBlock(b);
+
     model.addConstr(blockTravel + arcTravel <= input->getT(), "max_time");
 
 #ifndef Silence
@@ -438,60 +376,18 @@ void DeterministicModel::timeConstraint() {
 #endif
 }
 
-void DeterministicModel::compactTimeConstraint() {
-    auto graph = input->getGraph();
-    int b, i, j, k, n = graph->getN();
-
-    for (i = 0; i <= n; i++) {
-        if (i < n)
-            model.addConstr(t[n][i] == 0);
-
-        for (auto *arc : graph->getArcs(i)) {
-            j = arc->getD();
-            if (j >= n)
-                continue;
-
-            for (auto *arcl : graph->getArcs(j)) {
-                k = arcl->getD();
-                model.addConstr(t[j][k] >= t[i][j] + (arc->getLength() * x[i][j]) - ((2 - x[i][j] - x[j][k]) * input->getT()), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
-            }
-        }
-    }
-    for (i = 0; i < n; i++) {
-        model.addConstr(t[i][n] <= x[i][n] * input->getT(), "max_time");
-    }
-
-#ifndef Silence
-    cout << "[***] Constraint: Time limit" << endl;
-#endif
-}
-
-void DeterministicModel::solveCompact(string time_limit) {
-    try {
-        model.set("TimeLimit", time_limit);
-        model.set("OutputFlag", "0");
-        model.update();
-#ifndef Silence
-        model.set("OutputFlag", "1");
-        model.update();
-#endif
-        // model.computeIIS();
-        model.write("model.lp");
-        model.optimize();
-    } catch (GRBException &ex) {
-        cout << ex.getMessage() << endl;
-    }
-}
-
-void DeterministicModel::solveExponential(string time_limit, bool frac_cut) {
+void DeterministicModelWalkBarrier::solveExponential(string time_limit, bool frac_cut) {
     try {
         auto graph = input->getGraph();
         model.set("TimeLimit", time_limit);
         model.set(GRB_DoubleParam_Heuristics, 1.0);
         model.set(GRB_IntParam_LazyConstraints, 1);
-        cyclecallback cb = cyclecallback(input, graph->getN(), x, y, frac_cut);
+        cyclecallbackWalkbarrier cb = cyclecallbackWalkbarrier(input, graph->getN(), x, y, frac_cut);
         model.setCallback(&cb);
         model.set("OutputFlag", "0");
+        model.set(GRB_IntParam_PreDual, 1);
+        model.set("Method", "2");
+        model.set("Crossover", "0");
         model.update();
 
 #ifndef Silence
@@ -499,7 +395,7 @@ void DeterministicModel::solveExponential(string time_limit, bool frac_cut) {
         model.update();
 #endif
 
-        model.write("model.lp");
+        model.write("barrier_model.lp");
         model.optimize();
 
         // Save the number of cuts
@@ -509,7 +405,7 @@ void DeterministicModel::solveExponential(string time_limit, bool frac_cut) {
     }
 }
 
-Solution DeterministicModel::getSolution() {
+Solution DeterministicModelWalkBarrier::getSolution() {
     auto graph = input->getGraph();
     double of = 0.0;
     try {
@@ -517,8 +413,10 @@ Solution DeterministicModel::getSolution() {
     } catch (GRBException &ex) {
         of = 0.0;
     }
+
     cout << "OF: " << of << endl;
     getchar();
+
     double UB = model.get(GRB_DoubleAttr_ObjBound);
     double runtime = model.get(GRB_DoubleAttr_Runtime);
     int gurobi_nodes = model.get(GRB_DoubleAttr_NodeCount);
@@ -538,7 +436,7 @@ Solution DeterministicModel::getSolution() {
             }
 
         for (int b : graph->getNode(i).second)
-            if (this->y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
+            if (this->y[b].get(GRB_DoubleAttr_X) > 0.5) {
                 y[0].push_back(b);
                 time_used += graph->getTimePerBlock(b);
             }
@@ -548,76 +446,15 @@ Solution DeterministicModel::getSolution() {
     return solution;
 }
 
-bool DeterministicModel::checkSolution() {
-    auto graph = input->getGraph();
-    int max_time = input->getT();
-    int n = graph->getN();
+double DeterministicModelWalkBarrier::getMultipliers(vector<double> &multipliers) {
+    Graph *graph = input->getGraph();
+    int B = graph->getB();
 
-    // Check connectivity
-    vector<vector<bool>> used_arc = vector<vector<bool>>(n + 1, vector<bool>(n + 1, false));
-
-    int start_node = n, i, j, s, target;
-    bool find_next = true;
-    float time = 0, insecticide = 0;
-
-    vector<bool> visited(n + 1, false);
-    vector<int> conn_comp = vector<int>(n + 1, -1);
-    vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
-
-    // DFS
-    deque<int> stack;
-    stack.push_back(n);
-
-    while (!stack.empty()) {
-        s = stack.front();
-        stack.pop_front();
-
-        for (auto *arc : graph->getArcs(s)) {
-            j = arc->getD();
-            if (x[s][j].get(GRB_DoubleAttr_X) > 0.5) {
-                used_arc[s][j] = true;
-
-                if (!visited[j]) {
-                    stack.push_back(j);
-                    visited[j] = true;
-                }
-            }
-        }
+    for (int b = 0; b < B; b++) {
+        auto att_constr = model.getConstrByName("att_path_" + to_string(b));
+        multipliers[b] = abs(att_constr.get(GRB_DoubleAttr_Pi));
     }
 
-    // Check visiting
-    for (i = 0; i <= n; i++) {
-        for (auto b : graph->getNode(i).second) {
-            if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
-                time += graph->getTimePerBlock(b);
-
-                if (!visited[i]) {
-                    cout << "[!!!] Not visited node: " << i << endl;
-                    return false;
-                }
-            }
-        }
-
-        for (auto *arc : graph->getArcs(i)) {
-            if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.8) {
-                time += arc->getLength();
-                if (!used_arc[i][arc->getD()]) {
-                    cout << "[!!!] Not used arc!" << endl;
-                    cout << i << " " << arc->getD() << endl;
-                    return false;
-                }
-            }
-        }
-    }
-
-    if (time > max_time) {
-        cout << "T: " << time << " <= " << max_time << endl;
-        cout << "[!!!] Resource limitation error!" << endl;
-        return false;
-    }
-
-#ifndef Silence
-    cout << "[***] Instance ok!!!" << endl;
-#endif
-    return true;
+    auto time_constr = model.getConstrByName("max_time");
+    return abs(time_constr.get(GRB_DoubleAttr_Pi));
 }
