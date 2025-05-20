@@ -6,25 +6,23 @@
 #ifndef SCBRP_SHP_H
 #define SCBRP_SHP_H
 
-#include "../classes/Parameters.hpp"
 #include "../classes/Graph.hpp"
+#include "../classes/Parameters.hpp"
 
-class ShortestPath
-{
+class ShortestPath {
 
-private:
+  private:
     Graph *graph;
     vector<vector<int>> dist, next;
     vector<vector<vector<int>>> ij_path;
 
-public:
-    ShortestPath(Graph *graph)
-    {
+  public:
+    explicit ShortestPath(Graph *graph) {
         this->graph = graph;
         allPairsShortestPath();
     };
 
-    ShortestPath() {};
+    ShortestPath() = default;
 
     ~ShortestPath() {}
 
@@ -32,7 +30,11 @@ public:
 
     static int DijkstraLayeredDAG(vector<vector<Arc>> dag, int n, int s, int t, vector<int> &pred);
 
+    static int DijkstraLayeredDAG(Graph *graph, unordered_map<int, int> &dag_2_graph, vector<vector<Arc>> dag, int n, int s, int t, vector<int> &pred);
+
     int ShortestPathST(int s, int t, vector<int> &path);
+
+    int ShortestPathST(int s, int t);
 
     int SHPBetweenBlocks(int b1, int b2, set<int> &nodes);
 

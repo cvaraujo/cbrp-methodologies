@@ -4,6 +4,7 @@
 #include "Changes.hpp"
 #include "Parameters.hpp"
 #include "Route.hpp"
+#include <cstdlib>
 #include <utility>
 
 #ifndef DPARP_SOLUTION_H
@@ -12,7 +13,7 @@
 class Solution {
 
   private:
-    double of = 0.0, UB = INF, runtime = 0.0, start_UB;
+    double of = 0.0, UB = INF, runtime = 0.0, start_UB = 0.0;
     int time_used = 0, route_time = 0, num_lazy_cuts = 0, num_frac_cuts = 0, solver_nodes = 0;
     Input *input = nullptr;
     vector<vector<int>> y;
@@ -201,6 +202,7 @@ class Solution {
     }
 
     void ApplyChanges(const Change &change) {
+        // cout << "[!] Applying changes" << endl;
         if (!ChangeUtils::isEmpty(change)) {
             if (ChangeUtils::hasDeletions(change)) {
                 ApplyRemovals(change.deletions);
@@ -218,12 +220,14 @@ class Solution {
 
     void ApplyRemovals(const vector<int_pair> &removals) {
         for (auto &[scenario, block] : removals) {
+            // cout << "\t[*] ScenarioRemove " << scenario << ": " << block << endl;
             this->routes[scenario]->RemoveBlockFromRoute(block);
         }
     }
 
     void ApplyInsertions(const vector<int_pair> &insertions) {
         for (auto &[scenario, block] : insertions) {
+            // cout << "\t[*] ScenarioInsert " << scenario << ": " << block << endl;
             this->routes[scenario]->AddBlockToRoute(block, true);
         }
     }
@@ -237,34 +241,36 @@ class Solution {
     }
 
     double ComputeCurrentSolutionOF() {
-        // cout << "[!] Current Solution OF: " << endl;
         double curr_of = 0.0;
         Graph *graph = input->getGraph();
         vector<double> cases_per_block = graph->getCasesPerBlock();
         vector<bool> attended_first_stage = vector<bool>(graph->getB(), false);
 
-        // cout << "\t[*] First Stage Blocks: ";
         for (auto b : this->routes[0]->getSequenceOfAttendingBlocks()) {
-            // cout << b << ", ";
             attended_first_stage[b] = true;
             curr_of += input->getFirstStageProfit(b);
         }
 
-        // cout << "\n[!] First Stage OF: " << curr_of << ", ";
-
         for (int s = 0; s < input->getS(); s++) {
             Scenario *scn = input->getScenario(s);
-            // cout << "\n\t[*] Scenario " << s + 1 << " Blocks: ";
             for (auto b : this->routes[s + 1]->getSequenceOfAttendingBlocks()) {
-                // cout << b << ", ";
                 if (attended_first_stage[b])
                     curr_of += scn->getProbability() * (1.0 - input->getAlpha()) * scn->getCasesPerBlock(b);
                 else
                     curr_of += scn->getProbability() * scn->getCasesPerBlock(b);
             }
         }
-        cout << "[!] Computed OF: " << curr_of << endl;
         return curr_of;
+    }
+
+    void CheckSolution() {
+        for (int s = 0; s < input->getS(); s++) {
+            this->routes[s]->CheckSolution();
+        }
+        if (abs(this->of - this->ComputeCurrentSolutionOF()) > EPS) {
+            cout << "[!] OF mismatch: " << this->of << " != " << this->ComputeCurrentSolutionOF() << endl;
+            exit(EXIT_FAILURE);
+        }
     }
 
     double getScenarioProfit(int s) { return this->scenario_profit[s]; }
@@ -283,7 +289,7 @@ class Solution {
 
     Route *getRouteFromScenario(int s) { return this->routes[s]; }
 
-    double getOf() { return of; }
+    [[nodiscard]] double getOf() const { return of; }
 
     void setOf(double of) { this->of = of; }
 

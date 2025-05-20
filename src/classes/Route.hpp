@@ -8,6 +8,8 @@
 #include "Graph.hpp"
 #include "Input.hpp"
 #include "Parameters.hpp"
+#include <algorithm>
+#include <cstdlib>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -69,7 +71,12 @@ class Route {
         this->sequence_of_attended_blocks = std::move(sequence);
     };
 
-    void setRoute(vector<int> r) { this->route = std::move(r); };
+    void setRoute(vector<int> r) {
+        for (int i = 1; i < r.size(); i++) {
+            preds[r[i]] = r[i - 1];
+        }
+        this->route = std::move(r);
+    };
 
     vector<int> getRoute() { return this->route; };
 
@@ -191,6 +198,10 @@ class Route {
     int EvaluateTimeGainByRemovingBlock(int block) {
         Graph *graph = this->input->getGraph();
         int node = this->used_node_to_attend_block[block];
+
+        if (node == -1)
+            return -INF;
+
         int time_gain = graph->getTimePerBlock(block);
         std::unordered_map<int, int> new_node_to_block;
 
@@ -222,6 +233,68 @@ class Route {
             profit += this->input->getSecondStageProfit(s, b);
         }
         return profit;
+    }
+
+    bool CheckSolution() {
+        // Validate Times
+        int attend_time = 0;
+
+        for (int b : this->sequence_of_attended_blocks) {
+            attend_time += this->input->getBlockTime(b);
+
+            // All attended blocks have a node in route
+            if (this->used_node_to_attend_block[b] == -1) {
+                cout << "[!] Block " << b << " has no node used to attend" << endl;
+                exit(EXIT_FAILURE);
+            }
+
+            if (route_blocks.find(b) == route_blocks.end()) {
+                cout << "[!] Block " << b << " is not in route" << endl;
+                exit(EXIT_FAILURE);
+            }
+
+            if (!this->blocks_attended[b]) {
+                cout << "[!] Block " << b << " is not attended" << endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        if (attend_time != this->time_blocks) {
+            cout << "[!] Attend Time = " << attend_time << ", Time Blocks = " << this->time_blocks << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        int route_time = 0;
+        for (int i = 0; i < this->route.size() - 1; i++) {
+            int prev_node = this->route[i], next_node = this->route[i + 1];
+            int arc_time = this->input->getArcTime(prev_node, next_node);
+
+            if (arc_time == INF) {
+                cout << "[!] Infinity Arc Time = " << arc_time << endl;
+                exit(EXIT_FAILURE);
+            }
+            route_time += arc_time;
+
+            if (this->preds[next_node] != prev_node) {
+                cout << "[!] Route: " << prev_node << " -> " << next_node << endl;
+                cout << "[!] Preds[" << prev_node << "] = " << this->preds[next_node] << endl;
+                exit(EXIT_FAILURE);
+            }
+
+            for (int block : this->blocks_attendeds_per_node[prev_node]) {
+                if (!this->blocks_attended[block]) {
+                    cout << "[!] Block " << block << " is not attended in node " << prev_node << endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+
+        if (route_time != this->time_route) {
+            cout << "[!] Route Time = " << route_time << ", Time Route = " << this->time_route << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        return true;
     }
 };
 #endif

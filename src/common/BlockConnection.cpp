@@ -21,7 +21,7 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
     int best_cost = INF;
     vector<int> org_blocks = blocks;
     for (int sort_opt = 0; sort_opt < 4; sort_opt++) {
-        map<int, int> dag_2_graph;
+        unordered_map<int, int> dag_2_graph;
 
         blocks = this->getBestOrderToAttendBlocks(org_blocks, sort_opt);
         // Create the DAG
@@ -31,24 +31,26 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
         // SHP on DAG
         vector<int> pred;
         vector<int> path = vector<int>();
-        int cost = ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, pred);
+        ShortestPath::DijkstraLayeredDAG(dag, V + 2, V, V + 1, pred);
+        vector<bool> already_used(N + 1, false);
 
         // Get the path
-        int v = V + 1, last_inserted = -1;
-
+        int v = V + 1, last_inserted = -1, cost = 0;
         while (v != pred[v]) {
-            if (dag_2_graph[v] != last_inserted) {
-                path.push_back(dag_2_graph[v]);
-                last_inserted = dag_2_graph[v];
+            int real_node = dag_2_graph[v];
+            if (real_node != last_inserted && !already_used[real_node]) {
+                if (last_inserted != -1)
+                    cost += sp->ShortestPathST(last_inserted, real_node);
+                path.push_back(real_node);
+                last_inserted = real_node;
+                already_used[real_node] = true;
             }
-
             v = pred[v];
 
             if (v == -1)
                 return INF;
         }
         path.push_back(dag_2_graph[V]);
-
         if (cost < best_cost) {
             best_cost = cost;
             best_path = path;
@@ -104,7 +106,7 @@ vector<int> BlockConnection::getBestOrderToAttendBlocks(const vector<int> &block
     return connect_order;
 }
 
-vector<vector<Arc>> BlockConnection::createLayeredDag(vector<int> nodes, map<int, int> &dag_2_graph, int &V) {
+vector<vector<Arc>> BlockConnection::createLayeredDag(vector<int> nodes, unordered_map<int, int> &dag_2_graph, int &V) {
     V = 0;
     vector<set<int>> nodes_per_block = this->graph->getNodesPerBlock();
     vector<vector<Arc>> dag;
@@ -129,7 +131,7 @@ vector<vector<Arc>> BlockConnection::createLayeredDag(vector<int> nodes, map<int
         for (int j : nodes_per_block[b1]) {
             // Add dummy depot
             if (i == 0)
-                dag[V].push_back(Arc(V, jp, 0, 0));
+                dag[V].emplace_back(V, jp, 0, 0);
 
             dag_2_graph[jp] = j;
             int kp = start_k;
@@ -143,7 +145,7 @@ vector<vector<Arc>> BlockConnection::createLayeredDag(vector<int> nodes, map<int
 
                 dag[jp].push_back(arc);
                 if (insert_depot)
-                    dag[kp].push_back(Arc(kp, V + 1, 0, 0));
+                    dag[kp].emplace_back(kp, V + 1, 0, 0);
 
                 kp++;
             }

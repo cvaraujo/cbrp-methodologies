@@ -63,7 +63,7 @@ class BlockConnection {
         return result.str();
     };
 
-    vector<vector<Arc>> createLayeredDag(vector<int> nodes, map<int, int> &dag_2_graph, int &V);
+    vector<vector<Arc>> createLayeredDag(vector<int> nodes, unordered_map<int, int> &dag_2_graph, int &V);
 
     vector<int> getBestOrderToAttendBlocks(const vector<int> &blocks, int block_sort_option);
 

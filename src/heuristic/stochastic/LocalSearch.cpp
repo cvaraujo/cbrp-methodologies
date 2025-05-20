@@ -680,6 +680,7 @@ int LocalSearch::ApplyNodeSwap(vector<int> &route) {
             if (time_diff > best_time_improve) {
                 if (this->use_first_improve) {
                     std::swap(route[i], route[j]);
+
                     return time_diff;
                 }
                 best_time_improve = time_diff;

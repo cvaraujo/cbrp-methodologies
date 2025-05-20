@@ -68,8 +68,12 @@ class SimulatedAnnealing {
                 // cout << "[*] Temperature: " << temperature << ", Temp. Max: " << temperature_max << endl;
                 // cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
                 // cout << "\t[*] Checking the OF from CurrSol:" << endl;
-                // current_solution->ComputeCurrentSolutionOF();
-                // getchar();
+                // double real_of = current_solution->ComputeCurrentSolutionOF();
+
+                // if ((current_solution->getOf() - real_of) > EPS) {
+                //     cout << "\t[!] Difference in the OF: " << real_of << " != " << current_solution->getOf() << endl;
+                //     getchar();
+                // }
             }
             if (best_sol_improved) {
                 LocalSearch::ImproveSecondStageRoutes(input, best_solution, true);
@@ -77,6 +81,9 @@ class SimulatedAnnealing {
                 ls->setSolution(current_solution);
             } else
                 LocalSearch::ImproveSecondStageRoutes(input, current_solution, true);
+
+            best_solution->CheckSolution();
+            current_solution->CheckSolution();
             temperature *= alpha;
         }
 
