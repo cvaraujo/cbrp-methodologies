@@ -63,6 +63,20 @@ class BlockConnection {
         return result.str();
     };
 
+    int_pair MinNode2BlockTime(int node, int block) {
+        int time, min_node = -1, min_time = INF;
+        for (int to : this->graph->getNodesFromBlock(block)) {
+            if (node == to)
+                return {0, node};
+
+            time = this->sp->ShortestPathST(node, to);
+            if (time < min_time) {
+                min_time = time, min_node = to;
+            }
+        }
+        return {min_time, min_node};
+    }
+
     vector<vector<Arc>> createLayeredDag(vector<int> nodes, unordered_map<int, int> &dag_2_graph, int &V);
 
     vector<int> getBestOrderToAttendBlocks(const vector<int> &blocks, int block_sort_option);
@@ -84,6 +98,8 @@ class BlockConnection {
     vector<int> getBestOrderToAttendBlocks(const string &key) { return this->best_order_attend_blocks[key]; }
 
     int getBlock2BlockCost(int i, int j) { return this->block_2_block_cost[i][j]; }
+
+    vector<int> getBestOrderToAttendBlocksB2B(const vector<int> &blocks, int block_sort_option);
 
     bool keyExists(const string &key) { return this->blocks_attend_cost.find(key) != this->blocks_attend_cost.end(); }
 
