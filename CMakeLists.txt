@@ -47,8 +47,9 @@ set(
     src/heuristic/stochastic/LocalSearch.hpp
     src/heuristic/stochastic/LocalSearch.cpp
     src/heuristic/stochastic/StartSolution.hpp
+    src/common/Postgree.hpp
 )
 
 add_executable(cbrp ${sources})
 
-target_link_libraries(cbrp gurobi_c++ gurobi120 pthread m emon)
+target_link_libraries(cbrp gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)

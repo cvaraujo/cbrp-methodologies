@@ -1,7 +1,10 @@
 #include "src/classes/Input.hpp"
+#include "src/common/Postgree.hpp"
 #include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
 #include "src/heuristic/stochastic/LocalSearch.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
+#include "zmq.hpp"
+
 #include <cstdlib>
 
 // #include "src/heuristic/Lagrangean.hpp"
@@ -46,17 +49,53 @@ int main(int argc, const char *argv[]) {
     int default_vel = 20, neblize_vel = 10;
     double alpha = 0.8;
 
-    auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
-    Solution sol = StartSolution::CreateStartSolution(input);
+    // DataAccess da = DataAccess();
+    // auto new_scenarios = da.GetCasesFromScenarios(0);
 
-    auto *sa = new SimulatedAnnealing(temperature, temperature_max, alpha_sa, max_iters_sa, delta_type, first_improve);
-    auto start = std::chrono::high_resolution_clock::now();
-    Solution *new_sol = sa->Run(input, sol, rd);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end - start;
-    std::cout << "Execution time: " << duration.count() << " seconds\n";
-    new_sol->setRuntime(duration.count());
-    new_sol->WriteSolution(result_file);
+    // for (const auto &[scenario, cases_per_block] : new_scenarios) {
+    //     for (const auto &[block, cases] : cases_per_block) {
+    //         cout << "Scenario: " << scenario << ", Block: " << block << ", Cases: " << cases << endl;
+    //     }
+    // }
+
+    zmq::context_t context(1);
+    zmq::socket_t subscriber(context, ZMQ_SUB);
+
+    subscriber.connect("tcp://localhost:5555");
+
+    const std::string topic = "execution_ready";
+    subscriber.set(zmq::sockopt::subscribe, topic);
+
+    std::cout << "C++ Subscriber is waiting for messages...\n";
+
+    while (true) {
+        zmq::message_t message;
+        auto result = subscriber.recv(message, zmq::recv_flags::none);
+
+        if (result.has_value()) {
+            std::string msg(static_cast<char *>(message.data()), message.size());
+            std::cout << "Received: " << msg << std::endl;
+
+            std::string exec_id = msg.substr(msg.find(':') + 1);
+            std::cout << "Processing new exec_id = " << exec_id << "\n";
+
+            // Your processing logic here...
+        } else {
+            std::cerr << "No message received.\n";
+        }
+    }
+
+    // auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
+    // Solution sol = StartSolution::CreateStartSolution(input);
+
+    // auto *sa = new SimulatedAnnealing(temperature, temperature_max, alpha_sa, max_iters_sa, delta_type, first_improve);
+    // auto start = std::chrono::high_resolution_clock::now();
+    // Solution *new_sol = sa->Run(input, sol, rd);
+    // auto end = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> duration = end - start;
+    // std::cout << "Execution time: " << duration.count() << " seconds\n";
+    // new_sol->setRuntime(duration.count());
+    // new_sol->WriteSolution(result_file);
 
     // vector<pair<int, int_pair>> best_swaps;
     // local_search->ComputeInRouteRandomSwapBlocksStartScenario(input, &sol, delta_type, best_swaps);
