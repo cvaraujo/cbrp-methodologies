@@ -1,13 +1,12 @@
 #ifndef DPARP_INPUT_H
 #define DPARP_INPUT_H
 
-#include <utility>
-
 #include "../common/BlockConnection.hpp"
 #include "../common/ShortestPath.hpp"
 #include "Graph.hpp"
 #include "Parameters.hpp"
 #include "Scenario.hpp"
+#include <unordered_map>
 
 class Input {
   private:
@@ -21,6 +20,10 @@ class Input {
     vector<double> first_stage_profit, time_profit_proportion;
     vector<vector<vector<Arc *>>> arcs_in_path;
     vector<vector<int>> arc_length;
+    // Simheuristic only
+    vector<int> simheuristic_scenario_sequence;
+    unordered_map<int, int> simheuristic_block_incidences;
+    unordered_map<int, int> simheuristic_block_acc_cases;
 
   public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp)
@@ -161,6 +164,29 @@ class Input {
 
     double getTimeProfitProportion(int b) {
         return time_profit_proportion[b];
+    }
+
+    void appendNewScenario(Scenario &scenario) {
+        this->scenarios.push_back(scenario);
+
+        // Update feedback from simulation
+        for (int b = 0; b < graph->getB(); b++) {
+            int cases = int(scenario.getCasesPerBlock(b));
+
+            if (cases > 0) {
+                if (this->simheuristic_block_acc_cases.find(b) == this->simheuristic_block_acc_cases.end()) {
+                    this->simheuristic_block_acc_cases[b] = 0;
+                    this->simheuristic_block_incidences[b] = 0;
+                }
+
+                this->simheuristic_block_acc_cases[b] += cases;
+                this->simheuristic_block_incidences[b]++;
+            }
+        }
+
+        // Update vector to shuffle scenarios
+        this->simheuristic_scenario_sequence.push_back(this->S);
+        this->S++;
     }
 
     vector<Scenario> getScenarios() { return this->scenarios; }

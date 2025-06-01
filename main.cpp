@@ -1,11 +1,9 @@
 #include "src/classes/Input.hpp"
-#include "src/common/Postgree.hpp"
-#include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
-#include "src/heuristic/stochastic/LocalSearch.hpp"
-#include "src/heuristic/stochastic/StartSolution.hpp"
-#include "zmq.hpp"
-
-#include <cstdlib>
+// #include "src/common/Postgree.hpp"
+// #include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
+// #include "src/heuristic/stochastic/LocalSearch.hpp"
+// #include "src/heuristic/stochastic/StartSolution.hpp"
+#include "src/simheuristic/simheuristic.hpp"
 
 // #include "src/heuristic/Lagrangean.hpp"
 // #include "src/exact/DeterministicModel.hpp"
@@ -13,28 +11,27 @@
 // #include "src/exact/StochasticModel.hpp"
 // #include "src/exact/StochasticModelWalk.hpp"
 
-void print_result(Route *r) {
-    cout << "=================\nRoute: ";
-    for (auto node : r->getRoute())
-        cout << node << ", ";
-    cout << endl;
+// void print_result(Route *r) {
+//     cout << "=================\nRoute: ";
+//     for (auto node : r->getRoute())
+//         cout << node << ", ";
+//     cout << endl;
 
-    cout << "---------------------\nAtt. Blocks: ";
-    for (auto block : r->getSequenceOfAttendingBlocks())
-        cout << block << ", ";
-    cout << endl;
+//     cout << "---------------------\nAtt. Blocks: ";
+//     for (auto block : r->getSequenceOfAttendingBlocks())
+//         cout << block << ", ";
+//     cout << endl;
 
-    cout << "---------------------\nRoute Blocks: ";
-    for (auto block : r->getRouteBlocks())
-        cout << block << ", ";
-    cout << endl;
-    cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
-    cout << "=================" << endl;
-}
+//     cout << "---------------------\nRoute Blocks: ";
+//     for (auto block : r->getRouteBlocks())
+//         cout << block << ", ";
+//     cout << endl;
+//     cout << "Time: " << r->getTimeRoute() << " + " << r->getTimeAttBlocks() << endl;
+//     cout << "=================" << endl;
+// }
 
 int main(int argc, const char *argv[]) {
     random_device rd; // seed
-
     // double temperature, double temperature_max, double alpha, int max_iterations, const string &delta_type, bool first_improve
     string file_graph = argv[1];
     string file_scenarios = argv[2];
@@ -51,41 +48,12 @@ int main(int argc, const char *argv[]) {
 
     // DataAccess da = DataAccess();
     // auto new_scenarios = da.GetCasesFromScenarios(0);
+    auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
+    string listen = "tcp://localhost:6969";
+    string send = "tcp://localhost:5558";
+    Simheuristic simHeu = Simheuristic(input, listen, send);
+    simHeu.Run();
 
-    // for (const auto &[scenario, cases_per_block] : new_scenarios) {
-    //     for (const auto &[block, cases] : cases_per_block) {
-    //         cout << "Scenario: " << scenario << ", Block: " << block << ", Cases: " << cases << endl;
-    //     }
-    // }
-
-    zmq::context_t context(1);
-    zmq::socket_t subscriber(context, ZMQ_SUB);
-
-    subscriber.connect("tcp://localhost:5555");
-
-    const std::string topic = "execution_ready";
-    subscriber.set(zmq::sockopt::subscribe, topic);
-
-    std::cout << "C++ Subscriber is waiting for messages...\n";
-
-    while (true) {
-        zmq::message_t message;
-        auto result = subscriber.recv(message, zmq::recv_flags::none);
-
-        if (result.has_value()) {
-            std::string msg(static_cast<char *>(message.data()), message.size());
-            std::cout << "Received: " << msg << std::endl;
-
-            std::string exec_id = msg.substr(msg.find(':') + 1);
-            std::cout << "Processing new exec_id = " << exec_id << "\n";
-
-            // Your processing logic here...
-        } else {
-            std::cerr << "No message received.\n";
-        }
-    }
-
-    // auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
     // Solution sol = StartSolution::CreateStartSolution(input);
 
     // auto *sa = new SimulatedAnnealing(temperature, temperature_max, alpha_sa, max_iters_sa, delta_type, first_improve);
