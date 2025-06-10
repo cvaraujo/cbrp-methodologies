@@ -9,6 +9,7 @@
 #include "../common/Postgree.hpp"
 #include "boost/algorithm/string/split.hpp"
 #include "zmq.hpp"
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <zmq.h>
@@ -18,8 +19,7 @@ class Simheuristic {
   private:
     Input *input;
     DataAccess *data_access;
-    string listen_address;
-    string publish_address;
+    string conn_address;
 
     void loadNewScenarios(int exec_id) {
         unordered_map<int, unordered_map<int, double>> new_scenarios = data_access->GetCasesFromScenarios(exec_id);
@@ -36,48 +36,70 @@ class Simheuristic {
         }
     }
 
-    void runHeuristic() {
+    int runHeuristic(string &blocks_str) {
+        auto *graph = input->getGraph();
+        int B = graph->getB();
+
+        // Attend randomly three blocks
+        vector<int> blocks = vector<int>(15);
+        int of = 0;
+        for (int i = 0; i < 15; i++) {
+            blocks[i] = rand() % B;
+            of += int(input->getFirstStageProfit(blocks[i]));
+        }
+
+        for (int i = 0; i < blocks.size(); i++) {
+            blocks_str += to_string(blocks[i]);
+            if (i < blocks.size() - 1) {
+                blocks_str += ",";
+            }
+        }
+
+        return of;
     }
 
     void insertNewSolutionIntoDatabase() {
     }
 
   public:
-    explicit Simheuristic(Input *input, string &listen_address, string &publish_address) {
+    explicit Simheuristic(Input *input, string &conn_address) {
         this->input = input;
         this->data_access = new DataAccess();
-        this->listen_address = listen_address;
-        this->publish_address = publish_address;
+        this->conn_address = conn_address;
     }
 
-    // Commands = {
-    //     "run": 0,
-    //     "end": 0,
-    //     "load": exec_id
-    // }
     void Run() {
         std::cout << "[Simheuristic] Starting..." << std::endl;
         zmq::context_t context(1);
         zmq::socket_t subscriber(context, ZMQ_REP);
-        subscriber.bind(listen_address.c_str());
+        subscriber.set(zmq::sockopt::rcvtimeo, 1000);
+        subscriber.bind(conn_address.c_str());
+
         string reply = "done";
 
         while (true) {
             zmq::message_t message;
-            auto result = subscriber.recv(message, zmq::recv_flags::none);
+            try {
+                auto result = subscriber.recv(message, zmq::recv_flags::none);
 
-            if (result.has_value()) {
+                if (!result.has_value()) {
+                    continue;
+                }
+
                 string msg(static_cast<char *>(message.data()), message.size());
                 vector<string> command;
-                boost::split(command, msg, boost::is_any_of(":"));
+                boost::split(command, msg, boost::is_any_of(":"), boost::token_compress_on);
 
                 string action = command[0];
                 if (command[0] == "load") {
                     int exec_id = atoi(command[1].c_str());
                     loadNewScenarios(exec_id);
                 } else if (command[0] == "run") {
-                    runHeuristic();
-                } else if (command[0] == "end") {
+                    string blocks_str;
+                    int of = runHeuristic(blocks_str);
+                    reply = "solution:" + blocks_str + ":" + to_string(of);
+                    cout << reply << endl;
+                } else if (command[0] == "stop") {
                     cout << "[Simheuristic] ending the run..." << endl;
                     subscriber.send(zmq::buffer(reply), zmq::send_flags::none);
                     break;
@@ -85,6 +107,9 @@ class Simheuristic {
                     continue;
                 }
                 subscriber.send(zmq::buffer(reply), zmq::send_flags::none);
+            } catch (const zmq::error_t &e) {
+                cout << "[Simheuristic] Error: " << e.what() << endl;
+                break;
             }
         }
     }

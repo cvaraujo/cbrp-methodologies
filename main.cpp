@@ -4,6 +4,7 @@
 // #include "src/heuristic/stochastic/LocalSearch.hpp"
 // #include "src/heuristic/stochastic/StartSolution.hpp"
 #include "src/simheuristic/simheuristic.hpp"
+#include <string>
 
 // #include "src/heuristic/Lagrangean.hpp"
 // #include "src/exact/DeterministicModel.hpp"
@@ -31,27 +32,26 @@
 // }
 
 int main(int argc, const char *argv[]) {
-    random_device rd; // seed
+    // random_device rd; // seed
     // double temperature, double temperature_max, double alpha, int max_iterations, const string &delta_type, bool first_improve
     string file_graph = argv[1];
-    string file_scenarios = argv[2];
-    string result_file = argv[3];
-    int T = atoi(argv[4]);
-    double temperature = atof(argv[5]);
-    double temperature_max = atof(argv[6]);
-    double alpha_sa = atof(argv[7]);
-    int max_iters_sa = atoi(argv[8]);
-    string delta_type = argv[9];
-    bool first_improve = atoi(argv[10]);
+    // string file_scenarios = argv[2];
+    // string result_file = argv[3];
+    int T = atoi(argv[2]);
+    string conn_address = argv[3];
+    // double temperature = atof(argv[5]);
+    // double temperature_max = atof(argv[6]);
+    // double alpha_sa = atof(argv[7]);
+    // int max_iters_sa = atoi(argv[8]);
+    // string delta_type = argv[9];
+    // bool first_improve = atoi(argv[10]);
     int default_vel = 20, neblize_vel = 10;
     double alpha = 0.8;
 
     // DataAccess da = DataAccess();
     // auto new_scenarios = da.GetCasesFromScenarios(0);
-    auto *input = new Input(file_graph, file_scenarios, default_vel, neblize_vel, T, alpha);
-    string listen = "tcp://localhost:6969";
-    string send = "tcp://localhost:5558";
-    Simheuristic simHeu = Simheuristic(input, listen, send);
+    auto *input = new Input(file_graph, "", default_vel, neblize_vel, T, alpha);
+    Simheuristic simHeu = Simheuristic(input, conn_address);
     simHeu.Run();
 
     // Solution sol = StartSolution::CreateStartSolution(input);
