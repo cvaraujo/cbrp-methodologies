@@ -22,8 +22,7 @@ class Input {
     vector<vector<int>> arc_length;
     // Simheuristic only
     vector<int> simheuristic_scenario_sequence;
-    unordered_map<int, int> simheuristic_block_incidences;
-    unordered_map<int, int> simheuristic_block_acc_cases;
+    vector<int> simheuristic_block_incidences, simheuristic_block_acc_cases;
 
   public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp)
@@ -166,19 +165,30 @@ class Input {
         return time_profit_proportion[b];
     }
 
+    void startSimheuristic() {
+        int B = graph->getB();
+        this->simheuristic_block_acc_cases = vector<int>(B, 0);
+        this->simheuristic_block_incidences = vector<int>(B, 0);
+        this->simheuristic_scenario_sequence = vector<int>();
+
+        for (int b = 0; b < B; b++) {
+            int cases = int(graph->getCasesPerBlock(b));
+            if (cases > 0) {
+                this->simheuristic_block_acc_cases[b] = cases;
+                this->simheuristic_block_incidences[b] = 1;
+            }
+        }
+    }
+
     void appendNewScenario(Scenario &scenario) {
         this->scenarios.push_back(scenario);
 
+        int B = graph->getB();
         // Update feedback from simulation
-        for (int b = 0; b < graph->getB(); b++) {
+        for (int b = 0; b < B; b++) {
             int cases = int(scenario.getCasesPerBlock(b));
 
             if (cases > 0) {
-                if (this->simheuristic_block_acc_cases.find(b) == this->simheuristic_block_acc_cases.end()) {
-                    this->simheuristic_block_acc_cases[b] = 0;
-                    this->simheuristic_block_incidences[b] = 0;
-                }
-
                 this->simheuristic_block_acc_cases[b] += cases;
                 this->simheuristic_block_incidences[b]++;
             }
@@ -187,6 +197,14 @@ class Input {
         // Update vector to shuffle scenarios
         this->simheuristic_scenario_sequence.push_back(this->S);
         this->S++;
+    }
+
+    int getSimheuristicBlockAccCases(int b) {
+        return this->simheuristic_block_acc_cases[b];
+    }
+
+    int getSimheuristicBlockIncidence(int b) {
+        return this->simheuristic_block_incidences[b];
     }
 
     vector<Scenario> getScenarios() { return this->scenarios; }

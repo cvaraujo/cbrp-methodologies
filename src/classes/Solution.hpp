@@ -173,6 +173,13 @@ class Solution {
         this->of += profit;
     };
 
+    void AppendScenarioSolution(Route *route, double profit) {
+        this->routes.push_back(route);
+        this->y.push_back(route->getSequenceOfAttendingBlocks());
+        this->scenario_profit.push_back(profit);
+        this->of += profit;
+    };
+
     void ReplaceScenarioSolution(int s, vector<int_pair> x, vector<int> y, Route *route) {
         this->routes[s] = route;
         this->x[s] = std::move(x), this->y[s] = std::move(y);

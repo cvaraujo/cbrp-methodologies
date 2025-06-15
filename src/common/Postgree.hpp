@@ -1,4 +1,3 @@
-
 //
 // Created by Carlos on 25/05/2025.
 //
@@ -39,30 +38,40 @@ class DataAccess {
     }
 
     std::unordered_map<int, std::unordered_map<int, double>> GetCasesFromScenarios(const int exec_id) {
-        pqxx::work txn(*conn);
-        pqxx::result result = txn.exec_params(
-            "SELECT living_place, simulation_id FROM metrics_infected_people WHERE execution_id = $1",
-            exec_id);
+        try {
+            if (!conn->is_open()) {
+               this->conn = std::make_unique<pqxx::connection>("dbname=dengue-propagation user=postgres password=07021997 host=localhost port=5432");
+            }
+            
+            pqxx::work txn(*conn);
+            pqxx::result result = txn.exec_params(
+                "SELECT living_place, simulation_id FROM metrics_infected_people WHERE execution_id = $1",
+                exec_id);
 
-        std::unordered_map<int, std::unordered_map<int, double>> scenario_block_cases;
-        for (const auto &row : result) {
-            int living_place = row["living_place"].as<int>();
-            int simulation_id = row["simulation_id"].as<int>();
+            std::unordered_map<int, std::unordered_map<int, double>> scenario_block_cases;
+            for (const auto &row : result) {
+                int living_place = row["living_place"].as<int>();
+                int simulation_id = row["simulation_id"].as<int>();
 
-            if (scenario_block_cases.find(simulation_id) == scenario_block_cases.end()) {
-                scenario_block_cases[simulation_id] = std::unordered_map<int, double>();
+                if (scenario_block_cases.find(simulation_id) == scenario_block_cases.end()) {
+                    scenario_block_cases[simulation_id] = std::unordered_map<int, double>();
+                }
+
+                if (scenario_block_cases[simulation_id].find(living_place) == scenario_block_cases[simulation_id].end()) {
+                    scenario_block_cases[simulation_id][living_place] = 0;
+                }
+
+                scenario_block_cases[simulation_id][living_place] += 1;
             }
 
-            if (scenario_block_cases[simulation_id].find(living_place) == scenario_block_cases[simulation_id].end()) {
-                scenario_block_cases[simulation_id][living_place] = 0;
-            }
+            txn.commit();
+            return scenario_block_cases;
 
-            scenario_block_cases[simulation_id][living_place] += 1;
-        }
-
-        txn.commit();
-
-        return scenario_block_cases;
+        } catch (const std::exception &e) {
+            std::cerr << "Error getting cases from scenarios: " << e.what() << "\n";
+            return {};  
+        }   
+        
     }
 
     void InsertSolutionIntoDatabase(int id, Solution *solution) {
