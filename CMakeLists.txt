@@ -24,7 +24,6 @@ link_directories(
 
 # Fontes comuns
 set(SOURCES_MAIN
-    main.cpp
     src/classes/Arc.hpp
     src/classes/Parameters.hpp
     src/classes/Route.hpp
@@ -49,6 +48,7 @@ set(SOURCES_DETERMINISTIC_MODEL
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
     src/exact/DeterministicModelWalk.cpp
+    main.cpp
 )
 
 set(SOURCES_STOCHASTIC_MODEL
@@ -56,6 +56,7 @@ set(SOURCES_STOCHASTIC_MODEL
     src/exact/StochasticModel.cpp
     src/exact/StochasticModelWalk.hpp
     src/exact/StochasticModelWalk.cpp
+    main.cpp
 )
 
 # Heurísticas e métodos adicionais
@@ -63,6 +64,7 @@ set(SOURCES_DETERMINISTIC_HEURISTIC
     src/heuristic/stochastic/StartSolution.hpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
+    main.cpp
 )
 
 set(SOURCES_DETERMINISTIC_LAGRANGEAN
@@ -70,6 +72,7 @@ set(SOURCES_DETERMINISTIC_LAGRANGEAN
     src/exact/DeterministicModelWalkBarrierMethod.cpp
     src/heuristic/Lagrangean.hpp
     src/heuristic/Lagrangean.cpp
+    main.cpp
 )
 
 set(SOURCES_STOCHASTIC_HEURISTIC
@@ -85,6 +88,7 @@ set(SOURCES_STOCHASTIC_HEURISTIC
 set(SOURCES_SIMHEURISTIC
     src/common/Postgree.hpp
     src/simheuristic/simheuristic.hpp
+    main-simheuristic.cpp
 )
 
 # ======================

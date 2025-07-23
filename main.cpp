@@ -37,8 +37,11 @@ int main(int argc, const char *argv[]) {
     string file_graph = argv[1];
     // string file_scenarios = argv[2];
     // string result_file = argv[3];
-    int T = atoi(argv[2]);
+    int T = 1200; // atoi(argv[2]);
     string conn_address = argv[3];
+    // string model = argv[2];
+    // string model = argv[2];
+    // bool frac_cut = atoi(argv[3]);
     // double temperature = atof(argv[5]);
     // double temperature_max = atof(argv[6]);
     // double alpha_sa = atof(argv[7]);
@@ -50,7 +53,11 @@ int main(int argc, const char *argv[]) {
 
     // DataAccess da = DataAccess();
     // auto new_scenarios = da.GetCasesFromScenarios(0);
+    // auto *input = new Input(file_graph, "", true, true, false, default_vel, neblize_vel, T, alpha);
     auto *input = new Input(file_graph, "", default_vel, neblize_vel, T, alpha);
+    // auto *dm = new DeterministicModel(input);
+    // Solution sol = dm->Run(false, "3600", model, frac_cut);
+    // sol.WriteSolution("result.txt");
     Simheuristic simHeu = Simheuristic(input, conn_address);
     simHeu.Run();
 
@@ -71,19 +78,16 @@ int main(int argc, const char *argv[]) {
     // Lagrangean *lag = new Lagrangean(input);
     // lag->lagrangean_relax(result_file, lambda, maxIters, reduction);
 
-    // if (stochastic_model == "FALSE")
-    // {
-    //   // DeterministicModel *dm = new DeterministicModel(input);
-    //   DeterministicModelWalk *dm = new DeterministicModelWalk(input);
-    //   Solution sol = dm->Run(false, "3600", model, frac_cut);
-    //   sol.WriteSolution(result_file);
-    // }
-    // else
-    // {
-    //   StochasticModel *sm = new StochasticModel(input);
-    //   // StochasticModelWalk *sm = new StochasticModelWalk(input);
-    //   Solution sol = sm->Run(false, "3600", model, frac_cut);
-    //   sol.WriteSolution(result_file);
+    // if (stochastic_model == "FALSE") {
+    //     // DeterministicModel *dm = new DeterministicModel(input);
+    //     auto *dm = new DeterministicModel(input);
+    //     Solution sol = dm->Run(false, "3600", model, frac_cut);
+    //     sol.WriteSolution(result_file);
+    // } else {
+    //     StochasticModel *sm = new StochasticModel(input);
+    //     // StochasticModelWalk *sm = new StochasticModelWalk(input);
+    //     Solution sol = sm->Run(false, "3600", model, frac_cut);
+    //     sol.WriteSolution(result_file);
     // }
 
     return 0;

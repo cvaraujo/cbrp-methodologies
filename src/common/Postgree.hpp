@@ -17,7 +17,7 @@ class DataAccess {
   public:
     explicit DataAccess() {
         try {
-            this->conn = std::make_unique<pqxx::connection>("dbname=dengue-propagation user=postgres password=07021997 host=localhost port=5432");
+            this->conn = std::make_unique<pqxx::connection>("dbname=dengue-propagation user=postgres password=postgres host=localhost port=5432");
 
             if (conn->is_open()) {
                 std::cout << "Connected to database: " << conn->dbname() << "\n";
@@ -40,9 +40,9 @@ class DataAccess {
     std::unordered_map<int, std::unordered_map<int, double>> GetCasesFromScenarios(const int exec_id) {
         try {
             if (!conn->is_open()) {
-               this->conn = std::make_unique<pqxx::connection>("dbname=dengue-propagation user=postgres password=07021997 host=localhost port=5432");
+                this->conn = std::make_unique<pqxx::connection>("dbname=dengue-propagation user=postgres password=postgres host=localhost port=5432");
             }
-            
+
             pqxx::work txn(*conn);
             pqxx::result result = txn.exec_params(
                 "SELECT living_place, simulation_id FROM metrics_infected_people WHERE execution_id = $1",
@@ -69,9 +69,8 @@ class DataAccess {
 
         } catch (const std::exception &e) {
             std::cerr << "Error getting cases from scenarios: " << e.what() << "\n";
-            return {};  
-        }   
-        
+            return {};
+        }
     }
 
     void InsertSolutionIntoDatabase(int id, Solution *solution) {

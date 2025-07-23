@@ -54,7 +54,6 @@ Input::Input(string file_graph, string scenarios_graph, int default_vel, int neb
     this->arcs_in_path = vector<vector<vector<Arc *>>>(N, vector<vector<Arc *>>(N, vector<Arc *>()));
     this->arc_length = vector<vector<int>>(N, vector<int>(N, -1));
     this->startSimheuristic();
-    
 
 #ifndef Silence
     cout << "[***] Input constructed Successfully!" << endl;

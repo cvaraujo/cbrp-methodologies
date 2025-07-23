@@ -194,7 +194,6 @@ class cyclecallback : public GRBCallback {
 
                         // Create basic variables
                         GRBLinExpr cut_arcs;
-                        double cut_value = 0;
 
                         // Get cut arcs
                         for (j = 0; j < n; j++) {
@@ -212,8 +211,10 @@ class cyclecallback : public GRBCallback {
                         }
 
                         if (cut_arcs.size() > 0) {
-                            addCut(cut_arcs >= cut_value);
-                            num_frac_cuts++;
+                            for (auto b : graph->getNode(i).second) {
+                                addCut(cut_arcs >= y[i][b]);
+                                num_frac_cuts++;
+                            }
                         }
                     }
                 }
@@ -240,7 +241,7 @@ Solution DeterministicModel::Run(bool use_warm_start, string time_limit, string 
         exit(EXIT_FAILURE);
     }
 
-    // this->checkSolution();
+    this->checkSolution();
 
     return this->getSolution();
 }
@@ -263,7 +264,7 @@ void DeterministicModel::createVariables() {
             for (auto *arc : graph->getArcs(o)) {
                 d = arc->getD();
                 sprintf(name, "x_%d_%d", o, d);
-                x[o][d] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+                x[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
             }
         }
         // Y
@@ -271,7 +272,7 @@ void DeterministicModel::createVariables() {
             o = graph->getNodes()[i].first;
             for (auto bl : graph->getNode(i).second) {
                 sprintf(name, "y_%d_%d", o, bl);
-                y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+                y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
             }
         }
 
@@ -554,15 +555,11 @@ bool DeterministicModel::checkSolution() {
     int n = graph->getN();
 
     // Check connectivity
-    vector<vector<bool>> used_arc = vector<vector<bool>>(n + 1, vector<bool>(n + 1, false));
-
-    int start_node = n, i, j, s, target;
-    bool find_next = true;
-    float time = 0, insecticide = 0;
+    int i, j, s;
+    float time = 0;
 
     vector<bool> visited(n + 1, false);
-    vector<int> conn_comp = vector<int>(n + 1, -1);
-    vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
+    vector<vector<bool>> used_arc = vector<vector<bool>>(n + 1, vector<bool>(n + 1, false));
 
     // DFS
     deque<int> stack;

@@ -33,6 +33,7 @@ class Simheuristic {
             for (auto &[block, cases] : blocks) {
                 cases_per_block[block] = cases;
             }
+
             auto new_scenario = Scenario(1.0, cases_per_block);
             this->input->appendNewScenario(new_scenario);
         }
@@ -52,6 +53,7 @@ class Simheuristic {
 
         return int(solution->getOf());
     }
+
     explicit Simheuristic(Input *input, string &conn_address) {
         this->input = input;
         this->data_access = new DataAccess();
