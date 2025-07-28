@@ -1,4 +1,6 @@
 #include "src/classes/Input.hpp"
+#include "src/simheuristic/heuristics/LocalSearch.hpp"
+#include "src/simheuristic/heuristics/MultiStart.hpp"
 #include "src/simheuristic/simheuristic.hpp"
 #include <string>
 

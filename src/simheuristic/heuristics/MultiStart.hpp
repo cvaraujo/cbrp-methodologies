@@ -4,13 +4,46 @@
 #include "../../classes/Input.hpp"
 #include "../../classes/Solution.hpp"
 #include "../../heuristic/GreedyHeuristic.hpp"
+#include "LocalSearch.hpp"
 
 class MultiStart {
     Input *input;
+    vector<double> cases_per_block_prop, sim_acc_cases_prop, sim_incidence_prop;
+
+  private:
+    void SaveCasesPerBlockProportions() {
+        Graph *graph = input->getGraph();
+        int B = graph->getB();
+        double total_cases = accumulate(graph->getCasesPerBlock().begin(), graph->getCasesPerBlock().end(), 0.0);
+
+        for (int b = 0; b < B; b++) {
+            this->cases_per_block_prop[b] = graph->getCasesPerBlock(b) / total_cases;
+        }
+    }
+
+    void SaveSimheuristicProportions() {
+        Graph *graph = input->getGraph();
+        int B = graph->getB();
+        double total_acc_cases = 0.0, total_incidence = 0.0;
+
+        for (int b = 0; b < B; b++) {
+            total_acc_cases += input->getSimheuristicBlockAccCases(b);
+            total_incidence += input->getSimheuristicBlockIncidence(b);
+        }
+
+        for (int b = 0; b < B; b++) {
+            this->sim_acc_cases_prop[b] = input->getSimheuristicBlockAccCases(b) / total_acc_cases;
+            this->sim_incidence_prop[b] = input->getSimheuristicBlockIncidence(b) / total_incidence;
+        }
+    }
 
   public:
     explicit MultiStart(Input *input) {
         this->input = input;
+        int B = input->getGraph()->getB();
+        this->cases_per_block_prop = vector<double>(B, 0.0);
+        this->sim_acc_cases_prop = vector<double>(B, 0.0);
+        this->sim_incidence_prop = vector<double>(B, 0.0);
     }
 
     ~MultiStart() = default;
@@ -27,18 +60,12 @@ class MultiStart {
 
         vector<int> y = vector<int>(), time_per_block = graph->getTimePerBlock();
         y.reserve(B);
-        // this value gives a chance for all blocks to be selected
-        vector<double> profit_per_block = vector<double>(B, 0.1);
+        vector<double> profit_per_block = vector<double>(B, 0.0);
 
         for (int b = 0; b < B; b++) {
-            int cases = input->getSimheuristicBlockAccCases(b);
-            int incidence = input->getSimheuristicBlockIncidence(b);
-            profit_per_block[b] = graph->getCasesPerBlock(b) + 10.0 * dis(gen);
-            if (incidence > 0)
-                profit_per_block[b] += double(cases) / double(incidence);
+            profit_per_block[b] = cases_per_block_prop[b] + sim_acc_cases_prop[b] + sim_incidence_prop[b] + dis(gen);
         }
 
-        // Solve first stage
         greedy_heuristic.SolveScenario(profit_per_block, time_per_block, T, y);
         double of = 0.0;
 
@@ -46,7 +73,9 @@ class MultiStart {
             of += graph->getCasesPerBlock(b);
         }
 
-        Route *route = new Route(input, y);
+        auto *route = new Route(input, y);
+        of += LocalSearch::RunLocalSearch(input, route, profit_per_block);
+
         solution->AddScenarioSolution(0, route, of);
         return solution;
     };
