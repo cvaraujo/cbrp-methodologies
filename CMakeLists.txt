@@ -5,8 +5,10 @@ project(cbrp)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DIL_STD -DSilence -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DIL_STD -O3 -ffast-math -funroll-loops -march=native -DNDEBUG")
 
 # Diretórios de includes
 include_directories(
@@ -48,7 +50,7 @@ set(SOURCES_DETERMINISTIC_MODEL
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
     src/exact/DeterministicModelWalk.cpp
-    main.cpp
+    main-deterministic-model.cpp
 )
 
 set(SOURCES_STOCHASTIC_MODEL
@@ -134,10 +136,10 @@ add_executable(cbrp-simheur
 )
 
 
-target_link_libraries(cbrp-det gurobi_c++ gurobi120 pthread m emon)
-target_link_libraries(cbrp-stoc gurobi_c++ gurobi120 pthread m emon)
-target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi120 pthread m emon)
+target_link_libraries(cbrp-det gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
+target_link_libraries(cbrp-stoc gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
+target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
 
 target_link_libraries(cbrp-det-heur pthread m)
 target_link_libraries(cbrp-stoc-heur pthread m)
-target_link_libraries(cbrp-simheur pthread m pqxx pq zmq)
+target_link_libraries(cbrp-simheur pthread m)
