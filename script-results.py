@@ -2,7 +2,6 @@ import pandas as pd
 import xlsxwriter
 import os, sys
 
-
 class Instance:
     def __init__(self, name):
         self.name = name.split(".")[0]
@@ -11,6 +10,7 @@ class Instance:
         self.blocks = ""
         self.scenarios = 0
         self.alpha = 0.8
+        self.gurobi_nodes = 0
         self.initial_lb = 0.0
         self.lb = 0.0
         self.runtime = 0.0
@@ -35,6 +35,7 @@ class Instance:
                 "|S|": self.scenarios,
                 "Alpha": str(self.alpha),
                 "T": str(self.T),
+                "Gurobi Nodes": str(self.gurobi_nodes),
                 "Initial LB": str(self.initial_lb),
                 "LB": str(self.lb),
                 "Temperature": str(self.temperature),
@@ -69,12 +70,12 @@ def get_result(folder_name) -> [Instance]:  # type: ignore
             inst = Instance(i)
 
         inst.T = 1200
-        inst.temperature = float(folders_infos[1])
-        inst.temperature_max = float(folders_infos[2])
-        inst.alpha_sa = float(folders_infos[3])
-        inst.max_iters_sa = int(folders_infos[4])
-        inst.delta_type = folders_infos[5]
-        inst.improve_used = int(folders_infos[6])
+        # inst.temperature = float(folders_infos[1])
+        # inst.temperature_max = float(folders_infos[2])
+        # inst.alpha_sa = float(folders_infos[3])
+        # inst.max_iters_sa = int(folders_infos[4])
+        # inst.delta_type = folders_infos[5]
+        # inst.improve_used = int(folders_infos[6])
 
         try:
             for l in lines:
@@ -89,8 +90,8 @@ def get_result(folder_name) -> [Instance]:  # type: ignore
                     inst.scenarios = int(content[1])
                 elif content[0] == "Alpha:":
                     inst.alpha = float(content[1])
-                elif content[0] == "Start_UB:":
-                    inst.initial_lb = float(content[1])
+                elif content[0] == "Gurobi_Nodes:":
+                    inst.gurobi_nodes = int(content[1])
                 elif content[0] == "LB:":
                     inst.lb = float(content[1])
                 elif content[0] == "Runtime:":
@@ -108,60 +109,65 @@ def get_result(folder_name) -> [Instance]:  # type: ignore
     return results
 
 
-writer = pd.ExcelWriter(
-    "results-stochastic-simulated-annealing.xlsx", engine="xlsxwriter"
-)
+results_root = "/Users/arlaraujo/Documents/phd/cbrp-methodologies/results-default"
 
-ROOT_DIR = "."
+output_excel = "results-models.xlsx"
 
-final_df = pd.DataFrame(
-    columns=[
-        "Instance",
-        "|V|",
-        "|A|",
-        "|B|",
-        "|S|",
-        "Alpha",
-        "T",
-        "Initial LB",
-        "LB",
-        "Temperature",
-        "Temperature Max",
-        "Alpha SA",
-        "Max Iters SA",
-        "Delta Type",
-        "Improve Used",
-        "Route Time",
-        "Attend Time",
-        "Time (s)",
-    ]
-)
+columns = [
+    "Instance",
+    "|V|",
+    "|A|",
+    "|B|",
+    "|S|",
+    "Alpha",
+    "T",
+    "Gurobi Nodes",
+    "Initial LB",
+    "LB",
+    "Temperature",
+    "Temperature Max",
+    "Alpha SA",
+    "Max Iters SA",
+    "Delta Type",
+    "Improve Used",
+    "Route Time",
+    "Attend Time",
+    "Time (s)",
+]
 
-results = []
-for root, dirs, files in os.walk(ROOT_DIR):
-    for dir_name in dirs:
-        if dir_name.split("-")[0] != "experiment":
-            continue
-        print(f"Processing {dir_name}...")
-        results.extend(get_result(os.path.join(root, dir_name)))
+writer = pd.ExcelWriter(output_excel, engine="xlsxwriter")
 
-for res in results:
-    final_df.loc[len(final_df) - 1] = res.to_list()
+# List only folders directly inside results_root
+for folder_name in sorted(os.listdir(results_root)):
+    folder_path = os.path.join(results_root, folder_name)
+    if not os.path.isdir(folder_path):
+        continue
 
-for col in final_df.select_dtypes(include="float").columns:
-    final_df[col] = final_df[col].apply(lambda x: f"{x:.3f}".replace(".", ","))
+    print(f"Processing folder: {folder_name} ...")
+    # Assuming get_result returns a list of Instance objects from a folder path.
+    results = get_result(folder_path)
 
-# print(final_df)
+    if not results:
+        continue
 
-final_df.to_excel(writer, sheet_name="sa-results")
+    df = pd.DataFrame([res.to_list() for res in results], columns=columns)
+    # Sort by splitting "Instance" on '-' and using positions 0, -2, -1 as sort keys
+    def instance_sort_key(s):
+        parts = str(s).split('-')
+        # Ensure at least 3 parts; pad with empty string if needed
+        if len(parts) < 3:
+            parts = parts + [''] * (3 - len(parts))
+        # Use first part, second to last, last as keys (will be string, sort lexicographically)
+        return (parts[0], parts[-2], parts[-1])
+    df = df.sort_values(by="Instance", key=lambda col: col.map(instance_sort_key))
+
+    # Format float columns
+    for col in df.select_dtypes(include="float").columns:
+        df[col] = df[col].apply(lambda x: f"{x:.3f}".replace(".", ","))
+
+    # Sheet names in Excel are limited to 31 chars
+    sheet_name = folder_name[:31]
+    # Write the DataFrame to its sheet
+    df.to_excel(writer, sheet_name=sheet_name, index=False)
+
 writer.close()
-
-# Create Excel writer
-# for exp_name, exp_data in experiments.items():
-#     # Create DataFrame from results
-#     df = pd.DataFrame(exp_data["results"])
-#     # Add parameters as columns
-#     for key, value in exp_data["params"].items():
-#         df[key] = value
-#     # Write to a sheet named after the experiment
-#     df.to_excel(writer, sheet_name=exp_name[:31], index=False)  # sheet names max 31 chars

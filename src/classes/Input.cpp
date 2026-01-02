@@ -303,30 +303,157 @@ void Input::walkAdaptMTZModel() {
     cout << "[*] Block to block complete digraph adaptation" << endl;
 #endif
 
-    // Trail adapt MTZ model
     const int N = graph->getN();
-    int M = graph->getM();
-    vector<int> path;
+    const int B = graph->getB();
 
-    // Add new arcs to create complete graph
+    // Step 1: Identify all nodes in positive/valid blocks and map blocks
+    map<int, int> old_block_to_new_block;
+    map<int, int> old_node_to_new_node;
+    vector<int> valid_nodes;
+    set<int> valid_blocks_set;
+    int newPB = 0;
+
+    // Identify valid blocks (blocks with positive cases)
+    for (int b = 0; b < B; ++b) {
+        bool has_cases = graph->getCasesPerBlock(b) > 0.0;
+
+        if (!has_cases) {
+            for (int s = 0; s < S; ++s) {
+                if (scenarios[s].getCasesPerBlock(b) > 0.0) {
+                    has_cases = true;
+                    break;
+                }
+            }
+        }
+
+        if (has_cases) {
+            old_block_to_new_block[b] = newPB++;
+            valid_blocks_set.insert(b);
+        }
+    }
+
+    // Identify valid nodes (nodes that belong to valid blocks)
     for (int i = 0; i < N; ++i) {
-        if (!isNodeInPositiveValidBlock(i))
-            continue;
+        const auto &node_info = graph->getNode(i);
+        bool is_valid = false;
 
-        for (int j = 0; j < N; ++j) {
-            if (i == j || !isNodeInPositiveValidBlock(j) || graph->getArc(i, j) != nullptr)
-                continue;
+        for (const int b : node_info.second) {
+            if (b != -1 && valid_blocks_set.find(b) != valid_blocks_set.end()) {
+                is_valid = true;
+                break;
+            }
+        }
 
-            const int length = sp->ShortestPathST(i, j, path);
-            if (length != INF) {
-                Arc *arc = new Arc(i, j, length, -1);
-                graph->addArc(i, arc);
-                ++M;
+        if (is_valid) {
+            old_node_to_new_node[i] = static_cast<int>(valid_nodes.size());
+            valid_nodes.push_back(i);
+        }
+    }
+
+    const int newN = static_cast<int>(valid_nodes.size());
+
+#ifndef Silence
+    cout << "[*] Reduction from " << N << " to " << newN << " nodes" << endl;
+    cout << "[*] Reduction from " << B << " to " << newPB << " blocks" << endl;
+#endif
+
+    // Step 2: Create new nodes structure with remapped block IDs
+    vector<pair<int, set<int>>> new_nodes(newN);
+    vector<set<int>> new_nodes_per_block(newPB);
+
+    for (int new_i = 0; new_i < newN; ++new_i) {
+        const int old_i = valid_nodes[new_i];
+        const auto &old_node_info = graph->getNode(old_i);
+
+        new_nodes[new_i].first = new_i;
+        new_nodes[new_i].second.clear();
+
+        for (const int old_b : old_node_info.second) {
+            if (old_b != -1 && old_block_to_new_block.find(old_b) != old_block_to_new_block.end()) {
+                const int new_b = old_block_to_new_block[old_b];
+                new_nodes[new_i].second.insert(new_b);
+                new_nodes_per_block[new_b].insert(new_i);
             }
         }
     }
 
-    graph->setM(M);
+    // Step 3: Create complete graph with all arcs between valid nodes
+    vector<vector<Arc *>> new_arcs(newN + 1);
+    int newM = 0;
+
+    for (int i = 0; i < newN; ++i) {
+        for (int j = 0; j < newN; ++j) {
+            if (i == j)
+                continue;
+
+            const int old_i = valid_nodes[i];
+            const int old_j = valid_nodes[j];
+
+            // Calculate shortest path in original graph
+            vector<int> path;
+            const int length = sp->ShortestPathST(old_i, old_j, path);
+
+            if (length != INF) {
+                Arc *arc = new Arc(i, j, length, -1);
+                new_arcs[i].push_back(arc);
+                ++newM;
+            }
+        }
+    }
+
+    // Step 4: Update block information (cases and times)
+    vector<double> new_cases_per_block(newPB);
+    vector<int> new_time_per_block(newPB);
+
+    for (const auto &[old_b, new_b] : old_block_to_new_block) {
+        new_cases_per_block[new_b] = graph->getCasesPerBlock(old_b);
+        new_time_per_block[new_b] = graph->getTimePerBlock(old_b);
+    }
+
+    // Step 5: Update scenarios with new block mapping
+    for (int s = 0; s < S; ++s) {
+        vector<double> new_scenario_cases(newPB, 0.0);
+        for (const auto &[old_b, new_b] : old_block_to_new_block) {
+            new_scenario_cases[new_b] = scenarios[s].getCasesPerBlock(old_b);
+        }
+        scenarios[s].setCasesPerBlock(new_scenario_cases);
+    }
+
+    // Step 6: Replace graph structures
+    graph->setNodes(new_nodes);
+    graph->setArcs(new_arcs);
+    graph->setNodesPerBlock(new_nodes_per_block);
+    graph->setCasesPerBlock(new_cases_per_block);
+    graph->setTimePerBlock(new_time_per_block);
+    graph->setN(newN);
+    graph->setM(newM);
+    graph->setB(newPB);
+    graph->setPB(newPB);
+    graph->resetArcsMatrix(newN);
+
+    // Rebuild arcs matrix for the new graph
+    for (int i = 0; i < newN; ++i) {
+        for (Arc *arc : new_arcs[i]) {
+            graph->addArcInMatrix(i, arc->getD(), arc);
+        }
+    }
+
+    // Add artificial depot node
+    graph->addArtificialNode(newN);
+
+    // Step 7: Recreate shortest path and block connection for new graph
+    delete sp;
+    delete bc;
+    sp = new ShortestPath(graph);
+    bc = new BlockConnection(graph, sp);
+    bc->computeBlock2BlockCost();
+
+    // Resize arc structures
+    const int final_N = graph->getN();
+    arcs_in_path.clear();
+    arcs_in_path.resize(final_N, vector<vector<Arc *>>(final_N));
+    arc_length.clear();
+    arc_length.resize(final_N, vector<int>(final_N, -1));
 
 #ifndef Silence
     cout << "[*] Complete graph created" << endl;
