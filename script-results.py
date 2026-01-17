@@ -5,25 +5,25 @@ import os, sys
 class Instance:
     def __init__(self, name):
         self.name = name.split(".")[0]
-        self.nodes = ""
-        self.arcs = ""
-        self.blocks = ""
-        self.scenarios = 0
-        self.alpha = 0.8
-        self.gurobi_nodes = 0
-        self.initial_lb = 0.0
-        self.lb = 0.0
-        self.runtime = 0.0
-        self.route_time = 0.0
-        self.attend_time = 0.0
-        self.temperature = 0.0
-        self.T = 0
-        self.temperature_max = 0.0
-        self.alpha_sa = 0.0
-        self.max_iters_sa = 0
-        self.delta_type = "moderated"
-        self.improve_used = "best_improve"
-        self.attend_blocks = 0
+        # Core instance data
+        self.nodes = pd.NA
+        self.arcs = pd.NA
+        self.blocks = pd.NA
+
+        # Outputs / metrics (nullable when not present in a result file)
+        self.attend_blocks = pd.NA
+        self.lb = float("nan")
+        self.ub = float("nan")
+        self.bnb_nodes = pd.NA
+        self.frac_cuts = pd.NA
+        self.lazy_cuts = pd.NA
+        self.solution_time = float("nan")
+        self.exec_time = float("nan")
+
+        # Internal helpers (not exported as columns)
+        self._route_time = float("nan")
+        self._attend_time = float("nan")
+        self._attended_blocks_set = set()
 
     def to_list(self):
         return pd.Series(
@@ -32,23 +32,14 @@ class Instance:
                 "|V|": self.nodes,
                 "|A|": self.arcs,
                 "|B|": self.blocks,
-                "|S|": self.scenarios,
-                "Alpha": str(self.alpha),
-                "T": str(self.T),
-                "Gurobi Nodes": str(self.gurobi_nodes),
-                "Initial LB": str(self.initial_lb),
-                "LB": str(self.lb),
-                "Temperature": str(self.temperature),
-                "Temperature Max": str(self.temperature_max),
-                "Alpha SA": str(self.alpha_sa),
-                "Max Iters SA": str(self.max_iters_sa),
-                "Delta Type": self.delta_type,
-                "Improve Used": (
-                    "first_improve" if self.improve_used else "best_improve"
-                ),
-                "Route Time": str(self.route_time),
-                "Attend Time": str(self.attend_time),
-                "Time (s)": str(self.runtime),
+                "Attend Blocks": self.attend_blocks,
+                "LB": self.lb,
+                "UB": self.ub,
+                "BnB Nodes": self.bnb_nodes,
+                "Frac. Cuts": self.frac_cuts,
+                "Lazy Cuts": self.lazy_cuts,
+                "Solution Time": self.solution_time,
+                "Exec. Time": self.exec_time,
             }
         )
 
@@ -56,7 +47,19 @@ class Instance:
 def get_result(folder_name) -> [Instance]:  # type: ignore
     instances = os.listdir(folder_name)
     results = []
-    folders_infos = folder_name.split("-")
+    # folders_infos = folder_name.split("-")
+
+    def _parse_numbers_list(s: str):
+        # Supports formats like "18,17,16,..." or "18" or "18, 17"
+        s = str(s).replace(",", " ")
+        parts = [p.strip() for p in s.split() if p.strip() != ""]
+        out = []
+        for p in parts:
+            try:
+                out.append(int(p))
+            except Exception:
+                continue
+        return out
 
     for i in instances:
         f = open(os.path.join(folder_name, i), "r")
@@ -69,70 +72,83 @@ def get_result(folder_name) -> [Instance]:  # type: ignore
                 i = i.replace("limoeiro", "limoeiro-norte")
             inst = Instance(i)
 
-        inst.T = 1200
-        # inst.temperature = float(folders_infos[1])
-        # inst.temperature_max = float(folders_infos[2])
-        # inst.alpha_sa = float(folders_infos[3])
-        # inst.max_iters_sa = int(folders_infos[4])
-        # inst.delta_type = folders_infos[5]
-        # inst.improve_used = int(folders_infos[6])
-
         try:
             for l in lines:
                 content = l.strip().split(" ")
-                if content[0] == "N:":
-                    inst.nodes = content[1]
-                elif content[0] == "M:":
-                    inst.arcs = content[1]
-                elif content[0] == "B:":
-                    inst.blocks = content[1]
-                elif content[0] == "S:":
-                    inst.scenarios = int(content[1])
-                elif content[0] == "Alpha:":
-                    inst.alpha = float(content[1])
-                elif content[0] == "Gurobi_Nodes:":
-                    inst.gurobi_nodes = int(content[1])
+                if not content:
+                    continue
+                key = content[0]
+                val = " ".join(content[1:]) if len(content) > 1 else ""
+
+                if key == "N:":
+                    inst.nodes = int(content[1])
+                elif key == "M:":
+                    inst.arcs = int(content[1])
+                elif key == "B:":
+                    inst.blocks = int(content[1])
+                elif key == "Gurobi_Nodes:":
+                    inst.bnb_nodes = int(content[1])
                 elif content[0] == "LB:":
                     inst.lb = float(content[1])
+                elif content[0] == "UB:":
+                    inst.ub = float(content[1])
+                elif content[0] == "Lazy_cuts:":
+                    inst.lazy_cuts = int(content[1])
+                elif content[0] == "Frac_cuts:":
+                    inst.frac_cuts = int(content[1])
                 elif content[0] == "Runtime:":
-                    inst.runtime = float(content[1])
+                    inst.exec_time = float(content[1])
                 elif content[0] == "Y:":
-                    inst.attended_blocks = len(content[1].split(","))
+                    # Some outputs have one block per line: "Y: 82"
+                    # Others may have comma-separated lists: "Y: 18,17,16,..."
+                    for b in _parse_numbers_list(val):
+                        inst._attended_blocks_set.add(b)
                 elif content[0] == "Route_Time:":
-                    inst.route_time = float(content[1])
+                    inst._route_time = float(content[1])
                 elif content[0] == "Attend_Time:":
-                    inst.attend_time = float(content[1])
+                    inst._attend_time = float(content[1])
         except:
             print(i)
+
+        # Finalize derived fields
+        if len(inst._attended_blocks_set) > 0:
+            inst.attend_blocks = len(inst._attended_blocks_set)
+        else:
+            inst.attend_blocks = pd.NA
+
+        # Solution Time: prefer explicit components if present; otherwise Route_Time; otherwise NaN
+        if not pd.isna(inst._route_time) and not pd.isna(inst._attend_time):
+            inst.solution_time = float(inst._route_time) + float(inst._attend_time)
+        elif not pd.isna(inst._route_time):
+            inst.solution_time = float(inst._route_time)
+        elif not pd.isna(inst._attend_time):
+            inst.solution_time = float(inst._attend_time)
+
         results.append(inst)
 
     return results
 
 
-results_root = "/Users/arlaraujo/Documents/phd/cbrp-methodologies/results-default"
-
-output_excel = "results-models.xlsx"
+# Default to this repo on Linux; allow override via env var.
+results_root = os.environ.get(
+    "RESULTS_ROOT",
+    "/home/carlos/Documentos/cbrp-methodologies/walk-results/",
+)
+output_excel = "results-walk-models.xlsx"
 
 columns = [
     "Instance",
     "|V|",
     "|A|",
     "|B|",
-    "|S|",
-    "Alpha",
-    "T",
-    "Gurobi Nodes",
-    "Initial LB",
+    "Attend Blocks",
     "LB",
-    "Temperature",
-    "Temperature Max",
-    "Alpha SA",
-    "Max Iters SA",
-    "Delta Type",
-    "Improve Used",
-    "Route Time",
-    "Attend Time",
-    "Time (s)",
+    "UB",
+    "BnB Nodes",
+    "Frac. Cuts",
+    "Lazy Cuts",
+    "Solution Time",
+    "Exec. Time",
 ]
 
 writer = pd.ExcelWriter(output_excel, engine="xlsxwriter")
@@ -162,8 +178,13 @@ for folder_name in sorted(os.listdir(results_root)):
     df = df.sort_values(by="Instance", key=lambda col: col.map(instance_sort_key))
 
     # Format float columns
+    def fmt_float(x):
+        if pd.isna(x):
+            return ""
+        return f"{float(x):.3f}".replace(".", ",")
+
     for col in df.select_dtypes(include="float").columns:
-        df[col] = df[col].apply(lambda x: f"{x:.3f}".replace(".", ","))
+        df[col] = df[col].apply(fmt_float)
 
     # Sheet names in Excel are limited to 31 chars
     sheet_name = folder_name[:31]

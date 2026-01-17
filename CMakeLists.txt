@@ -50,7 +50,6 @@ set(SOURCES_DETERMINISTIC_MODEL
     src/exact/DeterministicModel.cpp
     src/exact/DeterministicModelWalk.hpp
     src/exact/DeterministicModelWalk.cpp
-    main-deterministic-model.cpp
 )
 
 set(SOURCES_STOCHASTIC_MODEL
@@ -69,12 +68,21 @@ set(SOURCES_DETERMINISTIC_HEURISTIC
     main.cpp
 )
 
+set(SOURCES_DETERMINISTIC_GREEDY_HEURISTIC
+    src/heuristic/GreedyHeuristic.hpp
+    src/heuristic/GreedyHeuristic.cpp
+    main-det-greedy-heuristic.cpp
+)
+
 set(SOURCES_DETERMINISTIC_LAGRANGEAN
+    src/heuristic/stochastic/StartSolution.hpp
+    src/heuristic/GreedyHeuristic.hpp
+    src/heuristic/GreedyHeuristic.cpp
     src/exact/DeterministicModelWalkBarrierMethod.hpp
     src/exact/DeterministicModelWalkBarrierMethod.cpp
     src/heuristic/Lagrangean.hpp
     src/heuristic/Lagrangean.cpp
-    main.cpp
+    main-lagrangean.cpp
 )
 
 set(SOURCES_STOCHASTIC_HEURISTIC
@@ -115,6 +123,12 @@ add_executable(cbrp-det-heur
     ${SOURCES_DETERMINISTIC_HEURISTIC}
 )
 
+add_executable(cbrp-det-greedy
+    ${SOURCES_MAIN}
+    ${SOURCES_DETERMINISTIC_GREEDY_HEURISTIC}
+    main-det-greedy-heuristic.cpp
+)
+
 # Deterministic Lagrangean
 add_executable(cbrp-det-lagr
     ${SOURCES_MAIN}
@@ -137,6 +151,7 @@ add_executable(cbrp-simheur
 
 
 target_link_libraries(cbrp-det gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
+target_link_libraries(cbrp-det-greedy gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
 target_link_libraries(cbrp-stoc gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
 target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
 

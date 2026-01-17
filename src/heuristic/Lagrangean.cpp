@@ -3,7 +3,9 @@
 //
 
 #include "Lagrangean.hpp"
+#include "gurobi_c.h"
 #include <chrono>
+#include <cstdio>
 
 Lagrangean::Lagrangean(Input *input) {
     if (input != nullptr) {
@@ -14,7 +16,7 @@ Lagrangean::Lagrangean(Input *input) {
         exit(EXIT_FAILURE);
 }
 
-pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
+pair<int, double> Lagrangean::runSolverERCSPP(map<pair<int, int>, int> &x) {
     Graph *graph = this->input->getGraph();
     int N = graph->getN(), o, d, i, j, k, b;
     int T = input->getT(), B = graph->getB();
@@ -38,23 +40,26 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
 
     // OF
     GRBLinExpr of;
+    cout << "Multi Time: " << mult_time << endl;
     for (i = 0; i <= graph->getN(); i++) {
         for (auto arc : graph->getArcs(i)) {
             j = arc->getD();
-            of += X[i][j] * mult_time * arc->getLength();
+            of += X[i][j] * (-1 * mult_time * arc->getLength());
         }
     }
 
     for (b = 0; b < B; b++) {
+        cout << "Multi Conn: " << mult_conn[b] << endl;
         for (int i : graph->getNodesFromBlock(b)) {
             for (auto arc : graph->getArcs(i)) {
                 j = arc->getD();
-                of += -1 * X[i][j] * mult_conn[b];
+                of += X[i][j] * mult_conn[b];
             }
         }
     }
+    getchar();
 
-    model.setObjective(of, GRB_MINIMIZE);
+    model.setObjective(of, GRB_MAXIMIZE);
     model.update();
 
     // Sink/Depot constraint
@@ -115,8 +120,8 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
     X[N][0].set(GRB_DoubleAttr_Start, 1.0);
     X[0][N].set(GRB_DoubleAttr_Start, 1.0);
 
-    model.set("TimeLimit", "300");
-    // model.set("OutputFlag", "0");
+    // model.set("TimeLimit", "300");
+    model.set("OutputFlag", "1");
     model.update();
     model.write("model.lp");
     model.optimize();
@@ -130,7 +135,10 @@ pair<int, double> Lagrangean::runSolverERCSPP(set<pair<int, int>> &x) {
                     ip = N + 1;
                 int_pair p = make_pair(ip, arc->getD());
                 route_time += arc->getLength();
-                x.insert(p);
+                if (x.find(p) != x.end())
+                    x[p]++;
+                else
+                    x[p] = 1;
             }
 
     return make_pair(route_time, model.get(GRB_DoubleAttr_ObjVal));
@@ -181,7 +189,7 @@ double Lagrangean::solve_ppl(map<pair<int, int>, int> &x, vector<int> &y) {
     vector<double> profit;
     for (int b = 0; b < graph->getB(); b++) {
         int time_block = graph->getTimePerBlock(b);
-        double coef = graph->getCasesPerBlock(b) - mult_conn[b] - (mult_time * (1.0 * time_block));
+        double coef = graph->getCasesPerBlock(b) - mult_conn[b] - (mult_time * time_block);
 
         if (coef > 0) {
             blocks.push_back(b);
@@ -198,7 +206,7 @@ double Lagrangean::solve_ppl(map<pair<int, int>, int> &x, vector<int> &y) {
         y.push_back(*it);
     }
 
-    // cout << "[*] PPL OF: " << (of - route_cost + knapsack_cost) << endl
+    // cout << "[*] PPL OF: " << (of + route_cost + knapsack_cost) << endl
     //      << "\t[-] OF: " << of << endl
     //      << "\t[-] Route Cost: " << route_cost << endl
     //      << "\t[-] Knapsack Cost: " << knapsack_cost << endl;
@@ -212,7 +220,6 @@ int Lagrangean::bestAttendFromRoute(map<int_pair, int> &x, vector<int> &y) {
     vector<int> time, y_aux;
     vector<double> cases;
     int i, j, avail_time = this->input->getT();
-    int T = avail_time;
 
     if (!route_blocks.size())
         return 0;
@@ -288,8 +295,6 @@ int Lagrangean::getGradientTime(const map<int_pair, int> &x, const vector<int> &
         gradient_time -= (arc->getLength() * times_visited);
     }
 
-    gradient_time -= int(this->curr_route_time);
-
     for (int b : y)
         gradient_time -= graph->getTimePerBlock(b);
 
@@ -310,9 +315,9 @@ void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, map<int_
     }
 
     for (b = 0; b < B; b++) {
-        gradient_lambda[b] = 0;
+        gradient_lambda[b] = 0.0;
         if (find(y.begin(), y.end(), b) != y.end())
-            gradient_lambda[b] = -1;
+            gradient_lambda[b] = -1.0;
 
         set<int> nodes = graph->getNodesFromBlock(b);
 
@@ -320,7 +325,7 @@ void Lagrangean::getGradientConnection(vector<double> &gradient_lambda, map<int_
             for (auto arc : graph->getArcs(i)) {
                 int_pair a = make_pair(i, arc->getD());
                 if (arc_used[a])
-                    gradient_lambda[b] += x[a];
+                    gradient_lambda[b] += (double)(x[a]);
             }
         }
 
@@ -349,7 +354,7 @@ bool Lagrangean::isFeasible() {
     return false;
 }
 
-int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_iters, double reduction_factor) {
+int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_iters, double reduction_factor, bool use_heuristic, bool use_barrier_method) {
     Graph *graph = input->getGraph();
     int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 10000;
     double theta_time, norm_time, theta_conn, norm_conn, obj_ppl, original_obj, heuristic_obj;
@@ -357,11 +362,11 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
     this->T = input->getT();
     is_feasible = true;
 
-    vector<double> gradient_conn = vector<double>(B, 0);
+    vector<double> gradient_conn = vector<double>(B, 0.0);
     double gradient_time = 0.0;
 
-    mult_conn = vector<double>(B, 0);
-    mult_time = 0;
+    mult_conn = vector<double>(B, 0.0);
+    mult_time = 0.0;
     UB = 0, LB = 0;
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -371,15 +376,19 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
     vector<int> y_heu;
     vector<int_pair> x_heu;
 
-    // TODO: back here later
-    LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), T, y_heu);
+    if (use_heuristic) {
+        LB = greedyHeuristic->SolveScenario(graph->getCasesPerBlock(), graph->getTimePerBlock(), T, y_heu);
+    }
 
     this->initial_LB = LB;
     this->initial_UB = UB;
+
     obj_ppl = UB;
-    auto *bm = new DeterministicModelWalkBarrier(input);
-    bm->Run(false, "3600", "EXP", false);
-    mult_time = bm->getMultipliers(mult_conn);
+    if (use_barrier_method) {
+        auto *bm = new DeterministicModelWalkBarrier(input);
+        bm->Run(false, "3600", "EXP", false);
+        mult_time = bm->getMultipliers(mult_conn);
+    }
 
     auto end = chrono::high_resolution_clock::now();
     auto elapsed = duration_cast<chrono::seconds>(end - start);
@@ -388,7 +397,6 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
         map<int_pair, int> x;
         vector<int> y, y_aux;
 
-        // cout << "[*] Solving PPL in iteration " << iter << ", Lambda " << lambda << "..." << endl;
         if (iter >= 0)
             obj_ppl = solve_ppl(x, y);
         else {
@@ -407,13 +415,10 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
             }
         }
 
-        // cout << "[*] Solving PPL in iteration " << iter << " finished!" << endl;
         if (obj_ppl < numeric_limits<int>::max()) {
 
             gradient_time = getGradientTime(x, y);
             getGradientConnection(gradient_conn, x, y);
-
-            // cout << "[*] Updating bounds..." << endl;
             if (obj_ppl < UB) {
                 UB = obj_ppl;
                 progress = 0;
@@ -425,24 +430,8 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
                 }
             }
 
-            // cout << "[*] Get Original Objective..." << endl;
             original_obj = getOriginalObjValue(y);
-
-            // cout << "[*] Get Heuristic Objective..." << endl;
             heuristic_obj = bestAttendFromRoute(x, y_aux);
-
-            // for (auto arc : x)
-            // {
-            //   int_pair p = arc.first;
-            //   int times_visited = arc.second;
-            //   cout << p.first << " -> " << p.second << " = " << times_visited << endl;
-            // }
-
-            // for (auto b : y)
-            //   cout << b << ", ";
-            // cout << endl;
-
-            // cout << "[*] Original Obj: " << original_obj << ", Heuristic: " << heuristic_obj << ", Relax Obj: " << obj_ppl << endl;
             bool feasible = isFeasible();
 
             if ((feasible && original_obj > LB) || heuristic_obj > LB) {

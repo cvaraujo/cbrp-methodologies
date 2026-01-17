@@ -208,6 +208,8 @@ class Solution {
         this->routes[s] = new Route(this->input, x, y);
         this->x[s] = x, this->y[s] = y;
         this->scenario_profit[s] = profit;
+        this->route_time = this->routes[s]->getTimeRoute();
+        this->time_used = this->routes[s]->getTimeAttBlocks();
     };
 
     void AddScenarioSolution(int s, Route *route, double profit) {
