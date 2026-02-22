@@ -5,36 +5,31 @@
 #ifndef DPARP_ARC_H
 #define DPARP_ARC_H
 
-class Arc
-{
+class Arc {
+  private:
+    int o_;      // origin node
+    int d_;      // destination node
+    int length_; // length of the arc
+    int block_;  // block identifier
 
-private:
-  int o, d, block, length;
+  public:
+    Arc(int o, int d, int length, int block)
+        : o_(o)
+        , d_(d)
+        , length_(length)
+        , block_(block) {}
 
-public:
-  Arc(int o, int d, int length, int block)
-  {
-    this->o = o;
-    this->d = d;
-    this->length = length;
-    this->block = block;
-  }
+    // Getters
+    [[nodiscard]] int getO() const { return o_; }
+    [[nodiscard]] int getD() const { return d_; }
+    [[nodiscard]] int getLength() const { return length_; }
+    [[nodiscard]] int getBlock() const { return block_; }
 
-  int getO() { return o; }
-
-  int getD() { return d; }
-
-  int getLength() { return length; }
-
-  int getBlock() { return block; }
-
-  void setBlock(int block) { this->block = block; }
-
-  void setLength(int length) { this->length = length; }
-
-  void setO(int o) { this->o = o; }
-
-  void setD(int d) { this->d = d; }
+    // Setters
+    void setO(int o) { o_ = o; }
+    void setD(int d) { d_ = d; }
+    void setLength(int length) { length_ = length; }
+    void setBlock(int block) { block_ = block; }
 };
 
-#endif // MRP_ARC_H
+#endif // DPARP_ARC_H

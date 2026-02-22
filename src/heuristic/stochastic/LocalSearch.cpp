@@ -624,21 +624,13 @@ void LocalSearch::ImproveRouteTime() {
     int time_diff;
 
     while (true) {
-        // for (int r : route) {
-        //     cout << r << ", ";
-        // }
-        // cout << endl;
-
         time_diff = ApplyNodeSwap(route);
-        // cout << "\t[!] TimeDiff = " << time_diff << endl;
-        // cout << endl;
 
         if (time_diff <= 0)
             break;
 
         has_improved = true;
         first_stage_route->ChangeRouteTime(-time_diff);
-        // getchar();
     }
 
     if (has_improved) {

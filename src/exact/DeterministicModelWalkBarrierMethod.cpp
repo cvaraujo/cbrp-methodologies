@@ -452,9 +452,11 @@ double DeterministicModelWalkBarrier::getMultipliers(vector<double> &multipliers
 
     for (int b = 0; b < B; b++) {
         auto att_constr = model.getConstrByName("att_path_" + to_string(b));
-        multipliers[b] = abs(att_constr.get(GRB_DoubleAttr_Pi));
+        double value = abs(att_constr.get(GRB_DoubleAttr_Pi));
+        multipliers[b] = (value < 1e-8 ? 0.0 : value);
     }
 
     auto time_constr = model.getConstrByName("max_time");
-    return abs(time_constr.get(GRB_DoubleAttr_Pi));
+    double time_value = abs(time_constr.get(GRB_DoubleAttr_Pi));
+    return (time_value < 1e-8 ? 0.0 : time_value);
 }

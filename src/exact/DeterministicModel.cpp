@@ -8,8 +8,8 @@
 class cyclecallback : public GRBCallback {
 
   public:
-    double lastiter, lastnode;
-    int numvars, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
+    double lastiter = 0, lastnode = 0;
+    int numvars = 0, cuts = 0, num_frac_cuts = 0, num_lazy_cuts = 0;
     bool frac_cut = false;
     vector<vector<GRBVar>> x, y;
     typedef ListDigraph G;
@@ -18,130 +18,120 @@ class cyclecallback : public GRBCallback {
     typedef G::Node Node;
     typedef G::ArcMap<double> LengthMap;
     typedef G::NodeMap<bool> BoolNodeMap;
-    Input *input;
+    Input *input = nullptr;
 
-    cyclecallback(Input *xinput, int xnumvars, vector<vector<GRBVar>> xx, vector<vector<GRBVar>> yy, bool frac_cut) {
-        lastiter = lastnode = 0;
-        numvars = xnumvars;
-        x = xx;
-        y = yy;
-        input = xinput;
-        this->frac_cut = frac_cut;
+    cyclecallback(Input *xinput, int xnumvars, const vector<vector<GRBVar>> &xx, const vector<vector<GRBVar>> &yy, bool frac_cut)
+        : lastiter(0)
+        , lastnode(0)
+        , numvars(xnumvars)
+        , x(xx)
+        , y(yy)
+        , input(xinput)
+        , frac_cut(frac_cut) {
     }
 
   protected:
-    void callback() {
+    void callback() override {
         if (where == GRB_CB_MIPSOL) {
             try {
-                bool is_feasible = true;
                 Graph *graph = input->getGraph();
+                int n = graph->getN();
 
-                int i, j, s, n = graph->getN();
-                vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
-                vector<bool> used_node = vector<bool>(n + 1);
+                vector<vector<int>> adj(n + 2);
+                vector<bool> used_node(n + 1, false);
 
-                // Create graph G'
-                for (i = 0; i <= n; i++) {
-                    for (auto *arc : graph->getArcs(i)) {
-                        if (getSolution(x[i][arc->getD()]) > 0.1) {
-                            g[i].push_back(arc->getD());
-                            used_node[i] = used_node[arc->getD()] = true;
+                // Efficient construction of adjacency and used node
+                for (int i = 0; i <= n; ++i) {
+                    for (const auto *arc : graph->getArcs(i)) {
+                        int d = arc->getD();
+                        if (getSolution(x[i][d]) > 0.1) {
+                            adj[i].push_back(d);
+                            used_node[i] = true;
+                            used_node[d] = true;
                         }
                     }
                 }
 
                 vector<bool> visited(n + 1, false);
-                vector<int> node_connected_component = vector<int>(n + 1, -1);
-                vector<vector<int>> connected_component;
-                vector<vector<int_pair>> arcs_from_component;
-                int idx = 0;
+                vector<int> node_cc(n + 1, -1); // Component index for node
+                vector<vector<int>> components;
+                vector<vector<int_pair>> comp_arcs;
 
-                // DFS
-                for (i = n; i >= 0; i--) {
+                // Non-recursive DFS for all components
+                for (int i = n; i >= 0; --i) {
                     if (!used_node[i] || visited[i])
                         continue;
 
-                    connected_component.push_back(vector<int>());
-                    arcs_from_component.push_back(vector<int_pair>());
-
-                    vector<int> stack;
-                    stack.push_back(i);
+                    components.emplace_back();
+                    comp_arcs.emplace_back();
+                    int cc_idx = (int)components.size() - 1;
+                    vector<int> stack{i};
 
                     while (!stack.empty()) {
-                        s = stack.back();
+                        int s = stack.back();
                         stack.pop_back();
+                        if (visited[s])
+                            continue;
 
-                        if (!visited[s]) {
-                            connected_component[idx].push_back(s);
-                            node_connected_component[s] = idx;
-                            visited[s] = true;
-                        }
+                        visited[s] = true;
+                        node_cc[s] = cc_idx;
+                        components[cc_idx].push_back(s);
 
-                        for (auto k : g[s]) {
+                        for (int k : adj[s]) {
+                            comp_arcs[cc_idx].emplace_back(s, k);
                             if (!visited[k])
                                 stack.push_back(k);
-                            arcs_from_component[idx].push_back(make_pair(s, k));
                         }
                     }
-                    idx++;
                 }
 
-                // Feasible solution
-                if (idx == 1)
+                // If all nodes are in one connected component, solution is feasible
+                if (components.size() <= 1)
                     return;
 
-                // Need Cuts
-                is_feasible = false;
+                num_lazy_cuts += (int)components.size() - 1;
 
                 if (input->isTrail()) {
-                    for (i = 1; i < connected_component.size(); i++) {
-                        vector<int> s_nodes = connected_component[i];
-                        vector<int_pair> s_arcs = arcs_from_component[i];
-                        GRBLinExpr in_arcs, cut_arcs;
-                        int num_in_nodes = s_nodes.size();
-
-                        // Arcs inside S
-                        for (auto pair : s_arcs)
-                            in_arcs += x[pair.first][pair.second];
+                    // Subtour elimination for each component except the largest (assume 0-th is the main one)
+                    for (size_t ci = 1; ci < components.size(); ++ci) {
+                        const auto &s_arcs = comp_arcs[ci];
+                        int num_in_nodes = (int)components[ci].size();
+                        GRBLinExpr in_arcs = 0;
+                        for (const auto &pr : s_arcs)
+                            in_arcs += x[pr.first][pr.second];
 
                         addLazy(in_arcs <= num_in_nodes - 1);
-                        num_lazy_cuts++;
                     }
                 } else {
-                    // Need Cuts
-                    for (i = 1; i < connected_component.size(); i++) {
-                        vector<int> s_nodes = connected_component[i];
-                        vector<int_pair> s_arcs = arcs_from_component[i];
-                        GRBLinExpr in_arcs, cut_arcs;
-                        int num_in_arcs = s_arcs.size();
-                        int num_in_nodes = s_nodes.size();
+                    for (size_t ci = 1; ci < components.size(); ++ci) {
+                        const auto &s_arcs = comp_arcs[ci];
+                        int num_in_nodes = (int)components[ci].size();
+                        GRBLinExpr in_arcs = 0;
+                        GRBLinExpr cut_arcs = 0;
 
-                        // Arcs inside S
-                        for (auto pair : s_arcs)
-                            in_arcs += x[pair.first][pair.second];
+                        for (const auto &pr : s_arcs)
+                            in_arcs += x[pr.first][pr.second];
 
-                        // Arcs in the cut S
-                        for (int j = 0; j < n; j++)
-                            if (node_connected_component[j] != i)
-                                for (auto arc : graph->getArcs(j))
-                                    if (node_connected_component[arc->getD()] == i)
-                                        cut_arcs += x[j][arc->getD()];
-
+                        // Cut arcs: from outside to inside the component
+                        for (int j = 0; j < n; ++j) {
+                            if (node_cc[j] != (int)ci) {
+                                for (const auto *arc : graph->getArcs(j)) {
+                                    int d = arc->getD();
+                                    if (node_cc[d] == (int)ci)
+                                        cut_arcs += x[j][d];
+                                }
+                            }
+                        }
                         addLazy(in_arcs <= num_in_nodes - 1 + cut_arcs);
-                        num_lazy_cuts++;
                     }
                 }
-                if (is_feasible)
-                    return;
-            } catch (GRBException e) {
-                cout << "[LAZZY] Error number: " << e.getErrorCode() << endl;
+            } catch (const GRBException &e) {
+                cout << "[LAZY] Error number: " << e.getErrorCode() << endl;
                 cout << e.getMessage() << endl;
             } catch (...) {
                 cout << "Error during callback" << endl;
             }
-        }
-
-        else if (where == GRB_CB_MIPNODE) {
+        } else if (where == GRB_CB_MIPNODE) {
             try {
                 if (!frac_cut)
                     return;
@@ -150,74 +140,64 @@ class cyclecallback : public GRBCallback {
 
                 if (mipStatus == GRB_OPTIMAL) {
                     Graph *graph = input->getGraph();
-                    int i, j, u, v, n = graph->getN();
+                    int n = graph->getN();
 
-                    // Basic structures to use Lemon
                     G flow_graph;
                     LengthMap capacity(flow_graph);
-                    vector<Node> set_nodes = vector<Node>(n + 1);
-                    vector<bool> used_node = vector<bool>(n, false);
-                    vector<Arc> set_arcs;
+                    vector<Node> nodes(n + 1);
+                    vector<bool> used_node(n + 1, false);
 
-                    // Create the node set
-                    for (i = 0; i <= n; i++)
-                        set_nodes[i] = flow_graph.addNode();
+                    // Nodes and arcs for flow graph
+                    for (int i = 0; i <= n; ++i)
+                        nodes[i] = flow_graph.addNode();
 
-                    // Create the edge set
-                    for (i = 0; i <= n; i++) {
-                        for (auto *arc : graph->getArcs(i)) {
-                            j = arc->getD();
-
-                            if (getNodeRel(x[i][j]) > 0) {
-                                set_arcs.push_back(flow_graph.addArc(set_nodes[i], set_nodes[j]));
-                                capacity[set_arcs[set_arcs.size() - 1]] = double(getNodeRel(x[i][j]));
-                                used_node[i] = used_node[j] = true;
+                    for (int i = 0; i <= n; ++i) {
+                        for (const auto *arc : graph->getArcs(i)) {
+                            int j = arc->getD();
+                            double val = getNodeRel(x[i][j]);
+                            if (val > 0) {
+                                Arc flow_arc = flow_graph.addArc(nodes[i], nodes[j]);
+                                capacity[flow_arc] = val;
+                                used_node[i] = true;
+                                used_node[j] = true;
                             }
                         }
                     }
 
-                    // Init necessary structures
-                    double mincut_value;
-                    for (i = 0; i < n; i++) {
-                        // If there is no arc using this node, ignore it
+                    for (int i = 0; i < n; ++i) {
                         if (!used_node[i])
                             continue;
 
-                        // Lemon MaxFlow instance
-                        Preflow<G, LengthMap> preflow(flow_graph, capacity, set_nodes[i], set_nodes[n]);
+                        Preflow<G, LengthMap> preflow(flow_graph, capacity, nodes[i], nodes[n]);
                         preflow.runMinCut();
-                        mincut_value = preflow.flowValue();
 
+                        double mincut_value = preflow.flowValue();
                         if (mincut_value >= 1.0)
                             continue;
-                        // cout << "MinCut: " << mincut_value << endl;
 
-                        // Create basic variables
-                        GRBLinExpr cut_arcs;
-                        double cut_value = 0;
+                        // Identify cut arcs from mincut
+                        GRBLinExpr cut_arcs = 0;
 
-                        // Get cut arcs
-                        for (j = 0; j < n; j++) {
-                            if (!preflow.minCut(set_nodes[j]))
+                        for (int j = 0; j < n; ++j) {
+                            if (!preflow.minCut(nodes[j]))
                                 continue;
-
-                            for (auto arc : graph->getArcs(j)) {
+                            for (const auto *arc : graph->getArcs(j)) {
                                 int k = arc->getD();
-
-                                if (preflow.minCut(set_nodes[k]))
-                                    continue;
-
-                                cut_arcs += x[j][k];
+                                if (!preflow.minCut(nodes[k])) {
+                                    cut_arcs += x[j][k];
+                                }
                             }
                         }
 
                         if (cut_arcs.size() > 0) {
-                            addCut(cut_arcs >= cut_value);
-                            num_frac_cuts++;
+                            for (auto b : graph->getNode(i).second) {
+                                addCut(cut_arcs >= y[i][b]);
+                                ++num_frac_cuts;
+                            }
                         }
                     }
                 }
-            } catch (GRBException e) {
+            } catch (const GRBException &e) {
                 cout << "[FRAC] Error number: " << e.getErrorCode() << endl;
                 cout << e.getMessage() << endl;
             } catch (...) {
@@ -227,27 +207,27 @@ class cyclecallback : public GRBCallback {
     }
 };
 
-Solution DeterministicModel::Run(bool use_warm_start, string time_limit, string model, bool use_cuts) {
+Solution DeterministicModel::Run(bool use_warm_start, const string &time_limit, const string &useModel, bool use_cuts) {
     this->createVariables();
-    this->initModel(model);
+    this->initModel(useModel);
 
-    if (model == "MTZ")
+    if (useModel == "MTZ")
         this->solveCompact(time_limit);
-    else if (model == "EXP")
+    else if (useModel == "EXP")
         this->solveExponential(time_limit, use_cuts);
     else {
         cout << "[!] Model not found!" << endl;
         exit(EXIT_FAILURE);
     }
 
-    // this->checkSolution();
+    this->checkSolution();
 
     return this->getSolution();
 }
 
 void DeterministicModel::createVariables() {
     Graph *graph = this->input->getGraph();
-    int o, d, k, n = graph->getN(), m = graph->getM(), b = graph->getB();
+    int o, d, n = graph->getN(), b = graph->getB();
 
     try {
         env.set("LogFile", "MS_mip.log");
@@ -259,25 +239,25 @@ void DeterministicModel::createVariables() {
 
         // X
         char name[40];
-        for (o = 0; o <= n; o++) {
-            for (auto *arc : graph->getArcs(o)) {
+        for (o = 0; o <= n; ++o) {
+            for (const auto *arc : graph->getArcs(o)) {
                 d = arc->getD();
                 sprintf(name, "x_%d_%d", o, d);
-                x[o][d] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+                x[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
             }
         }
         // Y
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; ++i) {
             o = graph->getNodes()[i].first;
             for (auto bl : graph->getNode(i).second) {
                 sprintf(name, "y_%d_%d", o, bl);
-                y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+                y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
             }
         }
 
         // T
-        for (o = 0; o <= n; o++) {
-            for (auto *arc : graph->getArcs(o)) {
+        for (o = 0; o <= n; ++o) {
+            for (const auto *arc : graph->getArcs(o)) {
                 d = arc->getD();
                 sprintf(name, "t_%d_%d", o, d);
                 t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
@@ -288,23 +268,25 @@ void DeterministicModel::createVariables() {
 #ifndef Silence
         cout << "[*] Create variables" << endl;
 #endif
-    } catch (GRBException &ex) {
+    } catch (const GRBException &ex) {
         cout << ex.getMessage() << endl;
         cout << ex.getErrorCode() << endl;
         exit(EXIT_FAILURE);
     }
 }
 
-void DeterministicModel::initModel(string model) {
+void DeterministicModel::initModel(const string &useModel) {
 #ifndef Silence
-    cout << "[***] Creating " << model << " model!" << endl;
+    cout << "[***] Creating " << useModel << " model!" << endl;
 #endif
 
     objectiveFunction();
-    artificialNodes(), flowConservation();
-    maxAttending(), attendingPath();
+    artificialNodes();
+    flowConservation();
+    maxAttending();
+    attendingPath();
     timeConstraint();
-    if (model == "MTZ")
+    if (useModel == "MTZ")
         compactTimeConstraint();
 
     this->model.update();
@@ -317,12 +299,12 @@ void DeterministicModel::initModel(string model) {
 void DeterministicModel::objectiveFunction() {
     GRBLinExpr objective;
     auto graph = input->getGraph();
-    int i, j, n = graph->getN();
+    int n = graph->getN();
 
-    for (i = 0; i < n; i++) {
-        j = graph->getNode(i).first;
+    for (int i = 0; i < n; ++i) {
+        int j = graph->getNode(i).first;
         for (auto b : graph->getNode(i).second) {
-            objective += (y[j][b] * graph->getCasesPerBlock(b));
+            objective += y[j][b] * graph->getCasesPerBlock(b);
         }
     }
 
@@ -336,9 +318,9 @@ void DeterministicModel::objectiveFunction() {
 
 void DeterministicModel::artificialNodes() {
     int n = this->input->getGraph()->getN();
-    GRBLinExpr sink, target;
+    GRBLinExpr sink = 0, target = 0;
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; ++i) {
         sink += x[n][i];
         target += x[i][n];
     }
@@ -353,19 +335,20 @@ void DeterministicModel::artificialNodes() {
 
 void DeterministicModel::flowConservation() {
     auto graph = input->getGraph();
-    int i, j, n = graph->getN();
+    int n = graph->getN();
 
-    for (i = 0; i < n; i++) {
-        GRBLinExpr flow_out, flow_in;
+    for (int i = 0; i < n; ++i) {
+        GRBLinExpr flow_out = 0, flow_in = 0;
 
-        for (auto *arc : graph->getArcs(i)) {
-            if (arc->getD() >= n)
+        for (const auto *arc : graph->getArcs(i)) {
+            int d = arc->getD();
+            if (d >= n)
                 continue;
-            flow_out += x[i][arc->getD()];
+            flow_out += x[i][d];
         }
 
-        for (j = 0; j < n; j++) {
-            for (auto *arc : graph->getArcs(j)) {
+        for (int j = 0; j < n; ++j) {
+            for (const auto *arc : graph->getArcs(j)) {
                 if (arc->getD() == i)
                     flow_in += x[j][i];
             }
@@ -383,10 +366,10 @@ void DeterministicModel::flowConservation() {
 
 void DeterministicModel::maxAttending() {
     auto graph = input->getGraph();
-    int bl, b = graph->getB();
+    int b = graph->getB();
 
-    for (bl = 0; bl < b; bl++) {
-        GRBLinExpr maxServ;
+    for (int bl = 0; bl < b; ++bl) {
+        GRBLinExpr maxServ = 0;
         for (auto i : graph->getNodesFromBlock(bl))
             maxServ += y[i][bl];
 
@@ -400,11 +383,12 @@ void DeterministicModel::maxAttending() {
 
 void DeterministicModel::attendingPath() {
     auto graph = input->getGraph();
-    int j, bl, n = graph->getN(), b = graph->getB();
-    for (bl = 0; bl < b; bl++) {
+    int n = graph->getN(), b = graph->getB();
+
+    for (int bl = 0; bl < b; ++bl) {
         for (auto i : graph->getNodesFromBlock(bl)) {
-            GRBLinExpr served;
-            for (auto *arc : graph->getArcs(i))
+            GRBLinExpr served = 0;
+            for (const auto *arc : graph->getArcs(i))
                 served += x[i][arc->getD()];
 
             model.addConstr(served >= y[i][bl], "att_path_" + to_string(i) + "_" + to_string(bl));
@@ -418,12 +402,12 @@ void DeterministicModel::attendingPath() {
 
 void DeterministicModel::timeConstraint() {
     auto graph = input->getGraph();
-    int i, j, n = graph->getN();
+    int n = graph->getN();
 
-    GRBLinExpr arcTravel, blockTravel;
-    for (i = 0; i < n; i++) {
-        for (auto *arc : graph->getArcs(i)) {
-            j = arc->getD();
+    GRBLinExpr arcTravel = 0, blockTravel = 0;
+    for (int i = 0; i < n; ++i) {
+        for (const auto *arc : graph->getArcs(i)) {
+            int j = arc->getD();
             arcTravel += x[i][j] * arc->getLength();
         }
 
@@ -440,24 +424,26 @@ void DeterministicModel::timeConstraint() {
 
 void DeterministicModel::compactTimeConstraint() {
     auto graph = input->getGraph();
-    int b, i, j, k, n = graph->getN();
+    int n = graph->getN();
 
-    for (i = 0; i <= n; i++) {
+    for (int i = 0; i <= n; ++i) {
         if (i < n)
             model.addConstr(t[n][i] == 0);
 
-        for (auto *arc : graph->getArcs(i)) {
-            j = arc->getD();
+        for (const auto *arc : graph->getArcs(i)) {
+            int j = arc->getD();
             if (j >= n)
                 continue;
 
-            for (auto *arcl : graph->getArcs(j)) {
-                k = arcl->getD();
-                model.addConstr(t[j][k] >= t[i][j] + (arc->getLength() * x[i][j]) - ((2 - x[i][j] - x[j][k]) * input->getT()), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+            for (const auto *arcl : graph->getArcs(j)) {
+                int k = arcl->getD();
+                model.addConstr(
+                    t[j][k] >= t[i][j] + (arc->getLength() * x[i][j]) - ((2 - x[i][j] - x[j][k]) * input->getT()),
+                    "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
             }
         }
     }
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; ++i) {
         model.addConstr(t[i][n] <= x[i][n] * input->getT(), "max_time");
     }
 
@@ -466,9 +452,10 @@ void DeterministicModel::compactTimeConstraint() {
 #endif
 }
 
-void DeterministicModel::solveCompact(string time_limit) {
+void DeterministicModel::solveCompact(const string &time_limit) {
     try {
         model.set("TimeLimit", time_limit);
+        model.set("SoftMemLimit", "60");
         model.set("OutputFlag", "0");
         model.update();
 #ifndef Silence
@@ -478,18 +465,18 @@ void DeterministicModel::solveCompact(string time_limit) {
         // model.computeIIS();
         model.write("model.lp");
         model.optimize();
-    } catch (GRBException &ex) {
+    } catch (const GRBException &ex) {
         cout << ex.getMessage() << endl;
     }
 }
 
-void DeterministicModel::solveExponential(string time_limit, bool frac_cut) {
+void DeterministicModel::solveExponential(const string &time_limit, bool frac_cut) {
     try {
         auto graph = input->getGraph();
         model.set("TimeLimit", time_limit);
         model.set(GRB_DoubleParam_Heuristics, 1.0);
         model.set(GRB_IntParam_LazyConstraints, 1);
-        cyclecallback cb = cyclecallback(input, graph->getN(), x, y, frac_cut);
+        cyclecallback cb(input, graph->getN(), x, y, frac_cut);
         model.setCallback(&cb);
         model.set("OutputFlag", "0");
         model.update();
@@ -503,8 +490,9 @@ void DeterministicModel::solveExponential(string time_limit, bool frac_cut) {
         model.optimize();
 
         // Save the number of cuts
-        num_lazy_cuts = cb.num_lazy_cuts, num_frac_cuts = cb.num_frac_cuts;
-    } catch (GRBException &ex) {
+        num_lazy_cuts = cb.num_lazy_cuts;
+        num_frac_cuts = cb.num_frac_cuts;
+    } catch (const GRBException &ex) {
         cout << ex.getMessage() << endl;
     }
 }
@@ -514,110 +502,123 @@ Solution DeterministicModel::getSolution() {
     double of = 0.0;
     try {
         of = model.get(GRB_DoubleAttr_ObjVal);
-    } catch (GRBException &ex) {
+    } catch (const GRBException &ex) {
         of = 0.0;
     }
-    cout << "OF: " << of << endl;
-    getchar();
+
     double UB = model.get(GRB_DoubleAttr_ObjBound);
     double runtime = model.get(GRB_DoubleAttr_Runtime);
     int gurobi_nodes = model.get(GRB_DoubleAttr_NodeCount);
-    int num_lazy_cuts = this->num_lazy_cuts;
-    int num_frac_cuts = this->num_frac_cuts;
+    int lazy_cuts = this->num_lazy_cuts;
+    int frac_cuts = this->num_frac_cuts;
     int time_used = 0;
 
-    vector<vector<int>> y;
-    vector<vector<int_pair>> x;
-    y.push_back(vector<int>()), x.push_back(vector<int_pair>());
+    vector<vector<int>> yout(1);
+    vector<vector<int_pair>> xout(1);
 
-    for (int i = 0; i <= graph->getN(); i++) {
-        for (auto *arc : graph->getArcs(i))
+    int route_time_used = 0;
+    int attend_time_used = 0;
+    for (int i = 0; i <= graph->getN(); ++i) {
+        for (const auto *arc : graph->getArcs(i))
             if (this->x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) {
-                x[0].push_back(make_pair(i, arc->getD()));
-                time_used += arc->getLength();
+                xout[0].emplace_back(i, arc->getD());
+                route_time_used += arc->getLength();
             }
 
         for (int b : graph->getNode(i).second)
             if (this->y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
-                y[0].push_back(b);
-                time_used += graph->getTimePerBlock(b);
+                yout[0].push_back(b);
+                attend_time_used += graph->getTimePerBlock(b);
             }
     }
 
-    Solution solution = Solution(this->input, of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
+    Solution solution(this->input, of, UB, runtime, route_time_used, attend_time_used, lazy_cuts, frac_cuts, gurobi_nodes, yout, xout);
     return solution;
 }
 
 bool DeterministicModel::checkSolution() {
-    auto graph = input->getGraph();
-    int max_time = input->getT();
-    int n = graph->getN();
+    constexpr double TOLERANCE = 0.5;
 
-    // Check connectivity
-    vector<vector<bool>> used_arc = vector<vector<bool>>(n + 1, vector<bool>(n + 1, false));
+    auto *graph = input->getGraph();
+    const int max_time = input->getT();
+    const int n = graph->getN();
 
-    int start_node = n, i, j, s, target;
-    bool find_next = true;
-    float time = 0, insecticide = 0;
-
+    // Track visited nodes and used arcs during traversal
     vector<bool> visited(n + 1, false);
-    vector<int> conn_comp = vector<int>(n + 1, -1);
-    vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
+    vector<vector<bool>> used_arc(n + 1, vector<bool>(n + 1, false));
 
-    // DFS
-    deque<int> stack;
-    stack.push_back(n);
+    // BFS traversal starting from depot (node n)
+    deque<int> queue;
+    queue.push_back(n);
+    visited[n] = true;
 
-    while (!stack.empty()) {
-        s = stack.front();
-        stack.pop_front();
+    while (!queue.empty()) {
+        const int current_node = queue.front();
+        queue.pop_front();
 
-        for (auto *arc : graph->getArcs(s)) {
-            j = arc->getD();
-            if (x[s][j].get(GRB_DoubleAttr_X) > 0.5) {
-                used_arc[s][j] = true;
+        for (const auto *arc : graph->getArcs(current_node)) {
+            const int destination = arc->getD();
+            const double arc_value = x[current_node][destination].get(GRB_DoubleAttr_X);
 
-                if (!visited[j]) {
-                    stack.push_back(j);
-                    visited[j] = true;
+            if (arc_value > TOLERANCE) {
+                used_arc[current_node][destination] = true;
+
+                if (!visited[destination]) {
+                    queue.push_back(destination);
+                    visited[destination] = true;
                 }
             }
         }
     }
 
-    // Check visiting
-    for (i = 0; i <= n; i++) {
-        for (auto b : graph->getNode(i).second) {
-            if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
-                time += graph->getTimePerBlock(b);
+    // Validate solution consistency and calculate total time
+    double total_time = 0.0;
 
-                if (!visited[i]) {
-                    cout << "[!!!] Not visited node: " << i << endl;
+    for (int node = 0; node <= n; ++node) {
+        // Check if nodes with assigned blocks are reachable
+        for (const auto &block : graph->getNode(node).second) {
+            const double block_value = y[node][block].get(GRB_DoubleAttr_X);
+
+            if (block_value > TOLERANCE) {
+                total_time += graph->getTimePerBlock(block);
+
+                if (!visited[node]) {
+                    cout << "[!!!] Error: Node " << node
+                         << " has assigned block " << block
+                         << " but is not visited in the route" << endl;
                     return false;
                 }
             }
         }
 
-        for (auto *arc : graph->getArcs(i)) {
-            if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.8) {
-                time += arc->getLength();
-                if (!used_arc[i][arc->getD()]) {
-                    cout << "[!!!] Not used arc!" << endl;
-                    cout << i << " " << arc->getD() << endl;
+        // Check if used arcs are in the traversal path
+        for (const auto *arc : graph->getArcs(node)) {
+            const int destination = arc->getD();
+            const double arc_value = x[node][destination].get(GRB_DoubleAttr_X);
+
+            if (arc_value > TOLERANCE) {
+                total_time += arc->getLength();
+
+                if (!used_arc[node][destination]) {
+                    cout << "[!!!] Error: Arc (" << node << " -> " << destination
+                         << ") is used but not in traversal path" << endl;
                     return false;
                 }
             }
         }
     }
 
-    if (time > max_time) {
-        cout << "T: " << time << " <= " << max_time << endl;
-        cout << "[!!!] Resource limitation error!" << endl;
+    // Validate time constraint
+    if (total_time > max_time) {
+        cout << "[!!!] Error: Time constraint violated!" << endl;
+        cout << "     Total time: " << total_time << " > Max time: " << max_time << endl;
         return false;
     }
 
 #ifndef Silence
-    cout << "[***] Instance ok!!!" << endl;
+    cout << "[***] Solution validation passed!" << endl;
+    cout << "     Total time used: " << total_time << " / " << max_time << endl;
 #endif
+
     return true;
 }

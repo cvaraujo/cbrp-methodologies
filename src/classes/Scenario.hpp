@@ -25,7 +25,7 @@ class Scenario {
 
     void setCasesPerBlock(vector<double> cases) { this->cases_per_block = std::move(cases); };
 
-    vector<double> getCases() { return this->cases_per_block; };
+    [[nodiscard]] const vector<double> &getCases() const { return cases_per_block; }
 
     [[nodiscard]] double getProbability() const { return this->probability; };
 

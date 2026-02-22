@@ -1,26 +1,33 @@
 #ifndef DPARP_INPUT_H
 #define DPARP_INPUT_H
 
-#include <utility>
-
 #include "../common/BlockConnection.hpp"
 #include "../common/ShortestPath.hpp"
 #include "Graph.hpp"
-#include "Parameters.hpp"
 #include "Scenario.hpp"
 
 class Input {
   private:
-    int S = 0, T = 1200, default_vel = 20, neblize_vel = 10;
+    int S = 0;
+    int T = 1200;
+    int default_vel = 20;
+    int neblize_vel = 10;
     double alpha = 0.8;
-    bool preprocessing = false, is_trail = false, walk_mtz_model = false;
-    Graph *graph;
+    bool preprocessing = false;
+    bool is_trail = false;
+    bool walk_mtz_model = false;
+    Graph *graph = nullptr;
     ShortestPath *sp = nullptr;
     BlockConnection *bc = nullptr;
     vector<Scenario> scenarios;
-    vector<double> first_stage_profit, time_profit_proportion;
+    vector<double> first_stage_profit;
+    vector<double> time_profit_proportion;
     vector<vector<vector<Arc *>>> arcs_in_path;
     vector<vector<int>> arc_length;
+    // Simheuristic only
+    vector<int> simheuristic_scenario_sequence;
+    vector<int> simheuristic_block_incidences;
+    vector<int> simheuristic_block_acc_cases;
 
   public:
     Input(Graph *graph, vector<Scenario> scenarios, ShortestPath *sp)
@@ -28,110 +35,127 @@ class Input {
         , scenarios(std::move(scenarios))
         , sp(sp) {}
 
-    Input(string file_graph, string scenarios_graph, bool preprocessing,
+    Input(const string &file_graph, const string &scenarios_graph, bool preprocessing,
           bool is_trail, bool walk_mtz_model, int default_vel, int neblize_vel,
           int T, double alpha);
 
-    Input(string file_graph, string scenarios_graph, int default_vel,
+    Input(const string &file_graph, const string &scenarios_graph, int default_vel,
           int nebulize_vel, int T, double alpha);
 
-    explicit Input(Input *input) {
-        this->S = input->S;
-        this->T = input->T;
-        this->default_vel = input->default_vel;
-        this->neblize_vel = input->neblize_vel;
-        this->alpha = input->alpha;
-        this->preprocessing = input->preprocessing;
-        this->is_trail = input->is_trail;
-        this->graph = new Graph(*input->graph);
-        this->scenarios = input->scenarios;
-        this->sp = new ShortestPath(*input->sp);
-        this->bc = new BlockConnection(*input->bc);
-    };
+    explicit Input(Input *input)
+        : S(input->S)
+        , T(input->T)
+        , default_vel(input->default_vel)
+        , neblize_vel(input->neblize_vel)
+        , alpha(input->alpha)
+        , preprocessing(input->preprocessing)
+        , is_trail(input->is_trail)
+        , walk_mtz_model(input->walk_mtz_model)
+        , graph(input->graph ? new Graph(*input->graph) : nullptr)
+        , sp(input->sp ? new ShortestPath(*input->sp) : nullptr)
+        , bc(input->bc ? new BlockConnection(*input->bc) : nullptr)
+        , scenarios(input->scenarios)
+        , first_stage_profit(input->first_stage_profit)
+        , time_profit_proportion(input->time_profit_proportion)
+        , arcs_in_path(input->arcs_in_path)
+        , arc_length(input->arc_length)
+        , simheuristic_scenario_sequence(input->simheuristic_scenario_sequence)
+        , simheuristic_block_incidences(input->simheuristic_block_incidences)
+        , simheuristic_block_acc_cases(input->simheuristic_block_acc_cases) {}
 
-    ~Input() = default;
+    ~Input() {
+        delete graph;
+        delete sp;
+        delete bc;
+    }
 
     void updateFirstStageCases() {
-        int B = graph->getB();
-        this->first_stage_profit = vector<double>(B);
-        this->time_profit_proportion = vector<double>(B);
+        const int B = graph->getB();
+        first_stage_profit.resize(B);
+        time_profit_proportion.resize(B);
 
-        for (int b = 0; b < B; b++) {
-            this->first_stage_profit[b] = graph->getCasesPerBlock(b);
-            for (int s = 0; s < S; s++) {
-                this->first_stage_profit[b] += alpha * scenarios[s].getProbability() *
-                                               scenarios[s].getCasesPerBlock(b);
+        for (int b = 0; b < B; ++b) {
+            first_stage_profit[b] = graph->getCasesPerBlock(b);
+            for (int s = 0; s < S; ++s) {
+                first_stage_profit[b] += alpha * scenarios[s].getProbability() *
+                                         scenarios[s].getCasesPerBlock(b);
             }
-            this->time_profit_proportion[b] = first_stage_profit[b] > 0.0 ? first_stage_profit[b] / double(this->getBlockTime(b)) : 0.0;
+            time_profit_proportion[b] = first_stage_profit[b] > 0.0
+                                            ? first_stage_profit[b] / static_cast<double>(getBlockTime(b))
+                                            : 0.0;
         }
-    };
-
-    double getFirstStageProfit(int b) { return this->first_stage_profit[b]; }
-
-    double getCasesFromScenarioBlock(int s, int b) {
-        return this->scenarios[s].getCasesPerBlock(b);
     }
 
-    vector<double> getCasesFromScenario(int s) {
-        return this->scenarios[s].getCases();
+    [[nodiscard]] double getFirstStageProfit(int b) const {
+        return first_stage_profit[b];
     }
 
-    double getSecondStageProfit(int s, int b) {
+    [[nodiscard]] double getCasesFromScenarioBlock(int s, int b) const {
+        return scenarios[s].getCasesPerBlock(b);
+    }
+
+    [[nodiscard]] const vector<double> &getCasesFromScenario(int s) const {
+        return scenarios[s].getCases();
+    }
+
+    [[nodiscard]] double getSecondStageProfit(int s, int b) const {
         if (scenarios[s].getCasesPerBlock(b) <= 0.0)
             return 0.0;
-        return alpha * scenarios[s].getProbability() *
-               scenarios[s].getCasesPerBlock(b);
+        return alpha * scenarios[s].getProbability() * scenarios[s].getCasesPerBlock(b);
     }
 
-    double getScenarioProbability(int s) {
-        return this->scenarios[s].getProbability();
+    [[nodiscard]] double getScenarioProbability(int s) const {
+        return scenarios[s].getProbability();
     }
 
     vector<int> getBlockConnectionRoute(const string &key) {
-        return this->bc->getBlocksAttendPath(key);
-    };
+        return bc->getBlocksAttendPath(key);
+    }
 
     int getBlockConnectionTime(const string &key) {
-        return this->bc->getBlocksAttendCost(key);
-    };
+        return bc->getBlocksAttendCost(key);
+    }
 
     vector<int> getBestOrderToAttendBlocks(const string &key) {
-        return this->bc->getBestOrderToAttendBlocks(key);
-    };
+        return bc->getBestOrderToAttendBlocks(key);
+    }
 
     bool isArcRoute(int i, int j) {
-        if (this->arcs_in_path[i][j].size() <= 0)
-            this->getArcTime(i, j);
+        if (arcs_in_path[i][j].empty())
+            getArcTime(i, j);
 
-        return this->arcs_in_path[i][j].size() > 1;
+        return arcs_in_path[i][j].size() > 1;
     }
 
     int getArcTime(int i, int j) {
-        int N = graph->getN();
+        const int N = graph->getN();
         if (i >= N || j >= N)
             return 0;
 
-        if (this->arc_length[i][j] != -1)
-            return this->arc_length[i][j];
+        if (arc_length[i][j] != -1)
+            return arc_length[i][j];
 
         Arc *arc = graph->getArc(i, j);
         int length = 0;
         if (arc == nullptr) {
             vector<int> path;
-            length = this->sp->ShortestPathST(i, j, path);
+            length = sp->ShortestPathST(i, j, path);
 
-            // Validate path
-            for (int k = 0; k < path.size() - 1; k++)
-                this->arcs_in_path[i][j].push_back(graph->getArc(path[k], path[k + 1]));
-        } else
+            // Store arcs in path
+            arcs_in_path[i][j].reserve(path.size() - 1);
+            for (size_t k = 0; k < path.size() - 1; ++k)
+                arcs_in_path[i][j].push_back(graph->getArc(path[k], path[k + 1]));
+        } else {
             length = arc->getLength();
+        }
 
-        this->arc_length[i][j] = length;
-
-        return this->arc_length[i][j];
+        arc_length[i][j] = length;
+        return length;
     }
 
-    int getBlockTime(int b) { return graph->getTimePerBlock(b); }
+    [[nodiscard]] int getBlockTime(int b) const {
+        return graph->getTimePerBlock(b);
+    }
 
     void updateBlocksInGraph(map<int, int> positive_block_to_block,
                              set<int> set_of_used_nodes,
@@ -139,7 +163,7 @@ class Input {
 
     void reduceGraphToPositiveCases();
 
-    void loadScenarios(string instance);
+    void loadScenarios(const string &instance);
 
     void getSetOfNodesPreprocessing(set<int> &used_nodes,
                                     vector<vector<bool>> &used_arcs);
@@ -148,58 +172,139 @@ class Input {
 
     void filterMostDifferentScenarios(int new_s);
 
-    void showScenarios() {
-        for (int i = 0; i < S; i++) {
-            cout << "Scenario i: " << i << ": " << scenarios[i].getProbability()
-                 << endl;
-            for (int b = 0; b < graph->getB(); b++) {
-                if (scenarios[i].getCasesPerBlock(b) > 0)
-                    cout << b << ": " << scenarios[i].getCasesPerBlock(b) << endl;
+    void showScenarios() const {
+        for (int i = 0; i < S; ++i) {
+            cout << "Scenario " << i << ": " << scenarios[i].getProbability() << endl;
+            const int B = graph->getB();
+            for (int b = 0; b < B; ++b) {
+                const double cases = scenarios[i].getCasesPerBlock(b);
+                if (cases > 0.0)
+                    cout << "  Block " << b << ": " << cases << " cases" << endl;
             }
         }
     }
 
-    double getTimeProfitProportion(int b) {
+    [[nodiscard]] double getTimeProfitProportion(int b) const {
         return time_profit_proportion[b];
     }
 
-    vector<Scenario> getScenarios() { return this->scenarios; }
+    void startSimheuristic() {
+        const int B = graph->getB();
+        simheuristic_block_acc_cases.assign(B, 0);
+        simheuristic_block_incidences.assign(B, 0);
+        simheuristic_scenario_sequence.clear();
 
-    ShortestPath *getShortestPath() { return this->sp; }
+        for (int b = 0; b < B; ++b) {
+            const int cases = static_cast<int>(graph->getCasesPerBlock(b));
+            if (cases > 0) {
+                simheuristic_block_acc_cases[b] = cases;
+                simheuristic_block_incidences[b] = 1;
+            }
+        }
+    }
 
-    void setShortestPath(ShortestPath *sp) { this->sp = sp; }
+    void appendNewScenario(Scenario &scenario) {
+        scenarios.push_back(scenario);
 
-    [[nodiscard]] double getAlpha() const { return this->alpha; }
+        const int B = graph->getB();
+        // Update feedback from simulation
+        for (int b = 0; b < B; ++b) {
+            const int cases = static_cast<int>(scenario.getCasesPerBlock(b));
 
-    void setAlpha(double alpha) { this->alpha = alpha; }
+            if (cases > 0) {
+                simheuristic_block_acc_cases[b] += cases;
+                ++simheuristic_block_incidences[b];
+            }
+        }
 
-    [[nodiscard]] Graph *getGraph() const { return this->graph; }
+        // Update vector to shuffle scenarios
+        simheuristic_scenario_sequence.push_back(S);
+        ++S;
+    }
 
-    void setGraph(Graph *graph) { this->graph = graph; }
+    [[nodiscard]] int getSimheuristicBlockAccCases(int b) const {
+        return simheuristic_block_acc_cases[b];
+    }
 
-    void setScenarios(vector<Scenario> scenarios) { this->scenarios = std::move(scenarios); }
+    [[nodiscard]] int getSimheuristicBlockIncidence(int b) const {
+        return simheuristic_block_incidences[b];
+    }
 
-    Scenario *getScenario(int i) { return &this->scenarios[i]; }
+    [[nodiscard]] const vector<Scenario> &getScenarios() const {
+        return scenarios;
+    }
 
-    void setScenario(int i, Scenario scenario) { this->scenarios[i] = std::move(scenario); }
+    [[nodiscard]] ShortestPath *getShortestPath() const {
+        return sp;
+    }
 
-    [[nodiscard]] int getS() const { return this->S; }
+    void setShortestPath(ShortestPath *new_sp) {
+        sp = new_sp;
+    }
 
-    void setS(int s) { this->S = s; }
+    [[nodiscard]] double getAlpha() const {
+        return alpha;
+    }
 
-    [[nodiscard]] int getT() const { return this->T; }
+    void setAlpha(double new_alpha) {
+        alpha = new_alpha;
+    }
 
-    void setT(int t) { this->T = t; }
+    [[nodiscard]] Graph *getGraph() const {
+        return graph;
+    }
 
-    [[nodiscard]] bool isPreprocessing() const { return this->preprocessing; }
+    void setGraph(Graph *new_graph) {
+        graph = new_graph;
+    }
 
-    [[nodiscard]] bool isTrail() const { return this->is_trail; }
+    void setScenarios(vector<Scenario> new_scenarios) {
+        scenarios = std::move(new_scenarios);
+    }
 
-    [[nodiscard]] bool isWalkMtzGraph() const { return this->walk_mtz_model; }
+    [[nodiscard]] Scenario *getScenario(int i) {
+        return &scenarios[i];
+    }
 
-    void setBlockConnection(BlockConnection *bc) { this->bc = bc; }
+    void setScenario(int i, Scenario scenario) {
+        scenarios[i] = std::move(scenario);
+    }
 
-    BlockConnection *getBlockConnection() { return this->bc; }
+    [[nodiscard]] int getS() const {
+        return S;
+    }
+
+    void setS(int new_s) {
+        S = new_s;
+    }
+
+    [[nodiscard]] int getT() const {
+        return T;
+    }
+
+    void setT(int new_t) {
+        T = new_t;
+    }
+
+    [[nodiscard]] bool isPreprocessing() const {
+        return preprocessing;
+    }
+
+    [[nodiscard]] bool isTrail() const {
+        return is_trail;
+    }
+
+    [[nodiscard]] bool isWalkMtzGraph() const {
+        return walk_mtz_model;
+    }
+
+    void setBlockConnection(BlockConnection *new_bc) {
+        bc = new_bc;
+    }
+
+    [[nodiscard]] BlockConnection *getBlockConnection() const {
+        return bc;
+    }
 
     bool isNodeInPositiveValidBlock(int node);
 };
