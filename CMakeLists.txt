@@ -8,19 +8,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DIL_STD -O3 -ffast-math -funroll-loops -march=native -DNDEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DIL_STD -O3 -ffast-math -funroll-loops -march=native -DNDEBUG -DSilence")
 
 # Diretórios de includes
 include_directories(
-    /opt/gurobi1201/linux64/include
-    /opt/boost_1_88_0
+    /opt/gurobi1300/linux64/include
+    /opt/boost_1_90_0
     /opt/lemon-1.3.1
 )
 
 # Diretórios de bibliotecas
 link_directories(
-    /opt/gurobi1201/linux64/lib
-    /opt/boost_1_88_0
+    /opt/gurobi1300/linux64/lib
+    /opt/boost_1_90_0
     /opt/lemon-1.3.1/lemon
 )
 
@@ -57,7 +57,7 @@ set(SOURCES_STOCHASTIC_MODEL
     src/exact/StochasticModel.cpp
     src/exact/StochasticModelWalk.hpp
     src/exact/StochasticModelWalk.cpp
-    main.cpp
+    main-stochastic-model.cpp
 )
 
 # Heurísticas e métodos adicionais
@@ -65,7 +65,7 @@ set(SOURCES_DETERMINISTIC_HEURISTIC
     src/heuristic/stochastic/StartSolution.hpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
-    main.cpp
+    main-det-greedy-heuristic.cpp
 )
 
 set(SOURCES_DETERMINISTIC_GREEDY_HEURISTIC
@@ -93,6 +93,7 @@ set(SOURCES_STOCHASTIC_HEURISTIC
     src/heuristic/stochastic/StartSolution.hpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
+    main-sa.cpp
 )
 
 set(SOURCES_SIMHEURISTIC
@@ -136,8 +137,8 @@ add_executable(cbrp-det-lagr
     ${SOURCES_DETERMINISTIC_LAGRANGEAN}
 )
 
-# Stochastic Heuristic
-add_executable(cbrp-stoc-heur
+# Stochastic Simulated Annealing
+add_executable(cbrp-stoc-sa
     ${SOURCES_MAIN}
     ${SOURCES_STOCHASTIC_HEURISTIC}
 )
@@ -150,11 +151,11 @@ add_executable(cbrp-simheur
 )
 
 
-target_link_libraries(cbrp-det gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
-target_link_libraries(cbrp-det-greedy gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
-target_link_libraries(cbrp-stoc gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
-target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi120 pthread m emon pqxx pq zmq)
+target_link_libraries(cbrp-det gurobi_c++ gurobi130 pthread m emon)
+target_link_libraries(cbrp-det-greedy gurobi_c++ gurobi130 pthread m emon)
+target_link_libraries(cbrp-stoc gurobi_c++ gurobi130 pthread m emon)
+target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi130 pthread m emon)
 
 target_link_libraries(cbrp-det-heur pthread m)
-target_link_libraries(cbrp-stoc-heur pthread m)
-target_link_libraries(cbrp-simheur pthread m)
+target_link_libraries(cbrp-stoc-sa pthread m)
+target_link_libraries(cbrp-simheur pthread m pqxx pq zmq)

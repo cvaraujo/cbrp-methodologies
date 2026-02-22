@@ -40,8 +40,8 @@ class Simheuristic {
     }
 
   public:
-    int runHeuristic(string &blocks_str) {
-        auto *solution = multi_start->GenerateNewSolution();
+    int runHeuristic(string &blocks_str, const string &objective_type) {
+        auto *solution = multi_start->GenerateNewSolution(objective_type);
         auto blocks = solution->getY()[0];
 
         for (int i = 0; i < blocks.size(); i++) {
@@ -89,7 +89,8 @@ class Simheuristic {
                     loadNewScenarios(exec_id);
                 } else if (action == "run") {
                     string blocks_str;
-                    int of = runHeuristic(blocks_str);
+                    const string &objective_type = command[1];
+                    int of = runHeuristic(blocks_str, objective_type);
                     reply = "solution:" + blocks_str + ":" + to_string(of);
                 } else if (action == "stop") {
                     cout << "[Simheuristic] ending the run..." << endl;

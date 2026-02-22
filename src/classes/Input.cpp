@@ -29,6 +29,7 @@ Input::Input(const string &file_graph, const string &scenarios_graph, bool prepr
     if (walk_mtz_model)
         walkAdaptMTZModel();
 
+    updateFirstStageCases();
     startSimheuristic();
 
 #ifndef Silence

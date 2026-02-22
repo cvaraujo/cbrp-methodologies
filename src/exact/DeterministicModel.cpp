@@ -455,6 +455,7 @@ void DeterministicModel::compactTimeConstraint() {
 void DeterministicModel::solveCompact(const string &time_limit) {
     try {
         model.set("TimeLimit", time_limit);
+        model.set("SoftMemLimit", "60");
         model.set("OutputFlag", "0");
         model.update();
 #ifndef Silence

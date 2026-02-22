@@ -46,6 +46,9 @@ class Solution {
 
     // Deterministic Model Constructor
     Solution(Input *input, double of, double UB, double runtime, int route_time_used, int attend_time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x) {
+#ifndef Silence
+        cout << "[*] Creating new Deterministic Solution" << endl;
+#endif
         this->input = input;
         this->of = of;
         this->UB = UB;
@@ -62,6 +65,9 @@ class Solution {
 
     // Stochastic Model Constructor
     Solution(Input *input, double of, double UB, double runtime, int time_used, int num_lazy_cuts, int num_frac_cuts, int solver_nodes, vector<vector<int>> y, vector<vector<int_pair>> x) {
+#ifndef Silence
+        cout << "[*] Creating new Stochastic Solution" << endl;
+#endif
         this->input = input;
         this->of = of;
         this->UB = UB;
@@ -73,8 +79,10 @@ class Solution {
         this->y = std::move(y);
         this->x = std::move(x);
         this->start_UB = UB;
-        this->routes = vector<Route *>(1);
-        this->routes[0] = new Route(this->input, x[0], y[0]);
+        if (y.size() > 0 && x.size() > 0) {
+            this->routes = vector<Route *>(1);
+            this->routes[0] = new Route(this->input, x[0], y[0]);
+        }
     }
 
     ~Solution() {
@@ -165,6 +173,44 @@ class Solution {
 #endif
     };
 
+    void WriteStochasticSolution(const string &output_file) {
+#ifndef Silence
+        cout << "[*] Writing Stochastic Solution" << endl;
+#endif
+        ofstream output;
+        output.open(output_file);
+        Graph *graph = this->input->getGraph();
+
+        output << "N: " << graph->getN() << endl;
+        output << "M: " << graph->getM() << endl;
+        output << "B: " << graph->getB() << endl;
+        output << "S: " << this->input->getS() << endl;
+        output << "Alpha: " << this->input->getAlpha() << endl;
+        output << "LB: " << this->of << endl;
+        output << "UB: " << this->UB << endl;
+        output << "Gurobi_Nodes: " << this->solver_nodes << endl;
+        output << "Lazy_cuts: " << this->num_lazy_cuts << endl;
+        output << "Frac_cuts: " << this->num_frac_cuts << endl;
+        output << "Runtime: " << this->runtime << endl;
+
+        if (this->x.size() > 0 && this->y.size() > 0) {
+            for (int s = 0; s <= this->input->getS(); s++) {
+                output << "Scenario " << s << ": " << endl;
+                output << "X: ";
+                for (auto [o, d] : this->x[s])
+                    output << o << "-" << d << ",";
+                output << "\nY: ";
+                for (auto b : this->y[s])
+                    output << b << ",";
+                output << "\n";
+            }
+        }
+        output.close();
+#ifndef Silence
+        cout << "[*] Solution writed!" << endl;
+#endif
+    };
+
     void WriteSolution(const string &output_file) {
         ofstream output;
         output.open(output_file);
@@ -190,6 +236,44 @@ class Solution {
         // for (auto b : this->y[0])
         //     output << b << ", ";
         // output << "\nRoute_Time: " << route->getTimeRoute() << "\nAttend_Time: " << route->getTimeAttBlocks() << endl;
+        output.close();
+#ifndef Silence
+        cout << "[*] Solution writed!" << endl;
+#endif
+    };
+
+    void WriteStochasticHeuristicSolution(const string &output_file) {
+        ofstream output;
+        output.open(output_file);
+        Graph *graph = this->input->getGraph();
+
+        output << "N: " << graph->getN() << endl;
+        output << "M: " << graph->getM() << endl;
+        output << "B: " << graph->getB() << endl;
+        output << "S: " << this->input->getS() << endl;
+        output << "Alpha: " << this->input->getAlpha() << endl;
+        output << "Start_UB: " << this->start_UB << endl;
+        output << "LB: " << this->of << endl;
+        output << "Runtime: " << this->runtime << endl;
+
+        if (this->x.size() > 0 && this->y.size() > 0) {
+            for (int s = 0; s <= this->input->getS(); s++) {
+                output << "Scenario " << s << ": " << endl;
+                output << "X: ";
+                auto route = this->getRouteFromScenario(s);
+                auto x_route = route->getRoute();
+                for (int i = 0; i < x_route.size() - 1; i++) {
+                    output << x_route[i] << "-" << x_route[i + 1] << ",";
+                }
+                output << "\nY: ";
+                auto y_route = route->getSequenceOfAttendingBlocks();
+                for (auto b : y_route)
+                    output << b << ",";
+
+                output << "\nRoute_Time: " << route->getTimeRoute() << endl;
+                output << "Attend_Time: " << route->getTimeAttBlocks() << endl;
+            }
+        }
         output.close();
 #ifndef Silence
         cout << "[*] Solution writed!" << endl;

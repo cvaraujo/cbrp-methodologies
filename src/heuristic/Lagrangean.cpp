@@ -452,26 +452,24 @@ int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_
             if (norm_time == 0)
                 theta_time = 0;
             else
-                theta_time = lambda * (float(obj_ppl - LB) / pow(norm_time, 2));
+                theta_time = lambda * (double(obj_ppl - LB) / pow(norm_time, 2));
 
             if (norm_conn == 0)
                 theta_conn = 0;
             else
-                theta_conn = lambda * (float(obj_ppl - LB) / pow(norm_conn, 2));
+                theta_conn = lambda * (double(obj_ppl - LB) / pow(norm_conn, 2));
 
             for (int b = 0; b < B; b++) {
-
                 mult_conn[b] = max(0.0, mult_conn[b] - (gradient_conn[b] * theta_conn));
             }
 
             mult_time = max(0.0, mult_time - (gradient_time * theta_time));
-            // cout << "(Feasible) Lower Bound = " << LB << ", (Relaxed) Upper Bound = " << UB << ": Lambda: " << lambda << endl;
-            // getchar();
         } else
             break;
         iter++;
         end = chrono::high_resolution_clock::now();
         elapsed = duration_cast<chrono::seconds>(end - start);
+        cout << "LB: " << LB << ", UB: " << UB << ", Lambda: " << lambda << endl;
     }
 
     end = chrono::high_resolution_clock::now();

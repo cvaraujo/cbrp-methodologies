@@ -241,13 +241,13 @@ void DeterministicModelWalk::createVariables() {
             for (auto *arc : graph->getArcs(o)) {
                 d = arc->getD();
                 sprintf(name, "x_%d_%d", o, d);
-                x[o][d] = model.addVar(0.0, GRB_INFINITY, 0, GRB_CONTINUOUS, name);
+                x[o][d] = model.addVar(0.0, b - 1, 0, GRB_INTEGER, name);
             }
         }
         // Y
         for (int bl = 0; bl < b; bl++) {
             sprintf(name, "y_%d", bl);
-            y[bl] = model.addVar(0.0, 1.0, 0, GRB_CONTINUOUS, name);
+            y[bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
         }
 
         model.update();

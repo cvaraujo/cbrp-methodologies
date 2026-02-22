@@ -48,7 +48,7 @@ class MultiStart {
 
     ~MultiStart() = default;
 
-    Solution *GenerateNewSolution() {
+    Solution *GenerateNewSolution(const string &objective_type) {
         random_device rd;
         mt19937 gen(rd());
         uniform_real_distribution<> dis(0.0, 1.0);
@@ -62,8 +62,26 @@ class MultiStart {
         y.reserve(B);
         vector<double> profit_per_block = vector<double>(B, 0.0);
 
-        for (int b = 0; b < B; b++) {
-            profit_per_block[b] = cases_per_block_prop[b] + sim_acc_cases_prop[b] + sim_incidence_prop[b] + dis(gen);
+        if (objective_type == "FIRST_STAGE") {
+            for (int b = 0; b < B; b++) {
+                profit_per_block[b] = cases_per_block_prop[b] + dis(gen);
+            }
+        } else if (objective_type == "SIM_ACC_CASES") {
+            for (int b = 0; b < B; b++) {
+                profit_per_block[b] = sim_acc_cases_prop[b] + dis(gen);
+            }
+        } else if (objective_type == "SIM_INCIDENCE") {
+            for (int b = 0; b < B; b++) {
+                profit_per_block[b] = sim_incidence_prop[b] + dis(gen);
+            }
+        } else if (objective_type == "FULL") {
+            for (int b = 0; b < B; b++) {
+                profit_per_block[b] = cases_per_block_prop[b] + sim_acc_cases_prop[b] + sim_incidence_prop[b] + dis(gen);
+            }
+        } else {
+            for (int b = 0; b < B; b++) {
+                profit_per_block[b] = dis(gen);
+            }
         }
 
         greedy_heuristic.SolveScenario(profit_per_block, time_per_block, T, y);
