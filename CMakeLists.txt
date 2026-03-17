@@ -162,6 +162,7 @@ set(SOURCES_SIMHEURISTIC
 add_executable(cbrp-det
     ${SOURCES_MAIN}
     ${SOURCES_DETERMINISTIC_MODEL}
+    main-deterministic-model.cpp
 )
 
 # Stochastic Model

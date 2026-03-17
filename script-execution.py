@@ -31,6 +31,42 @@ def RunSimulatedAnnealing(folders: list[str], output_folder: str) -> list[str]:
                                             commands.append(command)
     return commands
 
+def RunGreedyHeuristic(folders: list[str], output_folder: str) -> list[str]:
+    """cbrp-det-greedy: file_graph result_file use_preprocessing"""
+    commands = []
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    for use_preprocessing in [1]:
+        new_output_folder = f"{output_folder}/experiment-preproc-{use_preprocessing}"
+        Path(new_output_folder).mkdir(parents=True, exist_ok=True)
+        for folder in folders:
+            instance = os.listdir(folder)
+            for inst in instance:
+                if inst.split("-")[0] == "scenarios":
+                    continue
+                graph = f"{folder}/{inst}"
+                command = f"./cbrp-det-greedy {graph} {new_output_folder}/{inst} {use_preprocessing}"
+                commands.append(command)
+    return commands
+
+def RunLagrangean(folders: list[str], output_folder: str) -> list[str]:
+    """cbrp-det-lagr: file_graph result_file use_preprocessing use_heuristic use_barrier_method"""
+    commands = []
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    for use_preprocessing in [1]:
+        for use_heuristic in [0, 1]:
+            for use_barrier_method in [0, 1]:
+                new_output_folder = f"{output_folder}/experiment-preproc-{use_preprocessing}-heur-{use_heuristic}-barrier-{use_barrier_method}"
+                Path(new_output_folder).mkdir(parents=True, exist_ok=True)
+                for folder in folders:
+                    instance = os.listdir(folder)
+                    for inst in instance:
+                        if inst.split("-")[0] == "scenarios":
+                            continue
+                        graph = f"{folder}/{inst}"
+                        command = f"./cbrp-det-lagr {graph} {new_output_folder}/{inst} {use_preprocessing} {use_heuristic} {use_barrier_method}"
+                        commands.append(command)
+    return commands
+
 def RunDeterministicModel(folders: list[str], output_folder: str) -> list[str]:
     commands = []
     Path(output_folder).mkdir(parents=True, exist_ok=True)
@@ -92,6 +128,8 @@ if __name__ == "__main__":
         print("  - SA: Run simulated annealing experiments")
         print("  - MODEL: Run Stochastic Model experiments")
         print("  - DET: Run Deterministic Model experiments")
+        print("  - GREEDY: Run deterministic greedy heuristic")
+        print("  - LAGR: Run Lagrangean relaxation")
         sys.exit(1)
 
     folders = ["instances/simulated-alto-santo", "instances/simulated-limoeiro"]
@@ -103,14 +141,18 @@ if __name__ == "__main__":
         commands = RunStochasticModel(folders, "stochastic-results-model")
     elif mode == "DET":
         commands = RunDeterministicModel(folders, "deterministic-results")
+    elif mode == "GREEDY":
+        commands = RunGreedyHeuristic(folders, "deterministic-results-greedy")
+    elif mode == "LAGR":
+        commands = RunLagrangean(folders, "deterministic-results-lagrangean")
     else:
         print("Invalid mode")
         sys.exit(1)
 
     n_cpus = os.cpu_count() or 4
-    max_workers = n_cpus if mode == "SA" else 1
+    max_workers = n_cpus if mode in ("SA", "GREEDY", "LAGR") else 1
     print(f"Running with {max_workers} workers (CPUs: {n_cpus})")
-    if mode == "SA":
+    if mode in ("SA", "GREEDY", "LAGR"):
         # ProcessPoolExecutor: cada worker é um processo; ao terminar, o SO libera toda a memória
         # do binário C++, sem acumular no processo Python principal.
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
