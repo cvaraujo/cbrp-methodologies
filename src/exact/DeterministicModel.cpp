@@ -511,7 +511,6 @@ Solution DeterministicModel::getSolution() {
     int gurobi_nodes = model.get(GRB_DoubleAttr_NodeCount);
     int lazy_cuts = this->num_lazy_cuts;
     int frac_cuts = this->num_frac_cuts;
-    int time_used = 0;
 
     vector<vector<int>> yout(1);
     vector<vector<int_pair>> xout(1);
@@ -533,6 +532,7 @@ Solution DeterministicModel::getSolution() {
     }
 
     Solution solution(this->input, of, UB, runtime, route_time_used, attend_time_used, lazy_cuts, frac_cuts, gurobi_nodes, yout, xout);
+
     return solution;
 }
 

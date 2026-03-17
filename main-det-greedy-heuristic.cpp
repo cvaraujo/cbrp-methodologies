@@ -31,11 +31,11 @@ int main(int argc, const char *argv[]) {
     cout << "OF: " << of << endl;
     auto end_time = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::seconds>(end_time - start_time).count();
-    cout << "Duration: " << duration << endl;
+    cout << "Duration: " << duration << " seconds" << endl;
 
     auto route = new Route(input, y_0);
     solution.AddScenarioSolution(0, route, of);
     solution.setRuntime(duration);
-    solution.WriteDeterministicSolution(result_file);
+    solution.WriteDeterministicFromRouteStructs(result_file);
     return 0;
 }

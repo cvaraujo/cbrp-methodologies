@@ -355,7 +355,7 @@ bool Lagrangean::isFeasible() {
 
 int Lagrangean::lagrangean_relax(string output_file, double lambda, int improve_iters, double reduction_factor, bool use_heuristic, bool use_barrier_method) {
     Graph *graph = input->getGraph();
-    int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 10000;
+    int progress = 0, iter = 0, N = graph->getN(), B = graph->getB(), max_iter = 5000;
     double theta_time, norm_time, theta_conn, norm_conn, obj_ppl, original_obj, heuristic_obj;
     double backup_lambda = lambda;
     this->T = input->getT();
