@@ -132,19 +132,22 @@ if __name__ == "__main__":
         print("  - LAGR: Run Lagrangean relaxation")
         sys.exit(1)
 
-    folders = ["instances/simulated-alto-santo", "instances/simulated-limoeiro"]
-    commands = []
     mode = sys.argv[1]
+    # Metodologias determinísticas: instâncias em cases-* (sem cenários)
+    # Metodologias estocásticas: instâncias em simulated-* (com cenários)
+    folders_det = ["instances/cases-alto-santo", "instances/cases-limoeiro"]
+    folders_stoc = ["instances/simulated-alto-santo", "instances/simulated-limoeiro"]
+    commands = []
     if mode == "SA":
-        commands = RunSimulatedAnnealing(folders, "stochastic-results-sa")
+        commands = RunSimulatedAnnealing(folders_stoc, "stochastic-results-sa")
     elif mode == "MODEL":
-        commands = RunStochasticModel(folders, "stochastic-results-model")
+        commands = RunStochasticModel(folders_stoc, "stochastic-results-model")
     elif mode == "DET":
-        commands = RunDeterministicModel(folders, "deterministic-results")
+        commands = RunDeterministicModel(folders_det, "deterministic-results")
     elif mode == "GREEDY":
-        commands = RunGreedyHeuristic(folders, "deterministic-results-greedy")
+        commands = RunGreedyHeuristic(folders_det, "deterministic-results-greedy")
     elif mode == "LAGR":
-        commands = RunLagrangean(folders, "deterministic-results-lagrangean")
+        commands = RunLagrangean(folders_det, "deterministic-results-lagrangean")
     else:
         print("Invalid mode")
         sys.exit(1)
