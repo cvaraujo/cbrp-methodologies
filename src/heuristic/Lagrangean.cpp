@@ -57,7 +57,6 @@ pair<int, double> Lagrangean::runSolverERCSPP(map<pair<int, int>, int> &x) {
             }
         }
     }
-    getchar();
 
     model.setObjective(of, GRB_MAXIMIZE);
     model.update();

@@ -73,7 +73,6 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize) {
 
             if (travel_time < 1) {
                 cout << travel_time << endl;
-                getchar();
             }
 
             Arc *arc = new Arc(i, j, travel_time, block);
