@@ -1,4 +1,9 @@
-import os, subprocess, sys
+import gc
+import os
+import shlex
+import subprocess
+import sys
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 def RunSimulatedAnnealing(folders: list[str], output_folder: str) -> list[str]:
@@ -26,14 +31,33 @@ def RunSimulatedAnnealing(folders: list[str], output_folder: str) -> list[str]:
                                             commands.append(command)
     return commands
 
+def RunDeterministicModel(folders: list[str], output_folder: str) -> list[str]:
+    commands = []
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    for model in ["MTZ", "EXP"]:
+        for model_type in ["TRAIL", "WALK"]:
+            for use_preprocessing in [1]:
+                for use_frac_cut in [0, 1]:
+                        new_output_folder = f"{output_folder}/experiment-{model}-{model_type}-{use_preprocessing}-{use_frac_cut}"
+                        Path(new_output_folder).mkdir(parents=True, exist_ok=True)
+                        for folder in folders:
+                            instance = os.listdir(folder)
+                            for inst in instance:
+                                if inst.split("-")[0] == "scenarios":
+                                    continue
+                                graph = f"{folder}/{inst}"
+                                command = f"./cbrp-det {graph} {model} {new_output_folder}/{inst} {model_type} {use_preprocessing} {use_frac_cut} 0"
+                                commands.append(command)
+    return commands
+
 def RunStochasticModel(folders: list[str], output_folder: str) -> list[str]:
     commands = []
     Path(output_folder).mkdir(parents=True, exist_ok=True)
     for alpha in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-        for model in ["TRAIL", "WALK"]:
-            for model_type in ["MTZ", "EXP"]:
+        for model_type in ["MTZ", "EXP"]:
+            for model in ["TRAIL", "WALK"]:
                 for use_preprocessing in [0, 1]:
-                    new_output_folder = f"{output_folder}/experiment-{alpha}-{model}-{model_type}-{use_preprocessing}"
+                    new_output_folder = f"{output_folder}/experiment-{alpha}-{model_type}-{model}-{use_preprocessing}"
                     Path(new_output_folder).mkdir(parents=True, exist_ok=True)
                     for folder in folders:
                         instance = os.listdir(folder)
@@ -42,9 +66,24 @@ def RunStochasticModel(folders: list[str], output_folder: str) -> list[str]:
                                 continue
                             graph = f"{folder}/{inst}"
                             scenarios = f"{folder}/scenarios-{inst}"
-                            command = f"./cbrp-stoc {graph} {scenarios} {new_output_folder}/{inst} {model} {model_type} {alpha} {use_preprocessing} 0 0"
+                            command = f"./cbrp-stoc {graph} {scenarios} {new_output_folder}/{inst} {model_type} {model} {alpha} {use_preprocessing} 0 0"
                             commands.append(command)
     return commands
+
+def run_command(cmd: str) -> tuple[str, str | None]:
+    """Run a single command in a clean process (no shell). Returns (command, stdout or None)."""
+    args = shlex.split(cmd)
+    p = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        cwd=os.getcwd(),
+        env=os.environ.copy(),
+    )
+    out, _ = p.communicate()
+    result = (cmd, out.decode(errors="replace") if out else None)
+    del out
+    return result
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -52,8 +91,9 @@ if __name__ == "__main__":
         print("Mode:")
         print("  - SA: Run simulated annealing experiments")
         print("  - MODEL: Run Stochastic Model experiments")
+        print("  - DET: Run Deterministic Model experiments")
         sys.exit(1)
-    
+
     folders = ["instances/simulated-alto-santo", "instances/simulated-limoeiro"]
     commands = []
     mode = sys.argv[1]
@@ -61,14 +101,42 @@ if __name__ == "__main__":
         commands = RunSimulatedAnnealing(folders, "stochastic-results-sa")
     elif mode == "MODEL":
         commands = RunStochasticModel(folders, "stochastic-results-model")
+    elif mode == "DET":
+        commands = RunDeterministicModel(folders, "deterministic-results")
     else:
         print("Invalid mode")
         sys.exit(1)
 
-    for c in commands:
-        print(c)
-        p = subprocess.Popen(c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        msg, err = p.communicate()
-        if msg:
-            print(msg)
-        print("OK!!")
+    n_cpus = os.cpu_count() or 4
+    max_workers = n_cpus if mode == "SA" else 1
+    print(f"Running with {max_workers} workers (CPUs: {n_cpus})")
+    if mode == "SA":
+        # ProcessPoolExecutor: cada worker é um processo; ao terminar, o SO libera toda a memória
+        # do binário C++, sem acumular no processo Python principal.
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(run_command, c): c for c in commands}
+            for future in as_completed(futures):
+                cmd, msg = future.result()
+                print(cmd)
+                if msg:
+                    print(msg)
+                print("OK!!")
+                del msg
+                gc.collect()
+    else:
+        for c in commands:
+            print(c)
+            args = shlex.split(c)
+            p = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=os.getcwd(),
+                env=os.environ.copy(),
+            )
+            msg, _ = p.communicate()
+            if msg:
+                print(msg.decode(errors="replace"))
+            del msg
+            gc.collect()
+            print("OK!!")

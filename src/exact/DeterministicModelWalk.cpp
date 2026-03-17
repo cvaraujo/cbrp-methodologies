@@ -385,7 +385,7 @@ void DeterministicModelWalk::solveExponential(string time_limit, bool frac_cut) 
         model.set(GRB_IntParam_LazyConstraints, 1);
         cyclecallbackWalk cb = cyclecallbackWalk(input, graph->getN(), x, y, frac_cut);
         model.setCallback(&cb);
-        model.set("OutputFlag", "1");
+        model.set("OutputFlag", "0");
         model.update();
 
 #ifndef Silence

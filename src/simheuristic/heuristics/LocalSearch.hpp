@@ -7,6 +7,7 @@
 
 #include "../../classes/Input.hpp"
 #include "../../classes/Solution.hpp"
+#include <chrono>
 
 class LocalSearch {
 
@@ -156,7 +157,7 @@ class LocalSearch {
                 }
             }
 
-            if (best_delta < 0.0)
+            if (best_delta <= 0.0)
                 return total_delta;
 
             int b_remove = best_swap.first, b_insert = best_swap.second;
@@ -169,12 +170,25 @@ class LocalSearch {
 
   public:
     static int RunLocalSearch(Input *input, Route *route, vector<double> &profit_per_block) {
+        using clk = std::chrono::steady_clock;
         int delta = 0;
+
+        auto t0 = clk::now();
         bool improve_route = ImproveRouteTime(route, input);
+        auto t1 = clk::now();
 
         if (improve_route)
             delta += TryInsertMoreProfitableBlock(input, route, profit_per_block);
+        auto t2 = clk::now();
+
         delta += TryApplyBestSwap(input, route, profit_per_block);
+        auto t3 = clk::now();
+
+        long ms_irt = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+        long ms_ins = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        long ms_swap = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
+        if (ms_irt + ms_ins + ms_swap > 500)
+            std::cout << "      [LS] ImproveRoute=" << ms_irt << "ms Insert=" << ms_ins << "ms Swap=" << ms_swap << "ms" << std::flush << std::endl;
 
         return delta;
     }

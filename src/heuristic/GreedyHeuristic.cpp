@@ -1,5 +1,6 @@
 
 #include "GreedyHeuristic.hpp"
+#include <chrono>
 
 GreedyHeuristic::GreedyHeuristic(Input *input) {
     this->input = input;
@@ -47,7 +48,7 @@ double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<
 }
 
 double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y) {
-    // Start greedy heuristic
+    using clk = std::chrono::steady_clock;
     Graph *graph = input->getGraph();
     BlockConnection *bc = input->getBlockConnection();
     double of = -1;
@@ -58,18 +59,20 @@ double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<in
     if (y.empty())
         return -1;
 
-    // Get attend time
     int block_attended_time = 0;
     for (auto b : y)
         block_attended_time += graph->getTimePerBlock(b);
 
-    // Generate a hash to solution
     string key = BlockConnection::GenerateStringFromIntVector(y);
 
-    // Get route cost
     int connection_cost = T + 1;
     if (!bc->keyExists(key)) {
+        auto hbc_t0 = clk::now();
         connection_cost = bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
+        auto hbc_t1 = clk::now();
+        long ms = std::chrono::duration_cast<std::chrono::milliseconds>(hbc_t1 - hbc_t0).count();
+        if (ms > 500)
+            std::cout << "      [BinarySolve] HBC: " << ms << "ms (blocks=" << y.size() << ")" << std::flush << std::endl;
     } else
         connection_cost = bc->getBlocksAttendCost(key);
 

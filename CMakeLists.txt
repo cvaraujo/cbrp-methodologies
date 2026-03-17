@@ -10,18 +10,71 @@ set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DIL_STD -O3 -ffast-math -funroll-loops -march=native -DNDEBUG -DSilence")
 
+# ==================
+# Localizar Gurobi
+# ==================
+if(DEFINED ENV{GUROBI_HOME})
+    set(GUROBI_HOME "$ENV{GUROBI_HOME}")
+else()
+    file(GLOB GUROBI_CANDIDATES "/opt/gurobi*/linux64")
+    if(GUROBI_CANDIDATES)
+        list(SORT GUROBI_CANDIDATES)
+        list(GET GUROBI_CANDIDATES -1 GUROBI_HOME)
+    endif()
+endif()
+
+if(NOT GUROBI_HOME)
+    message(FATAL_ERROR "Gurobi não encontrado. Defina GUROBI_HOME ou instale em /opt/gurobi*/")
+endif()
+
+find_path(GUROBI_INCLUDE_DIR gurobi_c.h PATHS "${GUROBI_HOME}/include" NO_DEFAULT_PATH)
+find_library(GUROBI_CXX_LIBRARY gurobi_c++ PATHS "${GUROBI_HOME}/lib" NO_DEFAULT_PATH)
+file(GLOB GUROBI_C_LIBRARY "${GUROBI_HOME}/lib/libgurobi[0-9][0-9]*.so")
+list(FILTER GUROBI_C_LIBRARY EXCLUDE REGEX "_light\\.so$")
+
+if(NOT GUROBI_INCLUDE_DIR OR NOT GUROBI_CXX_LIBRARY OR NOT GUROBI_C_LIBRARY)
+    message(FATAL_ERROR "Gurobi encontrado em ${GUROBI_HOME} mas headers/libs ausentes")
+endif()
+list(GET GUROBI_C_LIBRARY 0 GUROBI_C_LIBRARY)
+message(STATUS "Gurobi encontrado: ${GUROBI_HOME}")
+message(STATUS "  C lib:   ${GUROBI_C_LIBRARY}")
+message(STATUS "  C++ lib: ${GUROBI_CXX_LIBRARY}")
+
+# ==================
+# Localizar Boost
+# ==================
+file(GLOB BOOST_CANDIDATES "/opt/boost_*")
+if(BOOST_CANDIDATES)
+    list(SORT BOOST_CANDIDATES)
+    list(GET BOOST_CANDIDATES -1 BOOST_LOCAL)
+    set(BOOST_ROOT "${BOOST_LOCAL}")
+    set(BOOST_INCLUDEDIR "${BOOST_LOCAL}")
+endif()
+find_package(Boost REQUIRED)
+message(STATUS "Boost encontrado: ${Boost_INCLUDE_DIRS}")
+
+# ==================
+# Localizar LEMON
+# ==================
+file(GLOB LEMON_CANDIDATES "/opt/lemon-*")
+if(LEMON_CANDIDATES)
+    list(SORT LEMON_CANDIDATES)
+    list(GET LEMON_CANDIDATES -1 LEMON_ROOT)
+endif()
+
+find_path(LEMON_INCLUDE_DIR lemon/core.h PATHS "${LEMON_ROOT}" NO_DEFAULT_PATH)
+find_library(LEMON_LIBRARY emon PATHS "${LEMON_ROOT}/lemon" NO_DEFAULT_PATH)
+
+if(NOT LEMON_INCLUDE_DIR OR NOT LEMON_LIBRARY)
+    message(FATAL_ERROR "LEMON não encontrado. Instale em /opt/lemon-*/")
+endif()
+message(STATUS "LEMON encontrado: ${LEMON_ROOT}")
+
 # Diretórios de includes
 include_directories(
-    /opt/gurobi1300/linux64/include
-    /opt/boost_1_90_0
-    /opt/lemon-1.3.1
-)
-
-# Diretórios de bibliotecas
-link_directories(
-    /opt/gurobi1300/linux64/lib
-    /opt/boost_1_90_0
-    /opt/lemon-1.3.1/lemon
+    ${GUROBI_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+    ${LEMON_INCLUDE_DIR}
 )
 
 # Fontes comuns
@@ -93,7 +146,6 @@ set(SOURCES_STOCHASTIC_HEURISTIC
     src/heuristic/stochastic/StartSolution.hpp
     src/heuristic/GreedyHeuristic.hpp
     src/heuristic/GreedyHeuristic.cpp
-    main-sa.cpp
 )
 
 set(SOURCES_SIMHEURISTIC
@@ -139,6 +191,7 @@ add_executable(cbrp-det-lagr
 
 # Stochastic Simulated Annealing
 add_executable(cbrp-stoc-sa
+    main-sa.cpp
     ${SOURCES_MAIN}
     ${SOURCES_STOCHASTIC_HEURISTIC}
 )
@@ -151,10 +204,10 @@ add_executable(cbrp-simheur
 )
 
 
-target_link_libraries(cbrp-det gurobi_c++ gurobi130 pthread m emon)
-target_link_libraries(cbrp-det-greedy gurobi_c++ gurobi130 pthread m emon)
-target_link_libraries(cbrp-stoc gurobi_c++ gurobi130 pthread m emon)
-target_link_libraries(cbrp-det-lagr gurobi_c++ gurobi130 pthread m emon)
+target_link_libraries(cbrp-det ${GUROBI_CXX_LIBRARY} ${GUROBI_C_LIBRARY} pthread m ${LEMON_LIBRARY})
+target_link_libraries(cbrp-det-greedy ${GUROBI_CXX_LIBRARY} ${GUROBI_C_LIBRARY} pthread m ${LEMON_LIBRARY})
+target_link_libraries(cbrp-stoc ${GUROBI_CXX_LIBRARY} ${GUROBI_C_LIBRARY} pthread m ${LEMON_LIBRARY})
+target_link_libraries(cbrp-det-lagr ${GUROBI_CXX_LIBRARY} ${GUROBI_C_LIBRARY} pthread m ${LEMON_LIBRARY})
 
 target_link_libraries(cbrp-det-heur pthread m)
 target_link_libraries(cbrp-stoc-sa pthread m)

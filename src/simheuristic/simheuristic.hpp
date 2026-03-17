@@ -41,17 +41,20 @@ class Simheuristic {
 
   public:
     int runHeuristic(string &blocks_str, const string &objective_type) {
+        std::cout << "[Simheuristic] Running heuristic..." << std::endl;
         auto *solution = multi_start->GenerateNewSolution(objective_type);
         auto blocks = solution->getY()[0];
 
-        for (int i = 0; i < blocks.size(); i++) {
+        for (size_t i = 0; i < blocks.size(); i++) {
             blocks_str += to_string(blocks[i]);
-            if (i < blocks.size() - 1) {
+            if (i < blocks.size() - 1)
                 blocks_str += ",";
-            }
         }
 
-        return int(solution->getOf());
+        int of = int(solution->getOf());
+        std::cout << "[Simheuristic] OF: " << of << std::endl;
+        delete solution;
+        return of;
     }
 
     explicit Simheuristic(Input *input, string &conn_address) {
@@ -62,12 +65,10 @@ class Simheuristic {
     }
 
     void Run() {
-        std::cout << "[Simheuristic] Starting..." << std::endl;
+        std::cout << "[Simheuristic] Starting..." << std::flush;
         zmq::context_t context(1);
         zmq::socket_t subscriber(context, ZMQ_REP);
         subscriber.bind(conn_address.c_str());
-
-        string reply = "done";
 
         while (true) {
             zmq::message_t message;
@@ -83,28 +84,36 @@ class Simheuristic {
                 boost::split(command, msg, boost::is_any_of(":"), boost::token_compress_on);
 
                 string action = command[0];
-                cout << "action: " << action << endl;
+                string reply;
+                cout << "action: " << action << endl
+                     << std::flush;
+
                 if (action == "load") {
                     int exec_id = atoi(command[1].c_str());
                     loadNewScenarios(exec_id);
+                    reply = "loaded";
                 } else if (action == "run") {
                     string blocks_str;
                     const string &objective_type = command[1];
                     int of = runHeuristic(blocks_str, objective_type);
                     reply = "solution:" + blocks_str + ":" + to_string(of);
                 } else if (action == "stop") {
-                    cout << "[Simheuristic] ending the run..." << endl;
-                    subscriber.send(zmq::buffer(reply), zmq::send_flags::none);
+                    cout << "[Simheuristic] ending the run..." << endl
+                         << std::flush;
+                    subscriber.send(zmq::buffer(string("stopped")), zmq::send_flags::none);
                     break;
                 } else if (action == "check_conn") {
                     reply = "connected";
                 } else {
-                    continue;
+                    reply = "unknown_action";
                 }
-                cout << "reply: " << reply << endl;
+
+                cout << "reply: " << reply << endl
+                     << std::flush;
                 subscriber.send(zmq::buffer(reply), zmq::send_flags::none);
             } catch (const zmq::error_t &e) {
-                cout << "[Simheuristic] Error: " << e.what() << endl;
+                cout << "[Simheuristic] Error: " << e.what() << endl
+                     << std::flush;
                 break;
             }
         }

@@ -17,16 +17,19 @@ int main(int argc, const char *argv[]) {
     bool is_mtz_walk = (model_type == "WALK" && model == "MTZ");
     int default_vel = 20, neblize_vel = 10;
 
-    auto *input = new Input(file_graph, file_scenarios, use_preprocessing, true, is_mtz_walk, default_vel, neblize_vel, T, alpha);
+    Input *input = new Input(file_graph, file_scenarios, use_preprocessing, true, is_mtz_walk, default_vel, neblize_vel, T, alpha);
     Solution sol;
     if (model_type == "TRAIL" || is_mtz_walk) {
-        auto *sm = new StochasticModel(input);
+        StochasticModel *sm = new StochasticModel(input);
         sol = sm->Run(use_warm_start, "3600", model, use_frac_cut);
+        delete sm;
     } else {
-        auto *sm = new StochasticModelWalk(input);
+        StochasticModelWalk *sm = new StochasticModelWalk(input);
         sol = sm->Run(use_warm_start, "3600", model, use_frac_cut);
+        delete sm;
     }
 
     sol.WriteStochasticSolution(result_file);
+    delete input;
     return 0;
 }

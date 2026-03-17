@@ -121,6 +121,8 @@ vector<int> BlockConnection::getBestOrderToAttendBlocks(const vector<int> &block
             last_reference_node = best_reference_node;
             connect_order.push_back(backup_blocks[best_block]);
             backup_blocks.erase(backup_blocks.begin() + best_block);
+        } else {
+            break;
         }
     }
 
@@ -164,8 +166,12 @@ vector<int> BlockConnection::getBestOrderToAttendBlocksB2B(const vector<int> &bl
             }
         }
 
-        if (best_block != -1)
-            connect_order.push_back(backup_blocks[best_block]), backup_blocks.erase(backup_blocks.begin() + best_block);
+        if (best_block != -1) {
+            connect_order.push_back(backup_blocks[best_block]);
+            backup_blocks.erase(backup_blocks.begin() + best_block);
+        } else {
+            break;
+        }
     }
 
     return connect_order;

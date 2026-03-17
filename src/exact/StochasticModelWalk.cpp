@@ -431,7 +431,6 @@ void StochasticModelWalk::solveExponential(string time_limit, bool frac_cut) {
     try {
         auto graph = input->getGraph();
         model.set("TimeLimit", time_limit);
-        model.set("SoftMemLimit", "60");
         model.set(GRB_DoubleParam_Heuristics, 1.0);
         model.set(GRB_IntParam_LazyConstraints, 1);
         cyclecallbackStochasticWalk cb = cyclecallbackStochasticWalk(input, graph->getN(), x, y, frac_cut);

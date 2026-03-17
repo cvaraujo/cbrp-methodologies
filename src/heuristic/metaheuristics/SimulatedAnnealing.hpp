@@ -9,7 +9,6 @@
 #include "../../classes/Parameters.hpp"
 #include "../../classes/Solution.hpp"
 #include "../stochastic/LocalSearch.hpp"
-#include "../stochastic/Utils.hpp"
 
 class SimulatedAnnealing {
 
@@ -35,9 +34,9 @@ class SimulatedAnnealing {
         mt19937 gen(rd()); // Mersenne Twister RNG
         uniform_real_distribution<> dis(0.0, 1.0);
 
-        auto *best_solution = new Solution(solution);
-        auto *current_solution = new Solution(solution);
-        auto *ls = new LocalSearch(input, current_solution);
+        Solution *best_solution = new Solution(solution);
+        Solution *current_solution = new Solution(solution);
+        LocalSearch *ls = new LocalSearch(input, current_solution);
 
         Change best_change, curr_change;
         double delta, ap;
@@ -60,6 +59,7 @@ class SimulatedAnnealing {
                     current_solution->ApplyChanges(curr_change);
 
                 if (best_solution->getOf() < current_solution->getOf()) {
+                    delete best_solution;
                     best_solution = new Solution(*current_solution);
                     best_of = best_solution->getOf();
                     best_sol_improved = true;
@@ -68,26 +68,32 @@ class SimulatedAnnealing {
                 // cout << "[*] Temperature: " << temperature << ", Temp. Max: " << temperature_max << endl;
                 // cout << "\t[*] Iteration: " << i << ", BestSol: " << best_solution->getOf() << ", CurrSol: " << current_solution->getOf() << endl;
                 // cout << "\t[*] Checking the OF from CurrSol:" << endl;
-                // double real_of = current_solution->ComputeCurrentSolutionOF();
+                double real_of = current_solution->ComputeCurrentSolutionOF();
 
-                // if ((current_solution->getOf() - real_of) > EPS) {
-                //     cout << "\t[!] Difference in the OF: " << real_of << " != " << current_solution->getOf() << endl;
-                //     getchar();
-                // }
+                if ((current_solution->getOf() - real_of) > EPS) {
+                    cout << "\t[!] Difference in the OF: " << real_of << " != " << current_solution->getOf() << endl;
+                    exit(EXIT_FAILURE);
+                    // getchar();
+                }
             }
             if (best_sol_improved) {
                 LocalSearch::ImproveSecondStageRoutes(input, best_solution, true);
+                delete current_solution;
                 current_solution = new Solution(*best_solution);
                 ls->setSolution(current_solution);
             } else
                 LocalSearch::ImproveSecondStageRoutes(input, current_solution, true);
 
+            // cout << "[*] Checking the best Solution:" << endl;
             best_solution->CheckSolution();
+            // cout << "[*] Checking the current Solution:" << endl;
             current_solution->CheckSolution();
             temperature *= alpha;
         }
 
         ls->PostProcessing(*best_solution);
+        delete ls;
+        delete current_solution;
         return best_solution;
     };
 };

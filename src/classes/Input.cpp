@@ -137,12 +137,21 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes,
     if (graph->getPB() < 3)
         return;
 
+    auto blockHasCases = [&](int b) -> bool {
+        if (graph->getCasesPerBlock(b) > 0.0)
+            return true;
+        for (int s = 0; s < S; ++s)
+            if (scenarios[s].getCasesPerBlock(b) > 0.0)
+                return true;
+        return false;
+    };
+
     for (int b1 = 0; b1 < B; ++b1) {
-        if (graph->getCasesPerBlock(b1) <= 0.0)
+        if (!blockHasCases(b1))
             continue;
 
         for (int b2 = 0; b2 < B; ++b2) {
-            if (b2 == b1 || graph->getCasesPerBlock(b2) <= 0.0)
+            if (b2 == b1 || !blockHasCases(b2))
                 continue;
 
             for (const auto i : graph->getNodesFromBlock(b1)) {
@@ -152,15 +161,23 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes,
 
                     const vector<int> path = sp->getPath(i, j);
 
-                    // Process intermediate nodes
-                    for (size_t k = 1; k < path.size(); ++k) {
-                        const int node = path[k];
-                        for (const auto b3 : graph->getNode(node).second) {
-                            if (b3 == -1 || b3 == b1 || b3 == b2)
-                                continue;
+                    bool has_intermediate_block = false;
+                    for (size_t k = 1; k < path.size() - 1; ++k) {
+                        for (const auto b3 : graph->getNode(path[k]).second) {
+                            if (b3 != -1 && b3 != b1 && b3 != b2) {
+                                has_intermediate_block = true;
+                                break;
+                            }
+                        }
+                        if (has_intermediate_block)
+                            break;
+                    }
 
-                            used_nodes.insert(node);
-                            used_arcs[path[k - 1]][path[k]] = true;
+                    if (has_intermediate_block) {
+                        for (size_t k = 0; k < path.size(); ++k) {
+                            used_nodes.insert(path[k]);
+                            if (k > 0)
+                                used_arcs[path[k - 1]][path[k]] = true;
                         }
                     }
                 }
@@ -221,7 +238,24 @@ void Input::reduceGraphToPositiveCases() {
 
     set<int> used_nodes;
     vector<vector<bool>> used_arcs(N + 1, vector<bool>(N + 1, false));
+
+    // All nodes of positive blocks MUST be in the reduced graph
+    for (int b = 0; b < B; ++b) {
+        if (positive_block_to_block[b] == -1)
+            continue;
+        for (int node : graph->getNodesFromBlock(b))
+            used_nodes.insert(node);
+    }
+
     getSetOfNodesPreprocessing(used_nodes, used_arcs);
+
+    // Preserve all direct arcs between used nodes
+    for (int u : used_nodes) {
+        for (const auto *arc : graph->getArcs(u)) {
+            if (used_nodes.count(arc->getD()))
+                used_arcs[u][arc->getD()] = true;
+        }
+    }
 
     updateBlocksInGraph(positive_block_to_block, used_nodes, used_arcs);
 
