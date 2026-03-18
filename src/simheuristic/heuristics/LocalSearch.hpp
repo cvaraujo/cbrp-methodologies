@@ -138,6 +138,8 @@ class LocalSearch {
         int total_delta = 0, B = Graph->getB();
         double best_delta;
         int_pair best_swap;
+        int swap_iters = 0;
+        constexpr int MAX_SWAP_ITERS = 500;
 
         while (true) {
             best_delta = -1.0;
@@ -160,6 +162,15 @@ class LocalSearch {
             if (best_delta <= 0.0)
                 return total_delta;
 
+            if (++swap_iters > MAX_SWAP_ITERS) {
+                std::cout << "      [TrySwap] ABORT after " << swap_iters
+                          << " iters, best_delta=" << best_delta
+                          << " swap=(" << best_swap.first << "→" << best_swap.second << ")"
+                          << " attended=" << route->getSequenceOfAttendingBlocks().size()
+                          << std::endl << std::flush;
+                return total_delta;
+            }
+
             int b_remove = best_swap.first, b_insert = best_swap.second;
             route->GeneralSwapBlocks(b_remove, b_insert);
             total_delta += getRealCasesDelta(Graph, b_remove, b_insert);
@@ -170,25 +181,31 @@ class LocalSearch {
 
   public:
     static int RunLocalSearch(Input *input, Route *route, vector<double> &profit_per_block) {
-        using clk = std::chrono::steady_clock;
         int delta = 0;
 
-        auto t0 = clk::now();
+        auto t0 = std::chrono::steady_clock::now();
         bool improve_route = ImproveRouteTime(route, input);
-        auto t1 = clk::now();
+        auto t1 = std::chrono::steady_clock::now();
+        long irt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
 
-        if (improve_route)
+        if (improve_route) {
             delta += TryInsertMoreProfitableBlock(input, route, profit_per_block);
-        auto t2 = clk::now();
+            auto t2 = std::chrono::steady_clock::now();
+            long tip_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            if (tip_ms > 100)
+                std::cout << "      [LS] TryInsert: " << tip_ms << "ms" << std::endl << std::flush;
+            t1 = t2;
+        }
 
         delta += TryApplyBestSwap(input, route, profit_per_block);
-        auto t3 = clk::now();
+        auto t3 = std::chrono::steady_clock::now();
+        long swap_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t1).count();
+        if (swap_ms > 100)
+            std::cout << "      [LS] TrySwap: " << swap_ms << "ms" << std::endl << std::flush;
 
-        long ms_irt = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
-        long ms_ins = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        long ms_swap = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
-        if (ms_irt + ms_ins + ms_swap > 500)
-            std::cout << "      [LS] ImproveRoute=" << ms_irt << "ms Insert=" << ms_ins << "ms Swap=" << ms_swap << "ms" << std::flush << std::endl;
+        long total = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t0).count();
+        if (total > 200)
+            std::cout << "      [LS] TOTAL: " << total << "ms (IRT=" << irt_ms << ")" << std::endl << std::flush;
 
         return delta;
     }

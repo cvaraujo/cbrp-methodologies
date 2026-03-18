@@ -52,7 +52,6 @@ class Simheuristic {
         }
 
         int of = int(solution->getOf());
-        std::cout << "[Simheuristic] OF: " << of << std::endl;
         delete solution;
         return of;
     }
