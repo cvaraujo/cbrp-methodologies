@@ -53,6 +53,7 @@ void Route::PopulateDataStructures() {
             }
         }
     }
+
 }
 
 void Route::PopulateRouteDataStructures(const vector<pair<int, int>> &arcs) {
@@ -182,7 +183,7 @@ bool Route::CanAlocateRemainingBlocksIntoOtherNodes(Graph *graph, int removed_b,
 
             if (this->preds[node_b] != -1) {
                 can_alocate = true;
-                new_node_to_block[node_b] = b;
+                new_node_to_block[b] = node_b;
                 break;
             }
         }
@@ -244,12 +245,16 @@ void Route::ChangeNodeAttendingBlock(int block, int old_node, int new_node) {
 };
 
 void Route::RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node) {
-    // cout << "[!] RemoveBlockAndNodeIfPossible: " << block << ", Node: " << node << endl;
-    std::unordered_map<int, int> new_node_to_block = GetAttendedRealocatedBlocks(graph, node);
+    std::unordered_map<int, int> block_to_new_node = GetAttendedRealocatedBlocks(graph, node);
     int num_blocks_to_realocate = int(blocks_attendeds_per_node[node].size()) - 1;
 
-    if (new_node_to_block.size() >= num_blocks_to_realocate) {
-        for (auto &[new_node, realoc_block] : new_node_to_block) {
+    int reallocatable_count = 0;
+    for (auto &[b, _] : block_to_new_node)
+        if (b != block)
+            reallocatable_count++;
+
+    if (reallocatable_count >= num_blocks_to_realocate) {
+        for (auto &[realoc_block, new_node] : block_to_new_node) {
             if (realoc_block == block)
                 continue;
 
@@ -263,8 +268,7 @@ void Route::RemoveBlockAndNodeIfPossible(Graph *graph, int block, int node) {
 }
 
 std::unordered_map<int, int> Route::GetAttendedRealocatedBlocks(Graph *graph, int node) {
-    // cout << "[!] GetAttendedRealocatedBlocks: " << node << endl;
-    std::unordered_map<int, int> new_node_to_block = std::unordered_map<int, int>();
+    std::unordered_map<int, int> block_to_new_node;
     vector<int> blocks = this->blocks_attendeds_per_node[node];
 
     for (auto b : blocks) {
@@ -273,12 +277,12 @@ std::unordered_map<int, int> Route::GetAttendedRealocatedBlocks(Graph *graph, in
                 continue;
 
             if (this->preds[node_b] != -1) {
-                new_node_to_block[node_b] = b;
+                block_to_new_node[b] = node_b;
                 break;
             }
         }
     }
-    return new_node_to_block;
+    return block_to_new_node;
 }
 
 int Route::EvaluateTimeChangeByRemovingNodeAndBlocks(int node_idx) {
@@ -418,6 +422,7 @@ void Route::AddBlockToAttended(int b) {
     }
 
     set<int> nodes_b = graph->getNodesFromBlock(b);
+    int assigned_node = -1;
     for (auto node : nodes_b) {
         if (preds[node] != -1) {
             if (this->blocks_attendeds_per_node.find(node) == this->blocks_attendeds_per_node.end())
@@ -425,9 +430,13 @@ void Route::AddBlockToAttended(int b) {
 
             this->blocks_attendeds_per_node[node].push_back(b);
             this->used_node_to_attend_block[b] = node;
+            assigned_node = node;
             break;
         }
     }
+
+    if (assigned_node == -1)
+        return;
 
     this->blocks_attended[b] = true;
     this->sequence_of_attended_blocks.push_back(b);

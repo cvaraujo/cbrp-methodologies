@@ -429,8 +429,10 @@ class Solution {
     }
 
     void CheckSolution() {
-        for (int s = 0; s < input->getS(); s++) {
-            this->routes[s]->CheckSolution();
+        for (int s = 0; s <= input->getS(); s++) {
+            if (!this->routes[s]->CheckSolution()) {
+                cout << "[!] CheckSolution failed at route index " << s << " (scenario " << s - 1 << ")" << endl;
+            }
         }
         if (abs(this->of - this->ComputeCurrentSolutionOF()) > EPS) {
             cout << "[!] OF mismatch: " << this->of << " != " << this->ComputeCurrentSolutionOF() << endl;

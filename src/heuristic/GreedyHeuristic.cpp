@@ -76,7 +76,7 @@ double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<in
     } else
         connection_cost = bc->getBlocksAttendCost(key);
 
-    if (block_attended_time + connection_cost <= T)
+    if (connection_cost < INF && block_attended_time + connection_cost <= T)
         return of;
     return -1;
 }

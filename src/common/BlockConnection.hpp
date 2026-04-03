@@ -85,9 +85,19 @@ class BlockConnection {
 
     void setBlocksAttendPath(const string &key, vector<int> path) { this->blocks_attend_path[key] = std::move(path); }
 
-    int getBlocksAttendCost(const string &key) { return this->blocks_attend_cost[key]; }
+    int getBlocksAttendCost(const string &key) {
+        auto it = this->blocks_attend_cost.find(key);
+        if (it != this->blocks_attend_cost.end())
+            return it->second;
+        return INF;
+    }
 
-    vector<int> getBlocksAttendPath(const string &key) { return this->blocks_attend_path[key]; }
+    vector<int> getBlocksAttendPath(const string &key) {
+        auto it = this->blocks_attend_path.find(key);
+        if (it != this->blocks_attend_path.end())
+            return it->second;
+        return {};
+    }
 
     void setBlock2BlockCost(vector<vector<int>> block_2_block_cost) { this->block_2_block_cost = std::move(block_2_block_cost); }
 
@@ -95,7 +105,12 @@ class BlockConnection {
 
     void setBestOrderToAttendBlocks(const string &key, vector<int> order) { this->best_order_attend_blocks[key] = std::move(order); }
 
-    vector<int> getBestOrderToAttendBlocks(const string &key) { return this->best_order_attend_blocks[key]; }
+    vector<int> getBestOrderToAttendBlocks(const string &key) {
+        auto it = this->best_order_attend_blocks.find(key);
+        if (it != this->best_order_attend_blocks.end())
+            return it->second;
+        return {};
+    }
 
     int getBlock2BlockCost(int i, int j) { return this->block_2_block_cost[i][j]; }
 

@@ -1,6 +1,7 @@
 #include "src/classes/Input.hpp"
 #include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
+#include <chrono>
 #include <string>
 
 int main(int argc, const char *argv[]) {
