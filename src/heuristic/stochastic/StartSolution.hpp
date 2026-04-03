@@ -45,9 +45,14 @@ class StartSolution {
             y = vector<int>();
             Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
 
-            // Solve scenario s
-            double scenario_of = input->getScenarioProbability(s - 1) * greedy_heuristic.SolveScenario(cases_per_block, time_per_block, T, y);
-            Route *route = new Route(input, y);
+            Graph *sg = input->getScenarioGraph(s - 1);
+            ShortestPath *ssp = input->getScenarioSP(s - 1);
+            BlockConnection *sbc = input->getScenarioBCon(s - 1);
+            vector<int> sg_time_per_block = sg->getTimePerBlock();
+
+            double scenario_of = input->getScenarioProbability(s - 1) *
+                greedy_heuristic.SolveScenario(cases_per_block, sg_time_per_block, T, y, sg, sbc, ssp);
+            Route *route = new Route(input, sg, s - 1, y);
             solution.AddScenarioSolution(s, route, scenario_of);
         }
 

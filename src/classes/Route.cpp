@@ -14,11 +14,11 @@ Route::Route(Input *input, const vector<pair<int, int>> &arcs, const vector<int>
 }
 
 void Route::PopulateDataStructures() {
-    Graph *graph = input->getGraph();
+    Graph *graph = getActiveGraph();
 
     string key = BlockConnection::GenerateStringFromIntVector(this->sequence_of_attended_blocks);
-    this->route = input->getBlockConnectionRoute(key);
-    this->time_route = input->getBlockConnectionTime(key);
+    this->route = getRouteBlockConnectionRoute(key);
+    this->time_route = getRouteBlockConnectionTime(key);
     int B = graph->getB();
     preds = vector<int>(graph->getN() + 1, -1);
     route_blocks = set<int>();
@@ -56,7 +56,7 @@ void Route::PopulateDataStructures() {
 }
 
 void Route::PopulateRouteDataStructures(const vector<pair<int, int>> &arcs) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     preds = vector<int>(graph->getN() + 1, -1);
     route_blocks = set<int>();
 
@@ -78,7 +78,7 @@ void Route::PopulateRouteDataStructures(const vector<pair<int, int>> &arcs) {
 }
 
 void Route::PopulateBlocksDataStructures(const vector<int> &blocks) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     this->blocks_attended = vector<bool>(graph->getB(), false);
 
     for (auto b : blocks) {
@@ -204,15 +204,15 @@ void Route::RemoveNodeFromRoute(int node) {
         curr_node = route[i];
         if (curr_node == node) {
             prev_node = route[i - 1], next_node = route[i + 1];
-            this->time_route -= this->input->getArcTime(prev_node, curr_node) + this->input->getArcTime(curr_node, next_node);
-            this->time_route += this->input->getArcTime(prev_node, next_node);
+            this->time_route -= this->getRouteArcTime(prev_node, curr_node) + this->getRouteArcTime(curr_node, next_node);
+            this->time_route += this->getRouteArcTime(prev_node, next_node);
             this->preds[next_node] = prev_node;
             route.erase(route.begin() + i);
             break;
         }
     }
 
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     this->preds[node] = -1;
     for (auto block : this->blocks_attendeds_per_node[node]) {
         this->blocks_attended[block] = false;
@@ -287,7 +287,7 @@ int Route::EvaluateTimeChangeByRemovingNodeAndBlocks(int node_idx) {
     int curr_node, prev_node, next_node;
 
     curr_node = route[node_idx], prev_node = route[node_idx - 1], next_node = route[node_idx + 1];
-    new_time += input->getArcTime(prev_node, next_node) - (input->getArcTime(prev_node, curr_node) + input->getArcTime(curr_node, next_node));
+    new_time += getRouteArcTime(prev_node, next_node) - (getRouteArcTime(prev_node, curr_node) + getRouteArcTime(curr_node, next_node));
 
     for (auto block : blocks_attendeds_per_node[curr_node])
         new_time -= input->getBlockTime(block);
@@ -296,12 +296,12 @@ int Route::EvaluateTimeChangeByRemovingNodeAndBlocks(int node_idx) {
 }
 
 int Route::EvaluateTimeChangeByRemovingNodeAndReallocateBlocks(int node_idx) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     int curr_time = this->time_route + this->time_blocks, new_time = curr_time;
     int curr_node, prev_node, next_node;
 
     curr_node = route[node_idx], prev_node = route[node_idx - 1], next_node = route[node_idx + 1];
-    new_time += input->getArcTime(prev_node, next_node) - (input->getArcTime(prev_node, curr_node) + input->getArcTime(curr_node, next_node));
+    new_time += getRouteArcTime(prev_node, next_node) - (getRouteArcTime(prev_node, curr_node) + getRouteArcTime(curr_node, next_node));
 
     std::unordered_map<int, int> new_node_to_block = this->GetAttendedRealocatedBlocks(graph, curr_node);
 
@@ -317,7 +317,7 @@ void Route::RemoveBlockFromRoute(int b) {
     if (!this->IsBlockInRoute(b))
         throw std::runtime_error("[!] Block " + to_string(b) + " not in route to be removed!");
 
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     int i, block;
     for (i = 0; i < this->sequence_of_attended_blocks.size(); i++) {
         block = this->sequence_of_attended_blocks[i];
@@ -331,15 +331,15 @@ void Route::RemoveBlockFromRoute(int b) {
 }
 
 int_pair Route::EvaluateBlockInsertion(int prev_node, int next_node, int new_block) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     set<int> nodes_from_block = graph->getNodesFromBlock(new_block);
 
     int insert_time, best_time = INT_MAX, best_node = -1;
-    int arc_removed_time = input->getArcTime(prev_node, next_node);
+    int arc_removed_time = getRouteArcTime(prev_node, next_node);
 
     for (auto node : nodes_from_block) {
         insert_time = (-1) * arc_removed_time;
-        insert_time += input->getArcTime(prev_node, node) + input->getArcTime(node, next_node);
+        insert_time += getRouteArcTime(prev_node, node) + getRouteArcTime(node, next_node);
 
         if (this->IsTimeChangeFeasible(insert_time) && (insert_time < best_time))
             best_time = insert_time, best_node = node;
@@ -348,15 +348,15 @@ int_pair Route::EvaluateBlockInsertion(int prev_node, int next_node, int new_blo
 }
 
 int Route::GetBlockInsertionTime(int prev_node, int next_node, int new_block) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     set<int> nodes_from_block = graph->getNodesFromBlock(new_block);
 
     int insert_time, best_time = INT_MAX, best_node = -1;
-    int arc_removed_time = input->getArcTime(prev_node, next_node);
+    int arc_removed_time = getRouteArcTime(prev_node, next_node);
 
     for (auto node : nodes_from_block) {
         insert_time = (-1) * arc_removed_time;
-        insert_time += input->getArcTime(prev_node, node) + input->getArcTime(node, next_node);
+        insert_time += getRouteArcTime(prev_node, node) + getRouteArcTime(node, next_node);
 
         if (insert_time < best_time)
             best_time = insert_time, best_node = node;
@@ -407,8 +407,7 @@ void Route::AddBlockToRoute(int b, bool in_best_order) {
 }
 
 void Route::AddBlockToAttended(int b) {
-    // Basic checks
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     if (this->blocks_attended[b])
         throw std::runtime_error("[!!!] Block " + to_string(b) + " already attended!");
 
@@ -440,7 +439,7 @@ bool Route::IsSwapFeasible(int b1, int b2) {
 };
 
 bool Route::IsOutSwapFeasible(int b1, int b2) {
-    Graph *graph = this->input->getGraph();
+    Graph *graph = this->getActiveGraph();
     int time_change = graph->getTimePerBlock(b2) - this->EvaluateTimeGainByRemovingBlock(b1);
 
     // Only attend the block is already infeasible
@@ -451,10 +450,10 @@ bool Route::IsOutSwapFeasible(int b1, int b2) {
     int insert_time, prev_node, next_node, arc_removed_time;
     for (int i = 0; i < this->route.size() - 1; i++) {
         prev_node = this->route[i], next_node = this->route[i + 1];
-        arc_removed_time = this->input->getArcTime(prev_node, next_node);
+        arc_removed_time = this->getRouteArcTime(prev_node, next_node);
 
         for (auto node : nodes_from_block) {
-            insert_time = input->getArcTime(prev_node, node) + input->getArcTime(node, next_node) - arc_removed_time;
+            insert_time = getRouteArcTime(prev_node, node) + getRouteArcTime(node, next_node) - arc_removed_time;
             if (this->time_route + this->time_blocks + insert_time + time_change <= input->getT()) {
                 return true;
             }
@@ -466,4 +465,34 @@ bool Route::IsOutSwapFeasible(int b1, int b2) {
 
 bool Route::IsSwapTimeLowerThanT(int b1, int b2, int prev_time_change) const {
     return (this->time_route + this->time_blocks) + prev_time_change + (input->getBlockTime(b2) - input->getBlockTime(b1)) <= input->getT();
+}
+
+int Route::getRouteArcTime(int i, int j) {
+    if (scenario_idx < 0)
+        return input->getArcTime(i, j);
+
+    Graph *sg = getActiveGraph();
+    int N = sg->getN();
+    if (i >= N || j >= N)
+        return 0;
+
+    ::Arc *arc = sg->getArc(i, j);
+    if (arc != nullptr)
+        return arc->getLength();
+
+    ShortestPath *ssp = input->getScenarioSP(scenario_idx);
+    vector<int> path;
+    return ssp->ShortestPathST(i, j, path);
+}
+
+vector<int> Route::getRouteBlockConnectionRoute(const string &key) {
+    if (scenario_idx < 0)
+        return input->getBlockConnectionRoute(key);
+    return input->getScenarioBCon(scenario_idx)->getBlocksAttendPath(key);
+}
+
+int Route::getRouteBlockConnectionTime(const string &key) {
+    if (scenario_idx < 0)
+        return input->getBlockConnectionTime(key);
+    return input->getScenarioBCon(scenario_idx)->getBlocksAttendCost(key);
 }

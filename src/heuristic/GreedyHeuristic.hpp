@@ -36,11 +36,13 @@ class GreedyHeuristic {
 
     explicit GreedyHeuristic(Input *input);
 
-    double SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y);
+    double SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y,
+                         Graph *graph = nullptr, BlockConnection *bc = nullptr, ShortestPath *sp = nullptr);
 
     Solution Run(double route_time_increase, int max_tries, bool use_avg);
 
-    double BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y);
+    double BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y,
+                       Graph *graph = nullptr, BlockConnection *bc = nullptr, ShortestPath *sp = nullptr);
 
     static double getRealValueOfFirstStageSolution(const vector<int> &y, vector<double> profit) {
         double of = 0;

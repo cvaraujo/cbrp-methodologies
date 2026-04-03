@@ -21,7 +21,13 @@ class Graph {
     vector<vector<int>> node_block_hops;
     vector<int> blocks_cumm_hops, nodes_cum_hops, block_count_zero_hops;
 
+    Graph() : N(0), M(0), B(0), PB(0) {}
+
     Graph(string instance, int km_path, int km_nebulize);
+
+    Graph(const Graph &other);
+
+    ~Graph();
 
     void LoadGraph(string instance, int km_path, int km_nebulize);
 

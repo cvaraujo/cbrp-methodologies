@@ -698,9 +698,7 @@ void LocalSearch::PostProcessing(Solution &sol) {
 
     auto *greedy_heuristic = new GreedyHeuristic(this->input);
     vector<double> cases_per_block = vector<double>(B, 0);
-    vector<int> time_per_block = graph->getTimePerBlock();
 
-    // Get FirstStage solution profit
     for (int b : route->getSequenceOfAttendingBlocks()) {
         y_0.push_back(b);
         of += input->getFirstStageProfit(b);
@@ -710,60 +708,48 @@ void LocalSearch::PostProcessing(Solution &sol) {
         y = vector<int>();
         Utils::GetSecondStageCosts(input, s - 1, y_0, cases_per_block);
 
-        // Solve scenario s
-        of += input->getScenarioProbability(s - 1) * greedy_heuristic->SolveScenario(cases_per_block, time_per_block, T, y);
+        Graph *sg = input->getScenarioGraph(s - 1);
+        ShortestPath *ssp = input->getScenarioSP(s - 1);
+        BlockConnection *sbc = input->getScenarioBCon(s - 1);
+        vector<int> sg_time_per_block = sg->getTimePerBlock();
+        of += input->getScenarioProbability(s - 1) * greedy_heuristic->SolveScenario(cases_per_block, sg_time_per_block, T, y, sg, sbc, ssp);
     }
 
     sol.setOf(of);
 }
 
 void LocalSearch::ImproveSecondStageRoutes(Input *input, Solution *sol, bool use_full_replace) {
-    // cout << "[*] Trying Improve the Second Stage Routes" << endl;
     Graph *graph = input->getGraph();
     int S = input->getS(), T = input->getT(), B = graph->getB();
     vector<int> y_0 = vector<int>(), y = vector<int>();
     y_0.reserve(B), y.reserve(B);
 
-    // Solving the first stage problem
     auto *greedy_heuristic = new GreedyHeuristic(input);
     vector<double> cases_per_block = vector<double>(B, 0);
-    vector<int> time_per_block = graph->getTimePerBlock();
     Route *fs_route = sol->getRouteFromScenario(0);
     vector<int> fs_solution = fs_route->getSequenceOfAttendingBlocks();
     double prob, curr_scenario_profit, new_scenario_profit, of = sol->getOf();
 
     for (int s = 1; s <= S; s++) {
-        // cout << "\t[*] Improving Scenario S" << s - 1 << endl;
         y.clear(), y.reserve(B);
         Utils::GetSecondStageCosts(input, s - 1, fs_solution, cases_per_block);
         prob = input->getScenarioProbability(s - 1);
         Route *route = sol->getRouteFromScenario(s);
         curr_scenario_profit = 0.0;
 
-        // cout << "\t[*] CurrBlocks: ";
-        for (int b : route->getSequenceOfAttendingBlocks()) {
+        for (int b : route->getSequenceOfAttendingBlocks())
             curr_scenario_profit += prob * cases_per_block[b];
-            // cout << b << ", ";
-        }
-        // cout << endl;
 
-        new_scenario_profit = prob * greedy_heuristic->SolveScenario(cases_per_block, time_per_block, T, y);
+        Graph *sg = input->getScenarioGraph(s - 1);
+        ShortestPath *ssp = input->getScenarioSP(s - 1);
+        BlockConnection *sbc = input->getScenarioBCon(s - 1);
+        vector<int> sg_time_per_block = sg->getTimePerBlock();
+        new_scenario_profit = prob * greedy_heuristic->SolveScenario(cases_per_block, sg_time_per_block, T, y, sg, sbc, ssp);
 
-        // cout << "\t[*] NewBlocks: ";
-        // for (int b : y)
-        //     cout << b << ", ";
-        // cout << endl;
-
-        // cout << "\t[*] NewProfit = " << new_scenario_profit << ", CurrProfit = " << curr_scenario_profit << endl;
         if (new_scenario_profit >= curr_scenario_profit) {
             of += new_scenario_profit - curr_scenario_profit;
-            sol->setRoute(new Route(input, y), s);
+            sol->setRoute(new Route(input, sg, s - 1, y), s);
         }
-        // getchar();
     }
     sol->setOf(of);
-
-    // cout << "\t[*] Is Solution Correct?" << endl;
-    // cout << "[*] Curr. OF = " << sol->getOf() << endl;
-    // sol->ComputeCurrentSolutionOF();
 }

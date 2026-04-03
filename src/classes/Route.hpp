@@ -18,6 +18,8 @@ class Route {
 
   private:
     Input *input;
+    Graph *graph_override = nullptr;
+    int scenario_idx = -1;
     int time_blocks = 0, time_route = 0;
     vector<int> route, preds, used_node_to_attend_block, sequence_of_attended_blocks;
     vector<bool> blocks_attended;
@@ -37,10 +39,26 @@ class Route {
                                                              int node);
 
   public:
+    Graph *getActiveGraph() const {
+        return graph_override ? graph_override : input->getGraph();
+    }
+
+    int getRouteArcTime(int i, int j);
+    vector<int> getRouteBlockConnectionRoute(const string &key);
+    int getRouteBlockConnectionTime(const string &key);
+
     Route(Input *input, const vector<pair<int, int>> &arcs, const vector<int> &blocks);
 
     Route(Input *input, const vector<int> &y) {
         this->input = input;
+        this->sequence_of_attended_blocks = y;
+        this->PopulateDataStructures();
+    };
+
+    Route(Input *input, Graph *graph, int scenario_idx, const vector<int> &y) {
+        this->input = input;
+        this->graph_override = graph;
+        this->scenario_idx = scenario_idx;
         this->sequence_of_attended_blocks = y;
         this->PopulateDataStructures();
     };
@@ -133,7 +151,7 @@ class Route {
     };
 
     bool IsBlockInsertionFactible(int block) {
-        Graph *graph = this->input->getGraph();
+        Graph *graph = this->getActiveGraph();
         int T = this->input->getT();
         int block_time = graph->getTimePerBlock(block);
         int curr_time = this->time_route + this->time_blocks;
@@ -150,10 +168,10 @@ class Route {
 
         for (int i = 0; i < this->route.size() - 1; i++) {
             prev_node = this->route[i], next_node = this->route[i + 1];
-            arc_removed_time = this->input->getArcTime(prev_node, next_node);
+            arc_removed_time = this->getRouteArcTime(prev_node, next_node);
 
             for (auto node : nodes_from_block) {
-                insert_time = input->getArcTime(prev_node, node) + input->getArcTime(node, next_node) - arc_removed_time;
+                insert_time = getRouteArcTime(prev_node, node) + getRouteArcTime(node, next_node) - arc_removed_time;
                 if (curr_time + insert_time + block_time <= T)
                     return true;
             }
@@ -164,15 +182,15 @@ class Route {
     void InsertNodeInRoute(int node, int position) {
         int previous_node = this->route[position - 1],
             next_node = this->route[position];
-        int change_route_time = this->input->getArcTime(previous_node, node) +
-                                this->input->getArcTime(node, next_node) -
-                                this->input->getArcTime(previous_node, next_node);
+        int change_route_time = this->getRouteArcTime(previous_node, node) +
+                                this->getRouteArcTime(node, next_node) -
+                                this->getRouteArcTime(previous_node, next_node);
 
         this->route.insert(this->route.begin() + position, node);
         this->preds[node] = previous_node, this->preds[next_node] = node;
         this->time_route += change_route_time;
 
-        set<int> node_blocks = this->input->getGraph()->getNode(node).second;
+        set<int> node_blocks = this->getActiveGraph()->getNode(node).second;
         this->route_blocks.insert(node_blocks.begin(), node_blocks.end());
     };
 
@@ -187,16 +205,16 @@ class Route {
         for (int i = 0; i < this->route.size(); i++) {
             if (this->route[i] == node) {
                 int prev_node = this->route[i - 1], next_node = this->route[i + 1];
-                return this->input->getArcTime(prev_node, next_node) -
-                       (this->input->getArcTime(prev_node, node) +
-                        this->input->getArcTime(node, next_node));
+                return this->getRouteArcTime(prev_node, next_node) -
+                       (this->getRouteArcTime(prev_node, node) +
+                        this->getRouteArcTime(node, next_node));
             }
         }
         return INF;
     };
 
     int EvaluateTimeGainByRemovingBlock(int block) {
-        Graph *graph = this->input->getGraph();
+        Graph *graph = this->getActiveGraph();
         int node = this->used_node_to_attend_block[block];
 
         if (node == -1)
@@ -267,7 +285,7 @@ class Route {
         int route_time = 0;
         for (int i = 0; i < this->route.size() - 1; i++) {
             int prev_node = this->route[i], next_node = this->route[i + 1];
-            int arc_time = this->input->getArcTime(prev_node, next_node);
+            int arc_time = this->getRouteArcTime(prev_node, next_node);
 
             if (arc_time == INF) {
                 cout << "[!] Infinity Arc Time = " << arc_time << endl;

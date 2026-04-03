@@ -7,24 +7,22 @@ GreedyHeuristic::GreedyHeuristic(Input *input) {
     this->objective_value = 0;
 }
 
-double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y) {
-    // Start greedy heuristic
+double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<int> &time, int T, vector<int> &y,
+                                      Graph *graph, BlockConnection *bc, ShortestPath *sp) {
     int available_time_to_attend = T;
     double lb = 0.5, ub = 1.0, mid = 0.0, of = 0, temp_of;
 
     vector<int> temp_y;
 
-    // Optimal solution = (1.0 * T)
-    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
+    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, graph, bc, sp);
 
     if (temp_of != -1) {
         y = temp_y;
         return temp_of;
     }
 
-    // LB solution = (0.5 * T)
     available_time_to_attend = round(double(T) * lb);
-    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
+    temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, graph, bc, sp);
 
     if (temp_of == -1)
         ub = lb, lb = 0.0;
@@ -35,7 +33,7 @@ double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<
 
     while ((ub - lb) > 0.001) {
         available_time_to_attend = round(double(T) * mid);
-        temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y);
+        temp_of = BinarySolve(cases, time, available_time_to_attend, T, temp_y, graph, bc, sp);
 
         if (temp_of == -1)
             ub = mid;
@@ -47,10 +45,12 @@ double GreedyHeuristic::SolveScenario(const vector<double> &cases, const vector<
     return of;
 }
 
-double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y) {
+double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<int> &time, int reserved_time, int T, vector<int> &y,
+                                    Graph *g_override, BlockConnection *bc_override, ShortestPath *sp_override) {
     using clk = std::chrono::steady_clock;
-    Graph *graph = input->getGraph();
-    BlockConnection *bc = input->getBlockConnection();
+    Graph *graph = g_override ? g_override : input->getGraph();
+    BlockConnection *bc = bc_override ? bc_override : input->getBlockConnection();
+    ShortestPath *sp_used = sp_override ? sp_override : input->getShortestPath();
     double of = -1;
 
     y = vector<int>();
@@ -68,7 +68,7 @@ double GreedyHeuristic::BinarySolve(const vector<double> &cases, const vector<in
     int connection_cost = T + 1;
     if (!bc->keyExists(key)) {
         auto hbc_t0 = clk::now();
-        connection_cost = bc->HeuristicBlockConnection(graph, input->getShortestPath(), y, key);
+        connection_cost = bc->HeuristicBlockConnection(graph, sp_used, y, key);
         auto hbc_t1 = clk::now();
         long ms = std::chrono::duration_cast<std::chrono::milliseconds>(hbc_t1 - hbc_t0).count();
         if (ms > 500)

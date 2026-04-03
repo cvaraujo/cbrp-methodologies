@@ -24,6 +24,10 @@ class Input {
     vector<double> time_profit_proportion;
     vector<vector<vector<Arc *>>> arcs_in_path;
     vector<vector<int>> arc_length;
+    // Per-scenario reduced graphs
+    vector<Graph *> scenario_graphs;
+    vector<ShortestPath *> scenario_sps;
+    vector<BlockConnection *> scenario_bcs;
     // Simheuristic only
     vector<int> simheuristic_scenario_sequence;
     vector<int> simheuristic_block_incidences;
@@ -61,12 +65,22 @@ class Input {
         , arc_length(input->arc_length)
         , simheuristic_scenario_sequence(input->simheuristic_scenario_sequence)
         , simheuristic_block_incidences(input->simheuristic_block_incidences)
-        , simheuristic_block_acc_cases(input->simheuristic_block_acc_cases) {}
+        , simheuristic_block_acc_cases(input->simheuristic_block_acc_cases) {
+        for (auto *sg : input->scenario_graphs)
+            scenario_graphs.push_back(sg ? new Graph(*sg) : nullptr);
+        for (auto *ssp : input->scenario_sps)
+            scenario_sps.push_back(ssp ? new ShortestPath(*ssp) : nullptr);
+        for (auto *sbc : input->scenario_bcs)
+            scenario_bcs.push_back(sbc ? new BlockConnection(*sbc) : nullptr);
+    }
 
     ~Input() {
         delete graph;
         delete sp;
         delete bc;
+        for (auto *sg : scenario_graphs) delete sg;
+        for (auto *ssp : scenario_sps) delete ssp;
+        for (auto *sbc : scenario_bcs) delete sbc;
     }
 
     void updateFirstStageCases() {
@@ -307,6 +321,32 @@ class Input {
     }
 
     bool isNodeInPositiveValidBlock(int node);
+
+    void createScenarioGraphs();
+
+    [[nodiscard]] Graph *getScenarioGraph(int s) const {
+        if (scenario_graphs.empty()) return graph;
+        return scenario_graphs[s];
+    }
+
+    [[nodiscard]] Graph *getGraphForStage(int r) const {
+        if (r == 0 || scenario_graphs.empty()) return graph;
+        return scenario_graphs[r - 1];
+    }
+
+    [[nodiscard]] ShortestPath *getScenarioSP(int s) const {
+        if (scenario_sps.empty()) return sp;
+        return scenario_sps[s];
+    }
+
+    [[nodiscard]] BlockConnection *getScenarioBCon(int s) const {
+        if (scenario_bcs.empty()) return bc;
+        return scenario_bcs[s];
+    }
+
+    [[nodiscard]] bool hasScenarioGraphs() const {
+        return !scenario_graphs.empty();
+    }
 };
 
 #endif

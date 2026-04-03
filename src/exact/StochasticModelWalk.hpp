@@ -17,8 +17,9 @@ class StochasticModelWalk
   Input *input;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
-  vector<vector<vector<GRBVar>>> x;
+  vector<vector<vector<GRBVar>>> x; // indexed as [r][i][j]
   vector<vector<GRBVar>> y, z;
+  vector<vector<bool>> y_exists, z_exists;
   int num_lazy_cuts, num_frac_cuts;
 
 public:

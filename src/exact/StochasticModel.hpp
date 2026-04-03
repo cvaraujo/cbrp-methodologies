@@ -19,7 +19,8 @@ class StochasticModel
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
   vector<vector<GRBVar>> z, y;
-  vector<vector<vector<GRBVar>>> x, t;
+  vector<vector<bool>> y_exists, z_exists;
+  vector<vector<vector<GRBVar>>> x, t; // indexed as [r][i][j]
   int num_lazy_cuts = 0, num_frac_cuts = 0;
 
 public:
