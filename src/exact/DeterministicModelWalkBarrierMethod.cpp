@@ -415,7 +415,6 @@ Solution DeterministicModelWalkBarrier::getSolution() {
     }
 
     cout << "OF: " << of << endl;
-    getchar();
 
     double UB = model.get(GRB_DoubleAttr_ObjBound);
     double runtime = model.get(GRB_DoubleAttr_Runtime);

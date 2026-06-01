@@ -13,6 +13,43 @@ Graph::Graph(string instance, int km_path, int km_nebulize) {
         exit(EXIT_FAILURE);
 }
 
+Graph::Graph(const Graph &other)
+    : N(other.N)
+    , M(other.M)
+    , B(other.B)
+    , PB(other.PB)
+    , nodes(other.nodes)
+    , nodes_per_block(other.nodes_per_block)
+    , time_per_block(other.time_per_block)
+    , cases_per_block(other.cases_per_block)
+    , node_block_hops(other.node_block_hops)
+    , blocks_cumm_hops(other.blocks_cumm_hops)
+    , nodes_cum_hops(other.nodes_cum_hops)
+    , block_count_zero_hops(other.block_count_zero_hops) {
+
+    int dim = static_cast<int>(other.arcs.size());
+    arcs.resize(dim);
+    arcs_matrix.assign(N + 2, vector<Arc *>(N + 2, nullptr));
+    arcs_per_block.resize(B);
+
+    for (int i = 0; i < dim; ++i) {
+        for (const auto *arc : other.arcs[i]) {
+            auto *clone = new Arc(*arc);
+            arcs[i].push_back(clone);
+            if (clone->getO() < N + 2 && clone->getD() < N + 2)
+                arcs_matrix[clone->getO()][clone->getD()] = clone;
+            if (clone->getBlock() >= 0 && clone->getBlock() < B)
+                arcs_per_block[clone->getBlock()].push_back(clone);
+        }
+    }
+}
+
+Graph::~Graph() {
+    for (auto &adj : arcs)
+        for (auto *arc : adj)
+            delete arc;
+}
+
 void Graph::LoadGraph(string instance, int km_path, int km_nebulize) {
     int block, cases, i, j, k;
     double length;
@@ -73,7 +110,6 @@ void Graph::LoadGraph(string instance, int km_path, int km_nebulize) {
 
             if (travel_time < 1) {
                 cout << travel_time << endl;
-                getchar();
             }
 
             Arc *arc = new Arc(i, j, travel_time, block);

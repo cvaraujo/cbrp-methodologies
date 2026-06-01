@@ -7,8 +7,8 @@ int main(int argc, const char *argv[]) {
     string result_file = argv[2];
     bool use_preprocessing = bool(atoi(argv[3]));
     double lambda = 1.5;
-    int improve_iters = 75;
-    double reduction_factor = 0.9;
+    int improve_iters = 50;
+    double reduction_factor = 0.95;
     int T = 1200;
     bool use_heuristic = bool(atoi(argv[4]));
     bool use_barrier_method = bool(atoi(argv[5]));

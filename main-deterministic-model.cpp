@@ -18,11 +18,13 @@ int main(int argc, const char *argv[]) {
 
     auto *input = new Input(file_graph, "", use_preprocessing, true, is_mtz_walk, default_vel, neblize_vel, T, alpha);
     Solution sol;
-    if (!is_mtz_walk) {
-        auto *dm = new DeterministicModelWalk(input);
+    if (model_type == "TRAIL" || is_mtz_walk) {
+        cout << "Running Deterministic Model Trail" << endl;
+        auto *dm = new DeterministicModel(input);
         sol = dm->Run(use_warm_start, "3600", model, use_frac_cut);
     } else {
-        auto *dm = new DeterministicModel(input);
+        cout << "Running Deterministic Model Walk" << endl;
+        auto *dm = new DeterministicModelWalk(input);
         sol = dm->Run(use_warm_start, "3600", model, use_frac_cut);
     }
 

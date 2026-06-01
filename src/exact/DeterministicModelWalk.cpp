@@ -385,7 +385,7 @@ void DeterministicModelWalk::solveExponential(string time_limit, bool frac_cut) 
         model.set(GRB_IntParam_LazyConstraints, 1);
         cyclecallbackWalk cb = cyclecallbackWalk(input, graph->getN(), x, y, frac_cut);
         model.setCallback(&cb);
-        model.set("OutputFlag", "1");
+        model.set("OutputFlag", "0");
         model.update();
 
 #ifndef Silence
@@ -408,39 +408,39 @@ Solution DeterministicModelWalk::getSolution() {
     double of = 0.0;
     try {
         of = model.get(GRB_DoubleAttr_ObjVal);
-    } catch (GRBException &ex) {
+    } catch (const GRBException &ex) {
         of = 0.0;
     }
-
-    cout << "OF: " << of << endl;
-    getchar();
 
     double UB = model.get(GRB_DoubleAttr_ObjBound);
     double runtime = model.get(GRB_DoubleAttr_Runtime);
     int gurobi_nodes = model.get(GRB_DoubleAttr_NodeCount);
-    int num_lazy_cuts = this->num_lazy_cuts;
-    int num_frac_cuts = this->num_frac_cuts;
+    int lazy_cuts = this->num_lazy_cuts;
+    int frac_cuts = this->num_frac_cuts;
     int time_used = 0;
 
-    vector<vector<int>> y;
-    vector<vector<int_pair>> x;
-    y.push_back(vector<int>()), x.push_back(vector<int_pair>());
+    vector<vector<int>> yout(1);
+    vector<vector<int_pair>> xout(1);
 
-    for (int i = 0; i <= graph->getN(); i++) {
-        for (auto *arc : graph->getArcs(i))
-            if (this->x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) {
-                x[0].push_back(make_pair(i, arc->getD()));
-                time_used += arc->getLength();
+    int route_time_used = 0;
+    int attend_time_used = 0;
+    for (int i = 0; i <= graph->getN(); ++i) {
+        for (const auto *arc : graph->getArcs(i)) {
+            double time_used_arc = this->x[i][arc->getD()].get(GRB_DoubleAttr_X);
+            if (time_used_arc > 0.5) {
+                xout[0].emplace_back(i, arc->getD());
+                route_time_used += int(time_used_arc * arc->getLength());
             }
-
-        for (int b : graph->getNode(i).second)
-            if (this->y[b].get(GRB_DoubleAttr_X) > 0.5) {
-                y[0].push_back(b);
-                time_used += graph->getTimePerBlock(b);
-            }
+        }
+    }
+    for (int b = 0; b < graph->getB(); b++) {
+        if (this->y[b].get(GRB_DoubleAttr_X) > 0.5) {
+            yout[0].push_back(b);
+            attend_time_used += graph->getTimePerBlock(b);
+        }
     }
 
-    Solution solution = Solution(this->input, of, UB, runtime, time_used, num_lazy_cuts, num_frac_cuts, gurobi_nodes, y, x);
+    Solution solution(this->input, of, UB, runtime, route_time_used, attend_time_used, lazy_cuts, frac_cuts, gurobi_nodes, yout, xout);
     return solution;
 }
 

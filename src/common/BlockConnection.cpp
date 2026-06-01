@@ -42,20 +42,32 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
 
             // Get the path
             int v = V + 1, last_inserted = -1, cost = 0;
+            bool path_valid = true;
             while (v != pred[v]) {
                 int real_node = dag_2_graph[v];
                 if (real_node != last_inserted && !already_used[real_node]) {
-                    if (last_inserted != -1)
-                        cost += sp->ShortestPathST(last_inserted, real_node);
+                    if (last_inserted != -1) {
+                        int seg_cost = sp->ShortestPathST(last_inserted, real_node);
+                        if (seg_cost >= INF) {
+                            path_valid = false;
+                            break;
+                        }
+                        cost += seg_cost;
+                    }
                     path.push_back(real_node);
                     last_inserted = real_node;
                     already_used[real_node] = true;
                 }
                 v = pred[v];
 
-                if (v == -1)
-                    return INF;
+                if (v == -1) {
+                    path_valid = false;
+                    break;
+                }
             }
+
+            if (!path_valid)
+                continue;
 
             path.push_back(dag_2_graph[V]);
             if (cost < best_cost) {
@@ -64,6 +76,9 @@ int BlockConnection::HeuristicBlockConnection(Graph *graph, ShortestPath *sp, ve
             }
         }
     }
+
+    if (best_path.empty())
+        return INF;
 
     this->setBlocksAttendPath(key, best_path);
     this->setBlocksAttendCost(key, best_cost);
@@ -121,6 +136,8 @@ vector<int> BlockConnection::getBestOrderToAttendBlocks(const vector<int> &block
             last_reference_node = best_reference_node;
             connect_order.push_back(backup_blocks[best_block]);
             backup_blocks.erase(backup_blocks.begin() + best_block);
+        } else {
+            break;
         }
     }
 
@@ -164,8 +181,12 @@ vector<int> BlockConnection::getBestOrderToAttendBlocksB2B(const vector<int> &bl
             }
         }
 
-        if (best_block != -1)
-            connect_order.push_back(backup_blocks[best_block]), backup_blocks.erase(backup_blocks.begin() + best_block);
+        if (best_block != -1) {
+            connect_order.push_back(backup_blocks[best_block]);
+            backup_blocks.erase(backup_blocks.begin() + best_block);
+        } else {
+            break;
+        }
     }
 
     return connect_order;

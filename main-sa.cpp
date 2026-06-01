@@ -1,6 +1,7 @@
 #include "src/classes/Input.hpp"
 #include "src/heuristic/metaheuristics/SimulatedAnnealing.hpp"
 #include "src/heuristic/stochastic/StartSolution.hpp"
+#include <chrono>
 #include <string>
 
 int main(int argc, const char *argv[]) {
@@ -23,10 +24,10 @@ int main(int argc, const char *argv[]) {
     bool use_preprocessing = atoi(argv[11]);
     int default_vel = 20, neblize_vel = 10;
 
-    auto *input = new Input(file_graph, file_scenarios, use_preprocessing, false, false, default_vel, neblize_vel, T, alpha);
+    Input *input = new Input(file_graph, file_scenarios, use_preprocessing, false, false, default_vel, neblize_vel, T, alpha);
     Solution sol = StartSolution::CreateStartSolution(input);
 
-    auto *sa = new SimulatedAnnealing(temperature, temperature_max, alpha_sa, max_iters_sa, delta_type, first_improve);
+    SimulatedAnnealing *sa = new SimulatedAnnealing(temperature, temperature_max, alpha_sa, max_iters_sa, delta_type, first_improve);
     auto start = std::chrono::high_resolution_clock::now();
     Solution *new_sol = sa->Run(input, sol, rd);
     auto end = std::chrono::high_resolution_clock::now();
@@ -34,5 +35,9 @@ int main(int argc, const char *argv[]) {
     std::cout << "Execution time: " << duration.count() << " seconds\n";
     new_sol->setRuntime(duration.count());
     new_sol->WriteStochasticHeuristicSolution(result_file);
+
+    delete new_sol;
+    delete sa;
+    delete input;
     return 0;
 }

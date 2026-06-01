@@ -100,6 +100,7 @@ class Solution {
             this->UB = other.UB;
             this->runtime = other.runtime;
             this->time_used = other.time_used;
+            this->route_time = other.route_time;
             this->num_lazy_cuts = other.num_lazy_cuts;
             this->num_frac_cuts = other.num_frac_cuts;
             this->solver_nodes = other.solver_nodes;
@@ -126,6 +127,7 @@ class Solution {
             this->UB = other.UB;
             this->runtime = other.runtime;
             this->time_used = other.time_used;
+            this->route_time = other.route_time;
             this->num_lazy_cuts = other.num_lazy_cuts;
             this->num_frac_cuts = other.num_frac_cuts;
             this->solver_nodes = other.solver_nodes;
@@ -166,6 +168,32 @@ class Solution {
             output << o << "-" << d << ",";
         output << "\nY: ";
         for (auto b : this->y[0])
+            output << b << ",";
+        output.close();
+#ifndef Silence
+        cout << "[*] Solution writed!" << endl;
+#endif
+    };
+
+    void WriteDeterministicFromRouteStructs(const string &output_file) {
+        ofstream output;
+        output.open(output_file);
+        Graph *graph = this->input->getGraph();
+
+        output << "N: " << graph->getN() << endl;
+        output << "M: " << graph->getM() << endl;
+        output << "B: " << graph->getB() << endl;
+        output << "LB: " << this->of << endl;
+        output << "UB: " << this->UB << endl;
+        output << "Runtime: " << this->runtime << endl;
+        output << "Route_Time: " << this->getRouteFromScenario(0)->getTimeRoute() << endl;
+        output << "Attend_Time: " << this->getRouteFromScenario(0)->getTimeAttBlocks() << endl;
+        output << "X: ";
+        for (int i = 0; i < this->getRouteFromScenario(0)->getRoute().size() - 1; i++) {
+            output << this->getRouteFromScenario(0)->getRoute()[i] << "-" << this->getRouteFromScenario(0)->getRoute()[i + 1] << ",";
+        }
+        output << "\nY: ";
+        for (auto b : this->getRouteFromScenario(0)->getSequenceOfAttendingBlocks())
             output << b << ",";
         output.close();
 #ifndef Silence
@@ -401,8 +429,10 @@ class Solution {
     }
 
     void CheckSolution() {
-        for (int s = 0; s < input->getS(); s++) {
-            this->routes[s]->CheckSolution();
+        for (int s = 0; s <= input->getS(); s++) {
+            if (!this->routes[s]->CheckSolution()) {
+                cout << "[!] CheckSolution failed at route index " << s << " (scenario " << s - 1 << ")" << endl;
+            }
         }
         if (abs(this->of - this->ComputeCurrentSolutionOF()) > EPS) {
             cout << "[!] OF mismatch: " << this->of << " != " << this->ComputeCurrentSolutionOF() << endl;

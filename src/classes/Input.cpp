@@ -30,6 +30,8 @@ Input::Input(const string &file_graph, const string &scenarios_graph, bool prepr
         walkAdaptMTZModel();
 
     updateFirstStageCases();
+    if (preprocessing)
+        createScenarioGraphs();
     startSimheuristic();
 
 #ifndef Silence
@@ -137,12 +139,21 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes,
     if (graph->getPB() < 3)
         return;
 
+    auto blockHasCases = [&](int b) -> bool {
+        if (graph->getCasesPerBlock(b) > 0.0)
+            return true;
+        for (int s = 0; s < S; ++s)
+            if (scenarios[s].getCasesPerBlock(b) > 0.0)
+                return true;
+        return false;
+    };
+
     for (int b1 = 0; b1 < B; ++b1) {
-        if (graph->getCasesPerBlock(b1) <= 0.0)
+        if (!blockHasCases(b1))
             continue;
 
         for (int b2 = 0; b2 < B; ++b2) {
-            if (b2 == b1 || graph->getCasesPerBlock(b2) <= 0.0)
+            if (b2 == b1 || !blockHasCases(b2))
                 continue;
 
             for (const auto i : graph->getNodesFromBlock(b1)) {
@@ -152,15 +163,23 @@ void Input::getSetOfNodesPreprocessing(set<int> &used_nodes,
 
                     const vector<int> path = sp->getPath(i, j);
 
-                    // Process intermediate nodes
-                    for (size_t k = 1; k < path.size(); ++k) {
-                        const int node = path[k];
-                        for (const auto b3 : graph->getNode(node).second) {
-                            if (b3 == -1 || b3 == b1 || b3 == b2)
-                                continue;
+                    bool has_intermediate_block = false;
+                    for (size_t k = 1; k < path.size() - 1; ++k) {
+                        for (const auto b3 : graph->getNode(path[k]).second) {
+                            if (b3 != -1 && b3 != b1 && b3 != b2) {
+                                has_intermediate_block = true;
+                                break;
+                            }
+                        }
+                        if (has_intermediate_block)
+                            break;
+                    }
 
-                            used_nodes.insert(node);
-                            used_arcs[path[k - 1]][path[k]] = true;
+                    if (has_intermediate_block) {
+                        for (size_t k = 0; k < path.size(); ++k) {
+                            used_nodes.insert(path[k]);
+                            if (k > 0)
+                                used_arcs[path[k - 1]][path[k]] = true;
                         }
                     }
                 }
@@ -221,7 +240,24 @@ void Input::reduceGraphToPositiveCases() {
 
     set<int> used_nodes;
     vector<vector<bool>> used_arcs(N + 1, vector<bool>(N + 1, false));
+
+    // All nodes of positive blocks MUST be in the reduced graph
+    for (int b = 0; b < B; ++b) {
+        if (positive_block_to_block[b] == -1)
+            continue;
+        for (int node : graph->getNodesFromBlock(b))
+            used_nodes.insert(node);
+    }
+
     getSetOfNodesPreprocessing(used_nodes, used_arcs);
+
+    // Preserve all direct arcs between used nodes
+    for (int u : used_nodes) {
+        for (const auto *arc : graph->getArcs(u)) {
+            if (used_nodes.count(arc->getD()))
+                used_arcs[u][arc->getD()] = true;
+        }
+    }
 
     updateBlocksInGraph(positive_block_to_block, used_nodes, used_arcs);
 
@@ -247,6 +283,181 @@ void Input::reduceGraphToPositiveCases() {
     cout << "[*] Resulting graph has " << graph->getN() << " nodes, "
          << graph->getM() << " arcs, and " << graph->getB() << " blocks" << endl;
 #endif
+}
+
+void Input::createScenarioGraphs() {
+    if (S == 0)
+        return;
+
+    const int B = graph->getB();
+    const int N = graph->getN();
+
+#ifndef Silence
+    cout << "[*] Creating " << S << " scenario graphs (B=" << B << ", N=" << N << ")..." << endl;
+#endif
+
+    for (auto *sg : scenario_graphs)
+        delete sg;
+    for (auto *ssp : scenario_sps)
+        delete ssp;
+    for (auto *sbc : scenario_bcs)
+        delete sbc;
+    scenario_graphs.clear();
+    scenario_sps.clear();
+    scenario_bcs.clear();
+    scenario_graphs.resize(S, nullptr);
+    scenario_sps.resize(S, nullptr);
+    scenario_bcs.resize(S, nullptr);
+
+    for (int s = 0; s < S; ++s) {
+        vector<bool> active_blocks(B, false);
+        int active_count = 0;
+        for (int b = 0; b < B; ++b) {
+            if (scenarios[s].getCasesPerBlock(b) > 0.0) {
+                active_blocks[b] = true;
+                ++active_count;
+            }
+        }
+
+        if (active_count == 0) {
+            auto *sg = new Graph();
+            sg->setN(0);
+            sg->setM(0);
+            sg->setB(B);
+            sg->setPB(0);
+            sg->setCasesPerBlock(vector<double>(B, 0.0));
+            sg->setTimePerBlock(vector<int>(B, 0));
+            sg->setNodesPerBlock(vector<set<int>>(B));
+            sg->setNodes(vector<pair<int, set<int>>>());
+            sg->setArcs(vector<vector<Arc *>>());
+            sg->resetArcsMatrix(0);
+            sg->addArtificialNode(0);
+            scenario_graphs[s] = sg;
+            scenario_sps[s] = new ShortestPath(sg);
+            scenario_bcs[s] = new BlockConnection(sg, scenario_sps[s]);
+            scenario_bcs[s]->computeBlock2BlockCost();
+            continue;
+        }
+
+        set<int> used_nodes;
+        vector<vector<bool>> used_arcs(N + 1, vector<bool>(N + 1, false));
+
+        for (int b = 0; b < B; ++b) {
+            if (!active_blocks[b])
+                continue;
+            for (int node : graph->getNodesFromBlock(b))
+                used_nodes.insert(node);
+        }
+
+        // Preserve the shortest path (all intermediate nodes and arcs) between every
+        // pair of active blocks. This guarantees that any route attending only active
+        // blocks remains feasible in the reduced scenario graph: travel between two
+        // consecutive attended blocks always follows a shortest path, and an optimal
+        // route never deliberately attends a zero-case block. Connector nodes belong
+        // to non-active blocks (or to no block), so requiring the intermediate block to
+        // be active (as before) wrongly dropped these paths and disconnected active
+        // blocks, shrinking the model's feasible region and producing an upper bound
+        // below the truly achievable (and SA-reported) profit.
+        for (int b1 = 0; b1 < B; ++b1) {
+            if (!active_blocks[b1])
+                continue;
+            for (int b2 = b1 + 1; b2 < B; ++b2) {
+                if (!active_blocks[b2])
+                    continue;
+                for (const auto i : graph->getNodesFromBlock(b1)) {
+                    for (const auto j : graph->getNodesFromBlock(b2)) {
+                        if (i == j)
+                            continue;
+                        const vector<int> path = sp->getPath(i, j);
+                        for (size_t k = 0; k < path.size(); ++k) {
+                            used_nodes.insert(path[k]);
+                            if (k > 0) {
+                                used_arcs[path[k - 1]][path[k]] = true;
+                                used_arcs[path[k]][path[k - 1]] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int u : used_nodes)
+            for (const auto *arc : graph->getArcs(u))
+                if (used_nodes.count(arc->getD()))
+                    used_arcs[u][arc->getD()] = true;
+
+        int newN = 0;
+        map<int, int> old_to_new;
+        for (int node : used_nodes)
+            old_to_new[node] = newN++;
+
+        auto *sg = new Graph();
+        sg->setB(B);
+        sg->setPB(active_count);
+
+        vector<pair<int, set<int>>> new_nodes(newN);
+        vector<set<int>> new_nodes_per_block(B);
+
+        for (auto &[old_n, new_n] : old_to_new) {
+            new_nodes[new_n].first = new_n;
+            for (int b : graph->getNode(old_n).second) {
+                if (b != -1) {
+                    new_nodes[new_n].second.insert(b);
+                    new_nodes_per_block[b].insert(new_n);
+                }
+            }
+        }
+
+        vector<vector<Arc *>> new_arcs(newN + 1);
+        int newM = 0;
+
+        for (auto &[old_u, new_u] : old_to_new) {
+            for (const auto *arc : graph->getArcs(old_u)) {
+                int old_v = arc->getD();
+                if (old_to_new.count(old_v) && used_arcs[old_u][old_v]) {
+                    int new_v = old_to_new[old_v];
+                    auto *new_arc = new Arc(new_u, new_v, arc->getLength(), arc->getBlock());
+                    new_arcs[new_u].push_back(new_arc);
+                    ++newM;
+                }
+            }
+        }
+
+        sg->setNodes(new_nodes);
+        sg->setArcs(new_arcs);
+        sg->setNodesPerBlock(new_nodes_per_block);
+        sg->setN(newN);
+        sg->setM(newM);
+
+        vector<double> sg_cases(B, 0.0);
+        vector<int> sg_times(B, 0);
+        for (int b = 0; b < B; ++b) {
+            if (active_blocks[b]) {
+                sg_cases[b] = scenarios[s].getCasesPerBlock(b);
+                sg_times[b] = graph->getTimePerBlock(b);
+            }
+        }
+        sg->setCasesPerBlock(sg_cases);
+        sg->setTimePerBlock(sg_times);
+
+        sg->resetArcsMatrix(newN);
+        for (int i = 0; i < newN; ++i)
+            for (Arc *arc : new_arcs[i])
+                sg->addArcInMatrix(i, arc->getD(), arc);
+
+        sg->ComputeNodeBlockHops();
+        sg->addArtificialNode(newN);
+
+        scenario_graphs[s] = sg;
+        scenario_sps[s] = new ShortestPath(sg);
+        scenario_bcs[s] = new BlockConnection(sg, scenario_sps[s]);
+        scenario_bcs[s]->computeBlock2BlockCost();
+
+#ifndef Silence
+        cout << "[*] Scenario " << s << " graph: " << sg->getN() << " nodes, "
+             << sg->getM() << " arcs, " << active_count << " active blocks" << endl;
+#endif
+    }
 }
 
 void Input::loadScenarios(const string &instance) {
