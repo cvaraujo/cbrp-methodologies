@@ -21,11 +21,11 @@ int main(int argc, const char *argv[]) {
     Solution sol;
     if (model_type == "TRAIL" || is_mtz_walk) {
         StochasticModel *sm = new StochasticModel(input);
-        sol = sm->Run(use_warm_start, "3600", model, use_frac_cut);
+        sol = sm->Run(use_warm_start, "120", model, use_frac_cut);
         delete sm;
     } else {
         StochasticModelWalk *sm = new StochasticModelWalk(input);
-        sol = sm->Run(use_warm_start, "3600", model, use_frac_cut);
+        sol = sm->Run(use_warm_start, "120", model, use_frac_cut);
         delete sm;
     }
 

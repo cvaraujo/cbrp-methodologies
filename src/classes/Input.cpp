@@ -296,9 +296,12 @@ void Input::createScenarioGraphs() {
     cout << "[*] Creating " << S << " scenario graphs (B=" << B << ", N=" << N << ")..." << endl;
 #endif
 
-    for (auto *sg : scenario_graphs) delete sg;
-    for (auto *ssp : scenario_sps) delete ssp;
-    for (auto *sbc : scenario_bcs) delete sbc;
+    for (auto *sg : scenario_graphs)
+        delete sg;
+    for (auto *ssp : scenario_sps)
+        delete ssp;
+    for (auto *sbc : scenario_bcs)
+        delete sbc;
     scenario_graphs.clear();
     scenario_sps.clear();
     scenario_bcs.clear();
@@ -346,39 +349,31 @@ void Input::createScenarioGraphs() {
                 used_nodes.insert(node);
         }
 
-        auto blockActiveForScenario = [&](int b) -> bool {
-            return active_blocks[b];
-        };
-
-        if (active_count >= 3) {
-            for (int b1 = 0; b1 < B; ++b1) {
-                if (!blockActiveForScenario(b1))
+        // Preserve the shortest path (all intermediate nodes and arcs) between every
+        // pair of active blocks. This guarantees that any route attending only active
+        // blocks remains feasible in the reduced scenario graph: travel between two
+        // consecutive attended blocks always follows a shortest path, and an optimal
+        // route never deliberately attends a zero-case block. Connector nodes belong
+        // to non-active blocks (or to no block), so requiring the intermediate block to
+        // be active (as before) wrongly dropped these paths and disconnected active
+        // blocks, shrinking the model's feasible region and producing an upper bound
+        // below the truly achievable (and SA-reported) profit.
+        for (int b1 = 0; b1 < B; ++b1) {
+            if (!active_blocks[b1])
+                continue;
+            for (int b2 = b1 + 1; b2 < B; ++b2) {
+                if (!active_blocks[b2])
                     continue;
-                for (int b2 = 0; b2 < B; ++b2) {
-                    if (b2 == b1 || !blockActiveForScenario(b2))
-                        continue;
-                    for (const auto i : graph->getNodesFromBlock(b1)) {
-                        for (const auto j : graph->getNodesFromBlock(b2)) {
-                            if (i == j)
-                                continue;
-                            const vector<int> path = sp->getPath(i, j);
-                            bool has_intermediate = false;
-                            for (size_t k = 1; k < path.size() - 1; ++k) {
-                                for (const auto b3 : graph->getNode(path[k]).second) {
-                                    if (b3 != -1 && b3 != b1 && b3 != b2 && blockActiveForScenario(b3)) {
-                                        has_intermediate = true;
-                                        break;
-                                    }
-                                }
-                                if (has_intermediate)
-                                    break;
-                            }
-                            if (has_intermediate) {
-                                for (size_t k = 0; k < path.size(); ++k) {
-                                    used_nodes.insert(path[k]);
-                                    if (k > 0)
-                                        used_arcs[path[k - 1]][path[k]] = true;
-                                }
+                for (const auto i : graph->getNodesFromBlock(b1)) {
+                    for (const auto j : graph->getNodesFromBlock(b2)) {
+                        if (i == j)
+                            continue;
+                        const vector<int> path = sp->getPath(i, j);
+                        for (size_t k = 0; k < path.size(); ++k) {
+                            used_nodes.insert(path[k]);
+                            if (k > 0) {
+                                used_arcs[path[k - 1]][path[k]] = true;
+                                used_arcs[path[k]][path[k - 1]] = true;
                             }
                         }
                     }

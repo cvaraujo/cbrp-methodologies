@@ -21,7 +21,11 @@ class Graph {
     vector<vector<int>> node_block_hops;
     vector<int> blocks_cumm_hops, nodes_cum_hops, block_count_zero_hops;
 
-    Graph() : N(0), M(0), B(0), PB(0) {}
+    Graph()
+        : N(0)
+        , M(0)
+        , B(0)
+        , PB(0) {}
 
     Graph(string instance, int km_path, int km_nebulize);
 
@@ -183,7 +187,7 @@ class Graph {
             int allocated_blocks = 0;
             vector<int> res, hops(N, 0);
             queue<int> q;
-            vector<bool> visited(N, false), allocated(N, false);
+            vector<bool> visited(N, false), allocated(B, false);
 
             visited[i] = true;
             q.push(i);
@@ -216,7 +220,7 @@ class Graph {
 
         blocks_cumm_hops = vector<int>(B, 0);
         nodes_cum_hops = vector<int>(N, 0);
-        block_count_zero_hops = vector<int>(N, 0);
+        block_count_zero_hops = vector<int>(std::max(N, B), 0);
 
         for (int node = 0; node < N; node++) {
             block_count_zero_hops[node] = 0;

@@ -9,14 +9,14 @@ from pathlib import Path
 def RunSimulatedAnnealing(folders: list[str], output_folder: str) -> list[str]:
     commands = []
     Path(output_folder).mkdir(parents=True, exist_ok=True)
-    for alpha in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-        for temperature in [1.0, 5.0, 10.0]:
-            for temperature_max in [100, 300, 500, 1000]:
-                for alpha_sa in [1.05, 1.10, 1.15, 1.20, 1.25]:
-                    for max_iters_sa in [50, 100, 200]:
-                        for delta_type in ["moderate", "weak"]:
-                            for first_improve in [0, 1]:
-                                for use_preprocessing in [0, 1]:
+    for alpha in [0.8]:
+        for temperature in [1.0]:
+            for temperature_max in [100]:
+                for alpha_sa in [1.05]:
+                    for max_iters_sa in [100]:
+                        for delta_type in ["moderate"]:
+                            for first_improve in [0]:
+                                for use_preprocessing in [1]:
                                     new_output_folder = f"{output_folder}/experiment-{alpha}-{temperature}-{temperature_max}-{alpha_sa}-{max_iters_sa}-{delta_type}-{first_improve}-{use_preprocessing}"
                                     Path(new_output_folder).mkdir(parents=True, exist_ok=True)
 
@@ -87,23 +87,58 @@ def RunDeterministicModel(folders: list[str], output_folder: str) -> list[str]:
     return commands
 
 def RunStochasticModel(folders: list[str], output_folder: str) -> list[str]:
+    """Gera comandos apenas para os pares (configuração x instância) ainda
+    faltantes, com base nas 3 tabelas em ``tabelas-scbrp.txt``:
+
+    - ``Path-SCBRP-MTZ-Prep`` (MTZ + TRAIL + prep=1): já está completo (36/36),
+      portanto é omitido.
+    - ``Walk-SCBRP``       (EXP + WALK + prep=0): 8 instâncias faltando.
+    - ``Walk-SCBRP-Prep``  (EXP + WALK + prep=1): 5 instâncias faltando.
+    """
     commands = []
     Path(output_folder).mkdir(parents=True, exist_ok=True)
-    for alpha in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-        for model_type in ["MTZ", "EXP"]:
-            for model in ["TRAIL", "WALK"]:
-                for use_preprocessing in [0, 1]:
-                    new_output_folder = f"{output_folder}/experiment-{alpha}-{model_type}-{model}-{use_preprocessing}"
-                    Path(new_output_folder).mkdir(parents=True, exist_ok=True)
-                    for folder in folders:
-                        instance = os.listdir(folder)
-                        for inst in instance:
-                            if inst.split("-")[0] == "scenarios":
-                                continue
-                            graph = f"{folder}/{inst}"
-                            scenarios = f"{folder}/scenarios-{inst}"
-                            command = f"./cbrp-stoc {graph} {scenarios} {new_output_folder}/{inst} {model_type} {model} {alpha} {use_preprocessing} 0 0"
-                            commands.append(command)
+    alpha = 0.8
+
+    # (model_type, model, use_preprocessing) -> conjunto de instâncias pendentes
+    pending: dict[tuple[str, str, int], set[str]] = {
+        ("EXP", "WALK", 0): {
+            "alto-santo-1000-2",
+            "alto-santo-1000-3",
+            "limoeiro-1000-1",
+            "limoeiro-1000-2",
+            "limoeiro-1000-3",
+            "limoeiro-1000-4",
+            "limoeiro-1000-5",
+            "limoeiro-1000-6",
+        },
+        ("EXP", "WALK", 1): {
+            "limoeiro-1000-1",
+            "limoeiro-1000-2",
+            "limoeiro-1000-3",
+            "limoeiro-1000-4",
+            "limoeiro-1000-6",
+        },
+    }
+
+    for (model_type, model, use_preprocessing), missing in pending.items():
+        new_output_folder = (
+            f"{output_folder}/experiment-{alpha}-{model_type}-{model}-{use_preprocessing}"
+        )
+        Path(new_output_folder).mkdir(parents=True, exist_ok=True)
+        for folder in folders:
+            for inst in os.listdir(folder):
+                if inst.split("-")[0] == "scenarios":
+                    continue
+                inst_key = Path(inst).stem  # nome da instância sem extensão
+                if inst_key not in missing:
+                    continue
+                graph = f"{folder}/{inst}"
+                scenarios = f"{folder}/scenarios-{inst}"
+                command = (
+                    f"./cbrp-stoc {graph} {scenarios} {new_output_folder}/{inst} "
+                    f"{model_type} {model} {alpha} {use_preprocessing} 0 0"
+                )
+                commands.append(command)
     return commands
 
 def run_command(cmd: str) -> tuple[str, str | None]:

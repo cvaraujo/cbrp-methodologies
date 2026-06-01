@@ -252,6 +252,28 @@ def _fmt_num(x: float | int | None, decimals: int = 2, use_comma: bool = True) -
     return s
 
 
+def _model_stochastic_rowcolor_latex(use_rowcolor: bool, lb: Any, ub: Any) -> str:
+    """
+    Row background for stochastic model tables (rowlight / rowgrey from thesis preamble).
+    LB <= 0: no \\rowcolor. LB > 0 and LB != UB: \\rowcolor{rowlight}.
+    LB == UB (within tolerance): \\rowcolor{rowgrey}.
+    """
+    if not use_rowcolor:
+        return ""
+    if not isinstance(lb, (int, float)):
+        return ""
+    lb_f = float(lb)
+    if lb_f <= 0:
+        return ""
+    ub_equal = (
+        isinstance(ub, (int, float))
+        and abs(lb_f - float(ub)) <= 1e-5 * max(abs(float(ub)), abs(lb_f), 1.0)
+    )
+    if ub_equal:
+        return r"\rowcolor{rowgrey}"
+    return r"\rowcolor{rowlight}"
+
+
 def export_model_config_to_latex(
     df,
     caption: str,
@@ -263,6 +285,10 @@ def export_model_config_to_latex(
     df must have columns: Instance (or instance_name), |V| (or N), |A| (or M), |B| (or B),
     Attended Blocks (or attended_s0), LB, UB, gap (%), Gurobi_Nodes, Lazy_cuts, Runtime.
     Optional: Alpha, S for stochastic.
+
+    When use_rowcolor is True: LB <= 0 leaves default row color; LB > 0 with LB != UB
+    uses \\rowcolor{rowlight}; LB == UB uses \\rowcolor{rowgrey}.
+    LB and UB are printed with two decimal places.
     """
     # Normalize column names
     col_map = {
@@ -302,7 +328,7 @@ def export_model_config_to_latex(
     rows.append(header)
     rows.append(r"\midrule")
 
-    for idx, row in df.iterrows():
+    for _, row in df.iterrows():
         inst = row.get("Instance", row.get("instance_name", ""))
         n = row.get("|V|", row.get("N", "-"))
         m = row.get("|A|", row.get("M", "-"))
@@ -312,11 +338,11 @@ def export_model_config_to_latex(
         if isinstance(alpha, float):
             alpha = _fmt_num(alpha, 1)
         att = row.get("Attended Blocks", row.get("attended_s0", "-"))
-        lb = row.get("LB", "-")
-        ub = row.get("UB", "-")
-        gap = row.get("gap (%)", row.get("gap_pct"))
-        if gap is not None:
-            gap = _fmt_num(gap, 2)
+        lb_raw = row.get("LB", "-")
+        ub_raw = row.get("UB", "-")
+        gap_raw = row.get("gap (%)", row.get("gap_pct"))
+        if gap_raw is not None:
+            gap = _fmt_num(gap_raw, 2)
         else:
             gap = "-"
         nodes = row.get("#B&B Nodes", row.get("Gurobi_Nodes", "-"))
@@ -326,11 +352,15 @@ def export_model_config_to_latex(
             time_ = _fmt_num(time_, 2)
         else:
             time_ = "-"
-        if isinstance(lb, (int, float)):
-            lb = _fmt_num(lb, 0)
-        if isinstance(ub, (int, float)):
-            ub = _fmt_num(ub, 0)
-        rowcolor = r"\rowcolor{rowgrey}" if use_rowcolor and (idx % 2 == 0) else (r"\rowcolor{rowlight}" if use_rowcolor else "")
+        rowcolor = _model_stochastic_rowcolor_latex(use_rowcolor, lb_raw, ub_raw)
+        if isinstance(lb_raw, (int, float)):
+            lb = _fmt_num(float(lb_raw), 2)
+        else:
+            lb = lb_raw
+        if isinstance(ub_raw, (int, float)):
+            ub = _fmt_num(float(ub_raw), 2)
+        else:
+            ub = ub_raw
         line = f"{rowcolor}{inst} & {n} & {m} & {b} & {s} & {alpha} & {att} & {lb} & {ub} & {gap} & {nodes} & {lazy} & {time_} \\\\"
         rows.append(line)
     rows.append(r"\bottomrule")
@@ -399,6 +429,234 @@ def export_sa_best_to_latex(
         rowcolor = r"\rowcolor{rowgrey}" if use_rowcolor and (idx % 2 == 0) else (r"\rowcolor{rowlight}" if use_rowcolor else "")
         line = f"{rowcolor}{inst} & {n} & {m} & {b} & {alpha} & {start_ub} & {lb} & {imp} & {att} & {time_} \\\\"
         rows.append(line)
+    rows.append(r"\bottomrule")
+    rows.append(r"\end{tabular}%")
+    rows.append(r"}")
+    rows.append(r"\end{table}")
+    return "\n".join(rows)
+
+
+def _sa_cell_f2(x: Any) -> str:
+    """Format float for SA tables; NaN / missing -> dash."""
+    if x is None:
+        return "-"
+    if isinstance(x, float) and x != x:
+        return "-"
+    if isinstance(x, (int, float)):
+        return _fmt_num(float(x), 2)
+    return str(x)
+
+
+def export_sa_four_delta_prep_to_latex(
+    df,
+    caption: str,
+    label: str,
+    use_rowcolor: bool = True,
+) -> str:
+    """
+    Wide SA table: best row per instance for moderate/weak × preprocessing off/on.
+
+    Required columns: instance_name, N, M, B, Alpha,
+        LB_m0, RT_m0, SL_m0, LB_w0, RT_w0, SL_w0,
+        LB_m1, RT_m1, SL_m1, LB_w1, RT_w1, SL_w1
+    (m0 = moderate, prep 0; w0 = weak, prep 0; m1 / w1 with prep 1).
+    """
+    triple = (
+        r"\textbf{LB} & \textbf{\begin{tabular}[c]{@{}c@{}}Time\\ (s)\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Start\\ LB\end{tabular}}"
+    )
+    rows: list[str] = []
+    rows.append(r"\begin{table}[ht!]")
+    rows.append(r"\centering")
+    rows.append(rf"\caption{{{caption}}}")
+    rows.append(rf"\label{{{label}}}")
+    rows.append(r"\resizebox{\textwidth}{!}{%")
+    rows.append(r"\begin{tabular}{l" + "r" * 16 + "}")
+    rows.append(r"\toprule")
+    rows.append(
+        r"\multicolumn{1}{c}{\textbf{Instance}} & "
+        r"\multicolumn{1}{c}{\textbf{|V|}} & "
+        r"\multicolumn{1}{c}{\textbf{|A|}} & "
+        r"\multicolumn{1}{c}{\textbf{|B|}} & "
+        r"\multicolumn{1}{c}{\textbf{Alpha}} & "
+        r"\multicolumn{3}{c}{\textbf{moderate}} & "
+        r"\multicolumn{3}{c}{\textbf{weak}} & "
+        r"\multicolumn{3}{c}{\textbf{moderate + prep.}} & "
+        r"\multicolumn{3}{c}{\textbf{weak + prep.}} \\"
+    )
+    rows.append(r"\cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14} \cmidrule(lr){15-17}")
+    rows.append(r"& & & & & " + " & ".join([triple] * 4) + r" \\")
+    rows.append(r"\midrule")
+
+    keys = (
+        "LB_m0", "RT_m0", "SL_m0",
+        "LB_w0", "RT_w0", "SL_w0",
+        "LB_m1", "RT_m1", "SL_m1",
+        "LB_w1", "RT_w1", "SL_w1",
+    )
+    for i, (_, row) in enumerate(df.iterrows()):
+        inst = row.get("instance_name", "")
+        n = row.get("N", "-")
+        m = row.get("M", "-")
+        b = row.get("B", "-")
+        alpha = row.get("Alpha", "-")
+        if isinstance(alpha, float):
+            alpha = _fmt_num(alpha, 1)
+        parts = [inst, str(n), str(m), str(b), str(alpha)] + [_sa_cell_f2(row[k]) for k in keys]
+        rowcolor = (
+            r"\rowcolor{rowgrey}"
+            if use_rowcolor and (i % 2 == 0)
+            else (r"\rowcolor{rowlight}" if use_rowcolor else "")
+        )
+        rows.append(rowcolor + " & ".join(parts) + r" \\")
+    rows.append(r"\bottomrule")
+    rows.append(r"\end{tabular}%")
+    rows.append(r"}")
+    rows.append(r"\end{table}")
+    return "\n".join(rows)
+
+
+def export_sa_prep_binary_to_latex(
+    df,
+    caption: str,
+    label: str,
+    use_rowcolor: bool = True,
+) -> str:
+    """
+    Best SA per instance: preprocessing off vs on (any delta_type).
+
+    Required columns: instance_name, N, M, B, Alpha,
+        LB_sp, RT_sp, SL_sp, LB_cp, RT_cp, SL_cp
+    (sp = sem pré-processamento, cp = com pré-processamento).
+    """
+    triple = (
+        r"\textbf{LB} & \textbf{\begin{tabular}[c]{@{}c@{}}Time\\ (s)\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Start\\ LB\end{tabular}}"
+    )
+    rows: list[str] = []
+    rows.append(r"\begin{table}[ht!]")
+    rows.append(r"\centering")
+    rows.append(rf"\caption{{{caption}}}")
+    rows.append(rf"\label{{{label}}}")
+    rows.append(r"\resizebox{\textwidth}{!}{%")
+    rows.append(r"\begin{tabular}{l" + "r" * 10 + "}")
+    rows.append(r"\toprule")
+    rows.append(
+        r"\multicolumn{1}{c}{\textbf{Instance}} & "
+        r"\multicolumn{1}{c}{\textbf{|V|}} & "
+        r"\multicolumn{1}{c}{\textbf{|A|}} & "
+        r"\multicolumn{1}{c}{\textbf{|B|}} & "
+        r"\multicolumn{1}{c}{\textbf{Alpha}} & "
+        r"\multicolumn{3}{c}{\textbf{sem pré-processamento}} & "
+        r"\multicolumn{3}{c}{\textbf{com pré-processamento}} \\"
+    )
+    rows.append(r"\cmidrule(lr){6-8} \cmidrule(lr){9-11}")
+    rows.append(r"& & & & & " + " & ".join([triple, triple]) + r" \\")
+    rows.append(r"\midrule")
+
+    keys = ("LB_sp", "RT_sp", "SL_sp", "LB_cp", "RT_cp", "SL_cp")
+    for i, (_, row) in enumerate(df.iterrows()):
+        inst = row.get("instance_name", "")
+        n = row.get("N", "-")
+        m = row.get("M", "-")
+        b = row.get("B", "-")
+        alpha = row.get("Alpha", "-")
+        if isinstance(alpha, float):
+            alpha = _fmt_num(alpha, 1)
+        parts = [inst, str(n), str(m), str(b), str(alpha)] + [_sa_cell_f2(row[k]) for k in keys]
+        rowcolor = (
+            r"\rowcolor{rowgrey}"
+            if use_rowcolor and (i % 2 == 0)
+            else (r"\rowcolor{rowlight}" if use_rowcolor else "")
+        )
+        rows.append(rowcolor + " & ".join(parts) + r" \\")
+    rows.append(r"\bottomrule")
+    rows.append(r"\end{tabular}%")
+    rows.append(r"}")
+    rows.append(r"\end{table}")
+    return "\n".join(rows)
+
+
+def export_sa_top_config_ranking_to_latex(
+    df,
+    caption: str,
+    label: str,
+) -> str:
+    """
+    Top SA configurations ranked by mean LB (English headers, thesis-style).
+
+    Required columns per row:
+        rank, temperature, temperature_max, alpha_sa, max_iters_sa,
+        delta_type (moderate | weak), first_improve (0/1), use_preprocessing (0/1),
+        LB_medio, improvement_medio, runtime_medio, attended_s0_medio
+    """
+
+    def _disturbance_paper(delta_type: Any) -> str:
+        d = str(delta_type).strip().lower()
+        if d == "moderate":
+            return "Moderate"
+        if d == "weak":
+            return "Weak"
+        return str(delta_type)
+
+    def _on_off(v: Any) -> str:
+        try:
+            return "On" if int(v) == 1 else "Off"
+        except (TypeError, ValueError):
+            return "-"
+
+    rows: list[str] = []
+    rows.append(r"\begin{table}[ht!]")
+    rows.append(r"\centering")
+    rows.append(rf"\caption{{{caption}}}")
+    rows.append(rf"\label{{{label}}}")
+    rows.append(r"\resizebox{\textwidth}{!}{%")
+    rows.append(r"\begin{tabular}{@{}crrrrlccrrrr@{}}")
+    rows.append(r"\toprule")
+    rows.append(
+        r"\textbf{Rank} & "
+        r"\textbf{$T_{\mathrm{init}}$} & "
+        r"\textbf{$T_{\mathrm{max}}$} & "
+        r"\textbf{$\alpha_{\mathrm{SA}}$} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Max inner\\ iter.\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Disturbance\\ eval.\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}First\\ impr.\end{tabular}} & "
+        r"\textbf{Prep.} & "
+        r"\textbf{Mean LB} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Mean\\ impr.\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Mean time\\ (s)\end{tabular}} & "
+        r"\textbf{\begin{tabular}[c]{@{}c@{}}Mean att.\\ (s0)\end{tabular}} \\"
+    )
+    rows.append(r"\midrule")
+
+    for _, row in df.iterrows():
+        rnk = int(row["rank"])
+        t_init = _fmt_num(float(row["temperature"]), 1)
+        t_max = str(int(round(float(row["temperature_max"]))))
+        a_sa = _fmt_num(float(row["alpha_sa"]), 2)
+        inner = str(int(round(float(row["max_iters_sa"]))))
+        dist = _disturbance_paper(row["delta_type"])
+        fi = _on_off(row["first_improve"])
+        prep = _on_off(row["use_preprocessing"])
+        lb_m = _fmt_num(float(row["LB_medio"]), 2)
+        imp_m = _fmt_num(float(row["improvement_medio"]), 2)
+        rt_m = _fmt_num(float(row["runtime_medio"]), 2)
+        att_m = _fmt_num(float(row["attended_s0_medio"]), 2)
+        parts = [
+            str(rnk),
+            t_init,
+            t_max,
+            a_sa,
+            inner,
+            dist,
+            fi,
+            prep,
+            lb_m,
+            imp_m,
+            rt_m,
+            att_m,
+        ]
+        rows.append(" & ".join(parts) + r" \\")
     rows.append(r"\bottomrule")
     rows.append(r"\end{tabular}%")
     rows.append(r"}")
